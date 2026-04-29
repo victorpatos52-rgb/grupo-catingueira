@@ -19,7 +19,7 @@ export default async function CrmPage({
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) redirect('/admin/login')
+  if (!user) redirect('/login')
 
   const { data: perfilData } = await supabase
     .from('usuario_perfis')
@@ -27,7 +27,7 @@ export default async function CrmPage({
     .eq('user_id', user.id)
     .single()
 
-  if (!perfilData) redirect('/admin/login')
+  if (!perfilData) redirect('/login')
   const perfil = perfilData as UsuarioPerfil & { loja: Loja | null }
 
   let query = supabase

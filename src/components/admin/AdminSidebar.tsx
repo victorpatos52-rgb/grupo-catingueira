@@ -63,7 +63,7 @@ export default function AdminSidebar({ perfil, loja, lojas }: AdminSidebarProps)
   async function sair() {
     const supabase = createClient()
     await supabase.auth.signOut()
-    router.push('/admin/login')
+    router.push('/login')
     router.refresh()
   }
 

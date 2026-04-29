@@ -10,7 +10,7 @@ export default async function DashboardPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) redirect('/admin/login')
+  if (!user) redirect('/login')
 
   const { data: perfilData } = await supabase
     .from('usuario_perfis')
@@ -19,7 +19,7 @@ export default async function DashboardPage() {
     .single()
 
   const perfil = perfilData as UsuarioPerfil | null
-  if (!perfil) redirect('/admin/login')
+  if (!perfil) redirect('/login')
 
   const lojaId = perfil.loja_id
 

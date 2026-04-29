@@ -9,7 +9,7 @@ export default async function NovoVeiculoPage() {
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) redirect('/admin/login')
+  if (!user) redirect('/login')
 
   const { data: perfil } = await supabase
     .from('usuario_perfis')
@@ -17,7 +17,7 @@ export default async function NovoVeiculoPage() {
     .eq('user_id', user.id)
     .single()
 
-  if (!perfil) redirect('/admin/login')
+  if (!perfil) redirect('/login')
 
   const p = perfil as UsuarioPerfil
 

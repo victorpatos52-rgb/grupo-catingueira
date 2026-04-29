@@ -21,7 +21,7 @@ export default async function VeiculosAdminPage({
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) redirect('/admin/login')
+  if (!user) redirect('/login')
 
   const { data: perfilData } = await supabase
     .from('usuario_perfis')
@@ -30,7 +30,7 @@ export default async function VeiculosAdminPage({
     .single()
 
   const perfil = perfilData as UsuarioPerfil | null
-  if (!perfil) redirect('/admin/login')
+  if (!perfil) redirect('/login')
 
   let query = supabase
     .from('veiculos')

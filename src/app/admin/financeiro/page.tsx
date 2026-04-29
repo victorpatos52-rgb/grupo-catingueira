@@ -18,7 +18,7 @@ export default async function FinanceiroPage({
   const {
     data: { user },
   } = await supabase.auth.getUser()
-  if (!user) redirect('/admin/login')
+  if (!user) redirect('/login')
 
   const { data: perfilData } = await supabase
     .from('usuario_perfis')
@@ -26,7 +26,7 @@ export default async function FinanceiroPage({
     .eq('user_id', user.id)
     .single()
 
-  if (!perfilData) redirect('/admin/login')
+  if (!perfilData) redirect('/login')
   const perfil = perfilData as UsuarioPerfil
 
   if (!['gerente', 'diretor', 'admin'].includes(perfil.perfil)) {
