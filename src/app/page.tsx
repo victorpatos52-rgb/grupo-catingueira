@@ -3,6 +3,7 @@ import { createServerSupabase } from '@/lib/supabase-server'
 import { getLoja } from '@/lib/getLoja'
 import VeiculoCard from '@/components/veiculo/VeiculoCard'
 import AnimatedSection from '@/components/ui/AnimatedSection'
+import HomeFelizardo from '@/components/home/HomeFelizardo'
 import type { Veiculo } from '@/types'
 import { Clock, Users, ShieldCheck, CreditCard, Award, CheckCircle, Handshake } from 'lucide-react'
 
@@ -26,6 +27,19 @@ function formatWA(num: string): string {
   if (local.length === 11) return `${local.slice(0, 2)} ${local[2]} ${local.slice(3, 7)}-${local.slice(7)}`
   return num
 }
+
+const CONFIANCA_CATINGUEIRA = [
+  { icon: Clock, texto: '30+ Anos de História' },
+  { icon: Users, texto: '500+ Clientes Satisfeitos' },
+  { icon: ShieldCheck, texto: '100% Procedência Garantida' },
+  { icon: CreditCard, texto: 'Financiamento Facilitado' },
+]
+
+const HERO_STATS_CATINGUEIRA = [
+  { valor: '30+', label: 'Anos de história' },
+  { valor: '500+', label: 'Clientes satisfeitos' },
+  { valor: '100%', label: 'Procedência garantida' },
+]
 
 const DIFERENCIAIS = [
   {
@@ -54,61 +68,9 @@ export default async function HomePage() {
   const loja = await getLoja()
   const supabase = await createServerSupabase()
 
-  const isFelizardo = (loja?.nome ?? '').toLowerCase().includes('felizardo')
   const waNum = loja?.whatsapp ?? '83999671729'
   const waHref = buildWaHref(waNum, 'Olá! Vim pelo site e quero conhecer o estoque.')
   const waDisplay = formatWA(waNum)
-  const sobreTexto = loja?.sobre ?? (
-    isFelizardo
-      ? 'A Felizardo Veículos nasce em 2025 como um marco na continuidade de uma história familiar construída com paixão pelo setor automotivo.'
-      : 'Empresa familiar com mais de 30 anos de história em Patos, no sertão da Paraíba. Somos referência em seminovos na região — transparência, qualidade e um atendimento que faz diferença na sua vida.'
-  )
-
-  const nomeParts = (loja?.nome ?? 'Catingueira Multimarcas').split(' ')
-  const nomeL1 = nomeParts[0]
-  const nomeL2 = nomeParts.slice(1).join(' ')
-
-  const HERO_STATS = isFelizardo
-    ? [
-        { valor: '2025', label: 'Fundada em' },
-        { valor: '100%', label: 'Qualidade garantida' },
-        { valor: 'Nova', label: 'Geração' },
-      ]
-    : [
-        { valor: '30+', label: 'Anos de história' },
-        { valor: '500+', label: 'Clientes satisfeitos' },
-        { valor: '100%', label: 'Procedência garantida' },
-      ]
-
-  const CONFIANCA = isFelizardo
-    ? [
-        { icon: ShieldCheck, texto: 'Veículos Revisados' },
-        { icon: CreditCard, texto: 'Financiamento Facilitado' },
-        { icon: Users, texto: 'Atendimento Personalizado' },
-        { icon: Award, texto: 'Qualidade Garantida' },
-      ]
-    : [
-        { icon: Clock, texto: '30+ Anos de História' },
-        { icon: Users, texto: '500+ Clientes Satisfeitos' },
-        { icon: ShieldCheck, texto: '100% Procedência Garantida' },
-        { icon: CreditCard, texto: 'Financiamento Facilitado' },
-      ]
-
-  const heroHeadline = isFelizardo
-    ? ['TRADIÇÃO E', 'INOVAÇÃO', 'QUE MOVEM VOCÊ']
-    : ['ENCONTRE SEU', 'PRÓXIMO', 'VEÍCULO']
-
-  const heroSubtitulo = isFelizardo
-    ? 'A Felizardo Veículos transforma a experiência de compra em algo mais leve, seguro e especial.'
-    : 'Mais de 30 anos realizando sonhos. Veículos seminovos selecionados com procedência, qualidade e atendimento que você merece.'
-
-  const heroBadge = isFelizardo
-    ? 'NOVA GERAÇÃO DE SEMINOVOS EM PATOS'
-    : 'SUA REVENDA MULTIMARCAS EM PATOS E REGIÃO'
-
-  const porQueTitulo = isFelizardo
-    ? 'Tradição familiar e compromisso com cada cliente em cada negociação.'
-    : 'Mais de 30 anos construindo confiança com cada cliente, uma negociação de cada vez.'
 
   let destaques: Veiculo[] = []
   if (loja) {
@@ -122,6 +84,29 @@ export default async function HomePage() {
     destaques = (data ?? []) as Veiculo[]
   }
 
+  // Felizardo tem layout próprio
+  if (loja && (loja.nome ?? '').toLowerCase().includes('felizardo')) {
+    const sobreTexto = loja.sobre ??
+      'A Felizardo Veículos nasce em 2025 como um marco na continuidade de uma história familiar construída com paixão pelo setor automotivo.'
+    return (
+      <HomeFelizardo
+        loja={loja}
+        destaques={destaques}
+        waHref={waHref}
+        waDisplay={waDisplay}
+        sobreTexto={sobreTexto}
+      />
+    )
+  }
+
+  // ── Catingueira (e qualquer outra loja) ──
+  const sobreTexto = loja?.sobre ??
+    'Empresa familiar com mais de 30 anos de história em Patos, no sertão da Paraíba. Somos referência em seminovos na região — transparência, qualidade e um atendimento que faz diferença na sua vida.'
+
+  const nomeParts = (loja?.nome ?? 'Catingueira Multimarcas').split(' ')
+  const nomeL1 = nomeParts[0]
+  const nomeL2 = nomeParts.slice(1).join(' ')
+
   return (
     <div className="pt-[70px]">
 
@@ -134,17 +119,17 @@ export default async function HomePage() {
               className="inline-block text-[10px] font-bold uppercase tracking-[0.2em] px-3 py-1.5 rounded mb-5"
               style={{ backgroundColor: 'var(--cor-primaria)', color: '#1A1A1A' }}
             >
-              {heroBadge}
+              SUA REVENDA MULTIMARCAS EM PATOS E REGIÃO
             </span>
             <h1 className="font-[family-name:var(--font-barlow-condensed)] text-5xl md:text-6xl lg:text-7xl font-extrabold uppercase leading-tight text-[#1A1A1A] mb-5">
-              {heroHeadline[0]}
+              ENCONTRE SEU
               <br />
-              <span style={{ color: 'var(--cor-primaria)' }}>{heroHeadline[1]}</span>
+              <span style={{ color: 'var(--cor-primaria)' }}>PRÓXIMO</span>
               <br />
-              {heroHeadline[2]}
+              VEÍCULO
             </h1>
             <p className="text-[#666] text-base md:text-lg leading-relaxed mb-8 max-w-lg">
-              {heroSubtitulo}
+              Mais de 30 anos realizando sonhos. Veículos seminovos selecionados com procedência, qualidade e atendimento que você merece.
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
               <Link
@@ -172,17 +157,15 @@ export default async function HomePage() {
                 POR QUE NOS ESCOLHER
               </p>
               <div className="flex flex-col gap-6">
-                {HERO_STATS.map(({ valor, label }, i) => (
+                {HERO_STATS_CATINGUEIRA.map(({ valor, label }, i) => (
                   <div
                     key={label}
-                    className={`flex items-center gap-5 ${i < HERO_STATS.length - 1 ? 'pb-6 border-b border-black/10' : ''}`}
+                    className={`flex items-center gap-5 ${i < HERO_STATS_CATINGUEIRA.length - 1 ? 'pb-6 border-b border-black/10' : ''}`}
                   >
                     <span className="font-[family-name:var(--font-barlow-condensed)] text-5xl font-extrabold text-[#1A1A1A] leading-none shrink-0">
                       {valor}
                     </span>
-                    <span className="text-[#3D3D3D] font-medium text-base leading-snug">
-                      {label}
-                    </span>
+                    <span className="text-[#3D3D3D] font-medium text-base leading-snug">{label}</span>
                   </div>
                 ))}
               </div>
@@ -195,11 +178,8 @@ export default async function HomePage() {
       <section style={{ backgroundColor: 'var(--cor-primaria)' }}>
         <div className="max-w-7xl mx-auto px-5">
           <div className="flex flex-col md:flex-row items-center justify-center divide-y md:divide-y-0 md:divide-x divide-black/15">
-            {CONFIANCA.map(({ icon: Icon, texto }) => (
-              <div
-                key={texto}
-                className="flex items-center gap-2.5 px-6 py-3.5 w-full md:w-auto justify-center"
-              >
+            {CONFIANCA_CATINGUEIRA.map(({ icon: Icon, texto }) => (
+              <div key={texto} className="flex items-center gap-2.5 px-6 py-3.5 w-full md:w-auto justify-center">
                 <Icon className="w-4 h-4 text-[#1A1A1A] shrink-0" />
                 <span className="font-semibold text-sm text-[#1A1A1A] whitespace-nowrap">{texto}</span>
               </div>
@@ -246,9 +226,7 @@ export default async function HomePage() {
           <AnimatedSection className="mt-10 text-center">
             <Link
               href="/estoque"
-              className="inline-flex items-center gap-2 px-7 py-3.5 rounded-lg border-2 border-[#3D3D3D] text-[#3D3D3D] text-sm font-bold uppercase tracking-wider hover:text-[#1A1A1A] transition-all"
-              style={{ ['--tw-border-opacity' as string]: '1' }}
-              onMouseEnter={undefined}
+              className="inline-flex items-center gap-2 px-7 py-3.5 rounded-lg border-2 border-[#3D3D3D] text-[#3D3D3D] text-sm font-bold uppercase tracking-wider hover:bg-[#F5C200] hover:border-[#F5C200] hover:text-[#1A1A1A] transition-all"
             >
               VER TODO O ESTOQUE
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -266,9 +244,10 @@ export default async function HomePage() {
             <h2 className="font-[family-name:var(--font-barlow-condensed)] text-4xl md:text-5xl font-extrabold uppercase text-[#1A1A1A] mb-3">
               POR QUE COMPRAR AQUI?
             </h2>
-            <p className="text-[#666] text-base max-w-lg mx-auto">{porQueTitulo}</p>
+            <p className="text-[#666] text-base max-w-lg mx-auto">
+              Mais de 30 anos construindo confiança com cada cliente, uma negociação de cada vez.
+            </p>
           </AnimatedSection>
-
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             {DIFERENCIAIS.map(({ icon: Icon, titulo, desc }, i) => (
               <AnimatedSection key={titulo} delay={i * 0.08}>
@@ -312,7 +291,7 @@ export default async function HomePage() {
             <p className="text-[#666] text-base leading-relaxed mb-8 max-w-lg">{sobreTexto}</p>
             <Link
               href="/sobre"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-lg border-2 border-[#3D3D3D] text-[#3D3D3D] text-sm font-bold uppercase tracking-wider hover:text-[#1A1A1A] transition-all self-start"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-lg border-2 border-[#3D3D3D] text-[#3D3D3D] text-sm font-bold uppercase tracking-wider hover:bg-[#F5C200] hover:border-[#F5C200] hover:text-[#1A1A1A] transition-all self-start"
             >
               NOSSA HISTÓRIA
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -327,9 +306,7 @@ export default async function HomePage() {
               style={{ backgroundColor: 'var(--cor-primaria)' }}
             >
               <p className="font-[family-name:var(--font-barlow-condensed)] text-2xl md:text-3xl font-extrabold uppercase text-[#1A1A1A] leading-snug">
-                {isFelizardo
-                  ? '"Tradição e inovação em cada negociação!"'
-                  : '"Seu próximo carro pode estar aqui!"'}
+                "Seu próximo carro pode estar aqui!"
               </p>
               <div>
                 <p className="text-[#3D3D3D] text-sm font-medium mb-3">
