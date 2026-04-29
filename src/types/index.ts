@@ -16,6 +16,11 @@ export interface Loja {
   estado: string | null
   maps_url: string | null
   descricao: string | null
+  sobre: string | null
+  missao: string | null
+  visao: string | null
+  horario: string | null
+  instagram: string | null
   created_at: string
 }
 

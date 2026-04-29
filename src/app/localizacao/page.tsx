@@ -1,18 +1,6 @@
 import type { Metadata } from 'next'
 import { MapPin, Clock, Phone, ExternalLink } from 'lucide-react'
-
-const WA_HREF =
-  'https://wa.me/5583999671729?text=Olá! Vim pelo site e gostaria de mais informações.'
-const MAPS_LINK =
-  'https://www.google.com/maps/search/BR+230,+KM+334,+Patos,+PB,+Brasil/@-7.0609,-37.2842,15z'
-const MAPS_EMBED =
-  'https://maps.google.com/maps?q=BR+230+KM+334+Patos+PB+Brasil&output=embed&z=15&hl=pt-BR'
-
-export const metadata: Metadata = {
-  title: 'Localização — Catingueira Multimarcas | Patos, PB',
-  description:
-    'Encontre a Catingueira Multimarcas em Patos, Paraíba. BR 230, KM 334 — em frente ao Atacadão. Seg–Sex 8h às 18h, Sáb 8h às 13h.',
-}
+import { getLoja } from '@/lib/getLoja'
 
 function WaIcon({ size = 20 }: { size?: number }) {
   return (
@@ -22,7 +10,45 @@ function WaIcon({ size = 20 }: { size?: number }) {
   )
 }
 
-export default function LocalizacaoPage() {
+function buildWaHref(num: string, text: string): string {
+  const d = num.replace(/\D/g, '')
+  const full = d.startsWith('55') ? d : `55${d}`
+  return `https://wa.me/${full}?text=${encodeURIComponent(text)}`
+}
+
+function formatWA(num: string): string {
+  const d = num.replace(/\D/g, '')
+  const local = d.length === 13 && d.startsWith('55') ? d.slice(2) : d
+  if (local.length === 11) return `${local.slice(0, 2)} ${local[2]} ${local.slice(3, 7)}-${local.slice(7)}`
+  return num
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const loja = await getLoja()
+  const nome = loja?.nome ?? 'Catingueira Multimarcas'
+  const cidade = loja?.cidade ?? 'Patos'
+  const estado = loja?.estado ?? 'PB'
+  return {
+    title: `Localização — ${nome} | ${cidade}, ${estado}`,
+    description: `Encontre a ${nome} em ${cidade}, ${estado}. Venha nos visitar!`,
+  }
+}
+
+export default async function LocalizacaoPage() {
+  const loja = await getLoja()
+
+  const waNum = loja?.whatsapp ?? '83999671729'
+  const waHref = buildWaHref(waNum, 'Olá! Vim pelo site e gostaria de mais informações.')
+  const waDisplay = formatWA(waNum)
+  const nomeDisplay = loja?.nome ?? 'Catingueira Multimarcas'
+  const endereco = loja?.endereco ?? 'BR 230, KM 334 — São Sebastião, Patos - PB'
+  const horarioLinhas = (loja?.horario ?? 'Seg a Sex: 8h às 18h | Sáb: 8h às 13h').split(' | ')
+
+  const mapsEmbed = loja?.maps_url
+    ?? 'https://maps.google.com/maps?q=BR+230+KM+334+Patos+PB+Brasil&output=embed&z=15&hl=pt-BR'
+
+  const mapsLink = `https://www.google.com/maps/search/${encodeURIComponent(endereco)}`
+
   return (
     <div className="bg-white">
       {/* ── Hero ── */}
@@ -30,16 +56,16 @@ export default function LocalizacaoPage() {
         <div className="max-w-4xl mx-auto">
           <p
             className="font-[family-name:var(--font-barlow-condensed)] text-xs font-bold uppercase tracking-[0.3em] mb-3"
-            style={{ color: '#F5C200' }}
+            style={{ color: 'var(--cor-primaria)' }}
           >
-            CATINGUEIRA MULTIMARCAS
+            {nomeDisplay.toUpperCase()}
           </p>
           <h1 className="font-[family-name:var(--font-barlow-condensed)] text-4xl md:text-6xl font-black uppercase text-[#1A1A1A] leading-none mb-2">
             ONDE ESTAMOS
           </h1>
-          <div className="w-14 h-[3px] mt-3" style={{ backgroundColor: '#F5C200' }} />
+          <div className="w-14 h-[3px] mt-3" style={{ backgroundColor: 'var(--cor-primaria)' }} />
           <p className="text-[#888] text-base md:text-lg mt-5">
-            Venha nos visitar em Patos, no coração do sertão da Paraíba.
+            Venha nos visitar em {loja?.cidade ?? 'Patos'}, no coração do sertão da Paraíba.
           </p>
         </div>
       </section>
@@ -49,27 +75,21 @@ export default function LocalizacaoPage() {
         <div className="max-w-2xl mx-auto">
           <div
             className="bg-white rounded-xl shadow-md overflow-hidden"
-            style={{ borderTop: '3px solid #F5C200' }}
+            style={{ borderTop: '3px solid var(--cor-primaria)' }}
           >
             <div className="p-6 flex flex-col gap-6">
               <div className="flex items-start gap-4">
                 <div
                   className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
-                  style={{ backgroundColor: 'rgba(245,194,0,0.1)' }}
+                  style={{ backgroundColor: 'color-mix(in srgb, var(--cor-primaria) 12%, transparent)' }}
                 >
-                  <MapPin className="w-5 h-5" style={{ color: '#F5C200' }} />
+                  <MapPin className="w-5 h-5" style={{ color: 'var(--cor-primaria)' }} />
                 </div>
                 <div>
                   <p className="font-[family-name:var(--font-barlow-condensed)] text-xs font-bold uppercase tracking-widest text-[#1A1A1A] mb-1">
                     Endereço
                   </p>
-                  <p className="text-[#555] text-sm leading-relaxed">
-                    BR 230, KM 334 — São Sebastião
-                    <br />
-                    Patos - PB, 58700-000
-                    <br />
-                    <span className="text-[#AAA] text-xs">Em frente ao Atacadão</span>
-                  </p>
+                  <p className="text-[#555] text-sm leading-relaxed">{endereco}</p>
                 </div>
               </div>
 
@@ -78,16 +98,17 @@ export default function LocalizacaoPage() {
               <div className="flex items-start gap-4">
                 <div
                   className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
-                  style={{ backgroundColor: 'rgba(245,194,0,0.1)' }}
+                  style={{ backgroundColor: 'color-mix(in srgb, var(--cor-primaria) 12%, transparent)' }}
                 >
-                  <Clock className="w-5 h-5" style={{ color: '#F5C200' }} />
+                  <Clock className="w-5 h-5" style={{ color: 'var(--cor-primaria)' }} />
                 </div>
                 <div>
                   <p className="font-[family-name:var(--font-barlow-condensed)] text-xs font-bold uppercase tracking-widest text-[#1A1A1A] mb-1">
                     Horário de funcionamento
                   </p>
-                  <p className="text-[#555] text-sm">Seg a Sex: 8h às 18h</p>
-                  <p className="text-[#555] text-sm">Sáb: 8h às 13h</p>
+                  {horarioLinhas.map((linha: string, i: number) => (
+                    <p key={i} className="text-[#555] text-sm">{linha}</p>
+                  ))}
                   <p className="text-[#AAA] text-xs mt-1">Dom: Fechado</p>
                 </div>
               </div>
@@ -97,21 +118,21 @@ export default function LocalizacaoPage() {
               <div className="flex items-start gap-4">
                 <div
                   className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0"
-                  style={{ backgroundColor: 'rgba(245,194,0,0.1)' }}
+                  style={{ backgroundColor: 'color-mix(in srgb, var(--cor-primaria) 12%, transparent)' }}
                 >
-                  <Phone className="w-5 h-5" style={{ color: '#F5C200' }} />
+                  <Phone className="w-5 h-5" style={{ color: 'var(--cor-primaria)' }} />
                 </div>
                 <div>
                   <p className="font-[family-name:var(--font-barlow-condensed)] text-xs font-bold uppercase tracking-widest text-[#1A1A1A] mb-1">
                     WhatsApp
                   </p>
                   <a
-                    href={WA_HREF}
+                    href={waHref}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-[#555] text-sm hover:text-[#F5C200] transition-colors"
+                    className="text-[#555] text-sm hover:text-[#1A1A1A] transition-colors"
                   >
-                    83 9 9967-1729
+                    {waDisplay}
                   </a>
                 </div>
               </div>
@@ -125,14 +146,14 @@ export default function LocalizacaoPage() {
         <div className="max-w-5xl mx-auto">
           <div className="w-full rounded-xl overflow-hidden shadow-md" style={{ height: '400px' }}>
             <iframe
-              src={MAPS_EMBED}
+              src={mapsEmbed}
               width="100%"
               height="100%"
               style={{ border: 0 }}
               allowFullScreen
               loading="lazy"
               referrerPolicy="no-referrer-when-downgrade"
-              title="Localização da Catingueira Multimarcas — BR 230, KM 334, Patos/PB"
+              title={`Localização da ${nomeDisplay}`}
             />
           </div>
         </div>
@@ -142,7 +163,7 @@ export default function LocalizacaoPage() {
       <section className="px-4 pb-20 md:pb-28">
         <div className="max-w-lg mx-auto flex flex-col sm:flex-row gap-4 justify-center">
           <a
-            href={MAPS_LINK}
+            href={mapsLink}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center justify-center gap-2.5 px-6 py-4 rounded-lg bg-[#1A1A1A] text-white text-xs font-bold uppercase tracking-widest hover:bg-[#333] transition-colors"
@@ -151,7 +172,7 @@ export default function LocalizacaoPage() {
             ABRIR NO GOOGLE MAPS
           </a>
           <a
-            href={WA_HREF}
+            href={waHref}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center justify-center gap-2.5 px-6 py-4 rounded-lg bg-[#25D366] text-white text-xs font-bold uppercase tracking-widest hover:brightness-95 transition-all"

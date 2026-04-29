@@ -6,9 +6,6 @@ import AnimatedSection from '@/components/ui/AnimatedSection'
 import type { Veiculo } from '@/types'
 import { Clock, Users, ShieldCheck, CreditCard, Award, CheckCircle, Handshake } from 'lucide-react'
 
-const WA_HREF =
-  'https://wa.me/5583999671729?text=Olá! Vim pelo site e quero conhecer o estoque.'
-
 function WaIcon({ size = 18 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -17,18 +14,18 @@ function WaIcon({ size = 18 }: { size?: number }) {
   )
 }
 
-const CONFIANCA = [
-  { icon: Clock, texto: '30+ Anos de História' },
-  { icon: Users, texto: '500+ Clientes Satisfeitos' },
-  { icon: ShieldCheck, texto: '100% Procedência Garantida' },
-  { icon: CreditCard, texto: 'Financiamento Facilitado' },
-]
+function buildWaHref(num: string, text: string): string {
+  const d = num.replace(/\D/g, '')
+  const full = d.startsWith('55') ? d : `55${d}`
+  return `https://wa.me/${full}?text=${encodeURIComponent(text)}`
+}
 
-const HERO_STATS = [
-  { valor: '30+', label: 'Anos de história' },
-  { valor: '500+', label: 'Clientes satisfeitos' },
-  { valor: '100%', label: 'Procedência garantida' },
-]
+function formatWA(num: string): string {
+  const d = num.replace(/\D/g, '')
+  const local = d.length === 13 && d.startsWith('55') ? d.slice(2) : d
+  if (local.length === 11) return `${local.slice(0, 2)} ${local[2]} ${local.slice(3, 7)}-${local.slice(7)}`
+  return num
+}
 
 const DIFERENCIAIS = [
   {
@@ -57,6 +54,62 @@ export default async function HomePage() {
   const loja = await getLoja()
   const supabase = await createServerSupabase()
 
+  const isFelizardo = (loja?.nome ?? '').toLowerCase().includes('felizardo')
+  const waNum = loja?.whatsapp ?? '83999671729'
+  const waHref = buildWaHref(waNum, 'Olá! Vim pelo site e quero conhecer o estoque.')
+  const waDisplay = formatWA(waNum)
+  const sobreTexto = loja?.sobre ?? (
+    isFelizardo
+      ? 'A Felizardo Veículos nasce em 2025 como um marco na continuidade de uma história familiar construída com paixão pelo setor automotivo.'
+      : 'Empresa familiar com mais de 30 anos de história em Patos, no sertão da Paraíba. Somos referência em seminovos na região — transparência, qualidade e um atendimento que faz diferença na sua vida.'
+  )
+
+  const nomeParts = (loja?.nome ?? 'Catingueira Multimarcas').split(' ')
+  const nomeL1 = nomeParts[0]
+  const nomeL2 = nomeParts.slice(1).join(' ')
+
+  const HERO_STATS = isFelizardo
+    ? [
+        { valor: '2025', label: 'Fundada em' },
+        { valor: '100%', label: 'Qualidade garantida' },
+        { valor: 'Nova', label: 'Geração' },
+      ]
+    : [
+        { valor: '30+', label: 'Anos de história' },
+        { valor: '500+', label: 'Clientes satisfeitos' },
+        { valor: '100%', label: 'Procedência garantida' },
+      ]
+
+  const CONFIANCA = isFelizardo
+    ? [
+        { icon: ShieldCheck, texto: 'Veículos Revisados' },
+        { icon: CreditCard, texto: 'Financiamento Facilitado' },
+        { icon: Users, texto: 'Atendimento Personalizado' },
+        { icon: Award, texto: 'Qualidade Garantida' },
+      ]
+    : [
+        { icon: Clock, texto: '30+ Anos de História' },
+        { icon: Users, texto: '500+ Clientes Satisfeitos' },
+        { icon: ShieldCheck, texto: '100% Procedência Garantida' },
+        { icon: CreditCard, texto: 'Financiamento Facilitado' },
+      ]
+
+  const heroHeadline = isFelizardo
+    ? ['TRADIÇÃO E', 'INOVAÇÃO', 'QUE MOVEM VOCÊ']
+    : ['ENCONTRE SEU', 'PRÓXIMO', 'VEÍCULO']
+
+  const heroSubtitulo = isFelizardo
+    ? 'A Felizardo Veículos transforma a experiência de compra em algo mais leve, seguro e especial.'
+    : 'Mais de 30 anos realizando sonhos. Veículos seminovos selecionados com procedência, qualidade e atendimento que você merece.'
+
+  const heroBadge = isFelizardo
+    ? 'NOVA GERAÇÃO DE SEMINOVOS EM PATOS'
+    : 'SUA REVENDA MULTIMARCAS EM PATOS E REGIÃO'
+
+  const porQueTitulo = isFelizardo
+    ? 'Tradição familiar e compromisso com cada cliente em cada negociação.'
+    : 'Mais de 30 anos construindo confiança com cada cliente, uma negociação de cada vez.'
+
   let destaques: Veiculo[] = []
   if (loja) {
     const { data } = await supabase
@@ -72,37 +125,37 @@ export default async function HomePage() {
   return (
     <div className="pt-[70px]">
 
-      {/* ══════════════════════════════════════
-          SEÇÃO 1 — HERO
-      ══════════════════════════════════════ */}
+      {/* ══ SEÇÃO 1 — HERO ══ */}
       <section className="bg-white py-14 md:py-20 px-5">
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
 
-          {/* Esquerda: texto */}
           <AnimatedSection>
-            <span className="inline-block bg-[#F5C200] text-[#1A1A1A] text-[10px] font-bold uppercase tracking-[0.2em] px-3 py-1.5 rounded mb-5">
-              SUA REVENDA MULTIMARCAS EM PATOS E REGIÃO
+            <span
+              className="inline-block text-[10px] font-bold uppercase tracking-[0.2em] px-3 py-1.5 rounded mb-5"
+              style={{ backgroundColor: 'var(--cor-primaria)', color: '#1A1A1A' }}
+            >
+              {heroBadge}
             </span>
             <h1 className="font-[family-name:var(--font-barlow-condensed)] text-5xl md:text-6xl lg:text-7xl font-extrabold uppercase leading-tight text-[#1A1A1A] mb-5">
-              ENCONTRE SEU
+              {heroHeadline[0]}
               <br />
-              <span style={{ color: '#F5C200' }}>PRÓXIMO</span>
+              <span style={{ color: 'var(--cor-primaria)' }}>{heroHeadline[1]}</span>
               <br />
-              VEÍCULO
+              {heroHeadline[2]}
             </h1>
             <p className="text-[#666] text-base md:text-lg leading-relaxed mb-8 max-w-lg">
-              Mais de 30 anos realizando sonhos. Veículos seminovos selecionados com procedência,
-              qualidade e atendimento que você merece.
+              {heroSubtitulo}
             </p>
             <div className="flex flex-col sm:flex-row gap-3">
               <Link
                 href="/estoque"
-                className="inline-flex items-center justify-center px-7 py-3.5 rounded-lg bg-[#F5C200] text-[#1A1A1A] font-bold text-sm uppercase tracking-wider hover:brightness-95 transition-all"
+                className="inline-flex items-center justify-center px-7 py-3.5 rounded-lg font-bold text-sm uppercase tracking-wider hover:brightness-95 transition-all text-[#1A1A1A]"
+                style={{ backgroundColor: 'var(--cor-primaria)' }}
               >
                 VER ESTOQUE
               </Link>
               <a
-                href={WA_HREF}
+                href={waHref}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-lg bg-[#25D366] text-white font-bold text-sm uppercase tracking-wider hover:brightness-95 transition-all"
@@ -113,9 +166,8 @@ export default async function HomePage() {
             </div>
           </AnimatedSection>
 
-          {/* Direita: card amarelo com stats */}
           <AnimatedSection delay={0.15}>
-            <div className="rounded-2xl p-8 md:p-10" style={{ backgroundColor: '#F5C200' }}>
+            <div className="rounded-2xl p-8 md:p-10" style={{ backgroundColor: 'var(--cor-primaria)' }}>
               <p className="font-[family-name:var(--font-barlow-condensed)] text-sm font-extrabold uppercase tracking-[0.2em] text-[#1A1A1A]/60 mb-6">
                 POR QUE NOS ESCOLHER
               </p>
@@ -123,9 +175,7 @@ export default async function HomePage() {
                 {HERO_STATS.map(({ valor, label }, i) => (
                   <div
                     key={label}
-                    className={`flex items-center gap-5 ${
-                      i < HERO_STATS.length - 1 ? 'pb-6 border-b border-black/10' : ''
-                    }`}
+                    className={`flex items-center gap-5 ${i < HERO_STATS.length - 1 ? 'pb-6 border-b border-black/10' : ''}`}
                   >
                     <span className="font-[family-name:var(--font-barlow-condensed)] text-5xl font-extrabold text-[#1A1A1A] leading-none shrink-0">
                       {valor}
@@ -141,10 +191,8 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ══════════════════════════════════════
-          SEÇÃO 2 — BARRA DE CONFIANÇA
-      ══════════════════════════════════════ */}
-      <section style={{ backgroundColor: '#F5C200' }}>
+      {/* ══ SEÇÃO 2 — BARRA DE CONFIANÇA ══ */}
+      <section style={{ backgroundColor: 'var(--cor-primaria)' }}>
         <div className="max-w-7xl mx-auto px-5">
           <div className="flex flex-col md:flex-row items-center justify-center divide-y md:divide-y-0 md:divide-x divide-black/15">
             {CONFIANCA.map(({ icon: Icon, texto }) => (
@@ -153,22 +201,21 @@ export default async function HomePage() {
                 className="flex items-center gap-2.5 px-6 py-3.5 w-full md:w-auto justify-center"
               >
                 <Icon className="w-4 h-4 text-[#1A1A1A] shrink-0" />
-                <span className="font-semibold text-sm text-[#1A1A1A] whitespace-nowrap">
-                  {texto}
-                </span>
+                <span className="font-semibold text-sm text-[#1A1A1A] whitespace-nowrap">{texto}</span>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ══════════════════════════════════════
-          SEÇÃO 3 — ESTOQUE EM DESTAQUE
-      ══════════════════════════════════════ */}
+      {/* ══ SEÇÃO 3 — ESTOQUE ══ */}
       <section className="py-16 md:py-24 px-5" style={{ backgroundColor: '#F8F8F8' }}>
         <div className="max-w-7xl mx-auto">
           <AnimatedSection className="mb-10">
-            <span className="inline-block bg-[#F5C200] text-[#1A1A1A] text-[10px] font-bold uppercase tracking-[0.2em] px-3 py-1.5 rounded mb-4">
+            <span
+              className="inline-block text-[10px] font-bold uppercase tracking-[0.2em] px-3 py-1.5 rounded mb-4 text-[#1A1A1A]"
+              style={{ backgroundColor: 'var(--cor-primaria)' }}
+            >
               SELEÇÃO ESPECIAL
             </span>
             <h2 className="font-[family-name:var(--font-barlow-condensed)] text-4xl md:text-5xl font-extrabold uppercase text-[#1A1A1A]">
@@ -199,7 +246,9 @@ export default async function HomePage() {
           <AnimatedSection className="mt-10 text-center">
             <Link
               href="/estoque"
-              className="inline-flex items-center gap-2 px-7 py-3.5 rounded-lg border-2 border-[#3D3D3D] text-[#3D3D3D] text-sm font-bold uppercase tracking-wider hover:bg-[#F5C200] hover:border-[#F5C200] hover:text-[#1A1A1A] transition-all"
+              className="inline-flex items-center gap-2 px-7 py-3.5 rounded-lg border-2 border-[#3D3D3D] text-[#3D3D3D] text-sm font-bold uppercase tracking-wider hover:text-[#1A1A1A] transition-all"
+              style={{ ['--tw-border-opacity' as string]: '1' }}
+              onMouseEnter={undefined}
             >
               VER TODO O ESTOQUE
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -210,18 +259,14 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ══════════════════════════════════════
-          SEÇÃO 4 — POR QUE COMPRAR AQUI?
-      ══════════════════════════════════════ */}
+      {/* ══ SEÇÃO 4 — POR QUE COMPRAR AQUI? ══ */}
       <section className="py-16 md:py-24 px-5 bg-white">
         <div className="max-w-7xl mx-auto">
           <AnimatedSection className="text-center mb-12">
             <h2 className="font-[family-name:var(--font-barlow-condensed)] text-4xl md:text-5xl font-extrabold uppercase text-[#1A1A1A] mb-3">
               POR QUE COMPRAR AQUI?
             </h2>
-            <p className="text-[#666] text-base max-w-lg mx-auto">
-              Mais de 30 anos construindo confiança com cada cliente, uma negociação de cada vez.
-            </p>
+            <p className="text-[#666] text-base max-w-lg mx-auto">{porQueTitulo}</p>
           </AnimatedSection>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
@@ -231,7 +276,7 @@ export default async function HomePage() {
                   <div className="shrink-0">
                     <div
                       className="w-11 h-11 rounded-lg flex items-center justify-center"
-                      style={{ backgroundColor: '#F5C200' }}
+                      style={{ backgroundColor: 'var(--cor-primaria)' }}
                     >
                       <Icon className="w-5 h-5 text-[#1A1A1A]" />
                     </div>
@@ -249,29 +294,25 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ══════════════════════════════════════
-          SEÇÃO 5 — SOBRE
-      ══════════════════════════════════════ */}
+      {/* ══ SEÇÃO 5 — SOBRE ══ */}
       <section className="py-16 md:py-24 px-5" style={{ backgroundColor: '#F8F8F8' }}>
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-stretch">
 
           <AnimatedSection className="flex flex-col justify-center">
-            <span className="inline-block bg-[#F5C200] text-[#1A1A1A] text-[10px] font-bold uppercase tracking-[0.2em] px-3 py-1.5 rounded mb-5 self-start">
+            <span
+              className="inline-block text-[10px] font-bold uppercase tracking-[0.2em] px-3 py-1.5 rounded mb-5 self-start text-[#1A1A1A]"
+              style={{ backgroundColor: 'var(--cor-primaria)' }}
+            >
               QUEM SOMOS
             </span>
             <h2 className="font-[family-name:var(--font-barlow-condensed)] text-4xl md:text-5xl font-extrabold uppercase text-[#1A1A1A] leading-tight mb-5">
-              CATINGUEIRA
-              <br />
-              MULTIMARCAS
+              {nomeL1}
+              {nomeL2 && <><br />{nomeL2.toUpperCase()}</>}
             </h2>
-            <p className="text-[#666] text-base leading-relaxed mb-8 max-w-lg">
-              Empresa familiar com mais de 30 anos de história em Patos, no sertão da Paraíba. Somos
-              referência em seminovos na região — transparência, qualidade e um atendimento que faz
-              diferença na sua vida.
-            </p>
+            <p className="text-[#666] text-base leading-relaxed mb-8 max-w-lg">{sobreTexto}</p>
             <Link
               href="/sobre"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-lg border-2 border-[#3D3D3D] text-[#3D3D3D] text-sm font-bold uppercase tracking-wider hover:bg-[#F5C200] hover:border-[#F5C200] hover:text-[#1A1A1A] transition-all self-start"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-lg border-2 border-[#3D3D3D] text-[#3D3D3D] text-sm font-bold uppercase tracking-wider hover:text-[#1A1A1A] transition-all self-start"
             >
               NOSSA HISTÓRIA
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -283,23 +324,25 @@ export default async function HomePage() {
           <AnimatedSection delay={0.12} className="flex">
             <div
               className="rounded-2xl p-8 md:p-10 w-full flex flex-col justify-between gap-8"
-              style={{ backgroundColor: '#F5C200' }}
+              style={{ backgroundColor: 'var(--cor-primaria)' }}
             >
               <p className="font-[family-name:var(--font-barlow-condensed)] text-2xl md:text-3xl font-extrabold uppercase text-[#1A1A1A] leading-snug">
-                "Seu próximo carro pode estar aqui!"
+                {isFelizardo
+                  ? '"Tradição e inovação em cada negociação!"'
+                  : '"Seu próximo carro pode estar aqui!"'}
               </p>
               <div>
                 <p className="text-[#3D3D3D] text-sm font-medium mb-3">
                   Fale agora com nossa equipe. Atendimento rápido e sem enrolação.
                 </p>
                 <a
-                  href={WA_HREF}
+                  href={buildWaHref(waNum, 'Olá! Vim pelo site e gostaria de mais informações.')}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-2.5 px-5 py-3 rounded-lg bg-[#1A1A1A] text-white font-bold text-sm uppercase tracking-wider hover:bg-[#3D3D3D] transition-colors"
                 >
                   <WaIcon size={16} />
-                  83 9 9967-1729
+                  {waDisplay}
                 </a>
               </div>
             </div>
@@ -307,10 +350,8 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* ══════════════════════════════════════
-          SEÇÃO 6 — CTA FINAL
-      ══════════════════════════════════════ */}
-      <section className="py-16 md:py-24 px-5" style={{ backgroundColor: '#F5C200' }}>
+      {/* ══ SEÇÃO 6 — CTA FINAL ══ */}
+      <section className="py-16 md:py-24 px-5" style={{ backgroundColor: 'var(--cor-primaria)' }}>
         <AnimatedSection className="max-w-3xl mx-auto text-center">
           <h2 className="font-[family-name:var(--font-barlow-condensed)] text-4xl md:text-6xl font-extrabold uppercase text-[#1A1A1A] leading-tight mb-4">
             PRONTO PARA REALIZAR SEU SONHO?
@@ -319,17 +360,19 @@ export default async function HomePage() {
             Fale agora com nossa equipe. Atendimento rápido, transparente e sem enrolação.
           </p>
           <a
-            href={WA_HREF}
+            href={waHref}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-3 px-8 py-4 rounded-lg bg-[#1A1A1A] text-white font-bold text-sm uppercase tracking-wider hover:bg-[#3D3D3D] transition-colors"
           >
             <WaIcon size={18} />
-            FALAR AGORA — 83 9 9967-1729
+            FALAR AGORA — {waDisplay}
           </a>
-          <p className="mt-6 text-[#3D3D3D] text-xs uppercase tracking-[0.15em]">
-            BR 230, KM 334 · São Sebastião · Patos/PB · Em frente ao Atacadão
-          </p>
+          {loja?.endereco && (
+            <p className="mt-6 text-[#3D3D3D] text-xs uppercase tracking-[0.15em]">
+              {loja.endereco}
+            </p>
+          )}
         </AnimatedSection>
       </section>
     </div>
