@@ -1,29 +1,31 @@
 import { headers } from 'next/headers'
-import { createServerSupabase } from './supabase-server'
+import { createClient } from '@supabase/supabase-js'
 
 export async function getLoja() {
   const headersList = await headers()
 
-  // Tenta x-forwarded-host primeiro (Vercel), depois host
   const host = headersList.get('x-forwarded-host') ||
                headersList.get('host') ||
                'localhost'
 
-  // Remove porta e www
-  const dominio = host.replace('www.', '').split(':')[0]
+  const dominio = host.replace('www.', '').split(':')[0].trim()
 
   console.log('Domínio detectado:', dominio)
 
-  const supabase = await createServerSupabase()
+  // Usar service role para bypass do RLS na consulta pública de lojas
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
 
-  const { data: loja } = await supabase
+  const { data: loja, error } = await supabase
     .from('lojas')
     .select('*')
     .eq('dominio', dominio)
     .single()
 
-  if (!loja) {
-    // Fallback: busca localhost
+  if (error || !loja) {
+    // Fallback: localhost
     const { data: fallback } = await supabase
       .from('lojas')
       .select('*')
