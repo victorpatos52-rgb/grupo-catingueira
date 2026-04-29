@@ -53,16 +53,19 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[#0D0D0D] flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <div
-            className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-4 font-[family-name:var(--font-barlow-condensed)] font-black text-xl text-[#0D0D0D]"
-            style={{ backgroundColor: corPrimaria }}
+          <span
+            className="font-[family-name:var(--font-barlow-condensed)] text-3xl font-extrabold italic uppercase leading-none"
+            style={{ color: '#F5C200' }}
           >
-            {(loja?.nome ?? 'GC').substring(0, 2).toUpperCase()}
-          </div>
-          <h1 className="font-[family-name:var(--font-barlow-condensed)] text-3xl font-black uppercase text-white">
-            {loja?.nome ?? 'Painel Admin'}
+            CATINGUEIRA
+          </span>
+          <span className="block text-white text-[10px] font-semibold tracking-[0.3em] -mt-0.5 mb-5">
+            MULTIMARCAS
+          </span>
+          <h1 className="font-[family-name:var(--font-barlow-condensed)] text-xl font-black uppercase text-white tracking-widest">
+            ACESSO RESTRITO
           </h1>
-          <p className="text-[#666] text-sm mt-1">Entre com suas credenciais</p>
+          <p className="text-[#666] text-xs mt-1 uppercase tracking-wider">Entre com suas credenciais</p>
         </div>
 
         <form
@@ -77,7 +80,7 @@ export default function LoginPage() {
               type="email"
               autoComplete="email"
               {...register('email')}
-              className="w-full bg-[#0D0D0D] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-[var(--cor-primaria)] transition-colors"
+              className="w-full bg-[#0D0D0D] border border-[#333] rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-[#F5C200] transition-colors"
               placeholder="seu@email.com"
             />
             {errors.email && (
@@ -93,7 +96,7 @@ export default function LoginPage() {
               type="password"
               autoComplete="current-password"
               {...register('senha')}
-              className="w-full bg-[#0D0D0D] border border-[#2A2A2A] rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-[var(--cor-primaria)] transition-colors"
+              className="w-full bg-[#0D0D0D] border border-[#333] rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-[#F5C200] transition-colors"
               placeholder="••••••••"
             />
             {errors.senha && (
@@ -110,8 +113,8 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={carregando}
-            className="w-full py-3 rounded-lg font-bold text-sm uppercase tracking-wider text-[#0D0D0D] transition-all hover:brightness-90 disabled:opacity-50 disabled:cursor-not-allowed mt-1"
-            style={{ backgroundColor: corPrimaria }}
+            className="w-full py-3 rounded-lg font-black text-sm uppercase tracking-wider text-[#1A1A1A] transition-all hover:brightness-90 disabled:opacity-50 disabled:cursor-not-allowed mt-1"
+            style={{ backgroundColor: '#F5C200' }}
           >
             {carregando ? 'Entrando...' : 'Entrar'}
           </button>
