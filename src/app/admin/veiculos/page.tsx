@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { createClient } from '@/lib/supabase'
+import { createServerSupabase } from '@/lib/supabase-server'
 import { formatarPreco, formatarKm } from '@/lib/utils'
 import type { Veiculo, UsuarioPerfil } from '@/types'
 import MarcaVendidoButton from '@/components/admin/MarcaVendidoButton'
@@ -16,7 +16,7 @@ export default async function VeiculosAdminPage({
   searchParams: Promise<SearchParams>
 }) {
   const params = await searchParams
-  const supabase = await createClient()
+  const supabase = await createServerSupabase()
 
   const {
     data: { user },

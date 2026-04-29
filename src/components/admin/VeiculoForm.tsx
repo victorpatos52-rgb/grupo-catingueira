@@ -6,7 +6,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import Image from 'next/image'
-import { createBrowserClient } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase'
 import type { Veiculo } from '@/types'
 
 const OPCIONAIS_LISTA = [
@@ -78,7 +78,7 @@ export default function VeiculoForm({ veiculo, lojaId }: VeiculoFormProps) {
 
   async function uploadFotos(files: FileList) {
     setUploading(true)
-    const supabase = createBrowserClient()
+    const supabase = createClient()
     const urls: string[] = []
 
     for (const file of Array.from(files)) {
@@ -126,7 +126,7 @@ export default function VeiculoForm({ veiculo, lojaId }: VeiculoFormProps) {
   async function onSubmit(data: FormData) {
     setSalvando(true)
     setErro('')
-    const supabase = createBrowserClient()
+    const supabase = createClient()
 
     const payload = {
       loja_id: lojaId,

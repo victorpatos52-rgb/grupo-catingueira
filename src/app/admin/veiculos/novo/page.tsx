@@ -1,10 +1,10 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase'
+import { createServerSupabase } from '@/lib/supabase-server'
 import VeiculoForm from '@/components/admin/VeiculoForm'
 import type { UsuarioPerfil } from '@/types'
 
 export default async function NovoVeiculoPage() {
-  const supabase = await createClient()
+  const supabase = await createServerSupabase()
 
   const {
     data: { user },

@@ -1,12 +1,12 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase'
+import { createServerSupabase } from '@/lib/supabase-server'
 import { AdminProvider } from '@/contexts/AdminContext'
 import type { Loja, UsuarioPerfil } from '@/types'
 import AdminSidebar from '@/components/admin/AdminSidebar'
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient()
+  const supabase = await createServerSupabase()
 
   const {
     data: { user },

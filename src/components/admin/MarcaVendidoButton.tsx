@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { createBrowserClient } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase'
 
 export default function MarcaVendidoButton({ veiculoId }: { veiculoId: string }) {
   const router = useRouter()
@@ -11,7 +11,7 @@ export default function MarcaVendidoButton({ veiculoId }: { veiculoId: string })
   async function marcarVendido() {
     if (!confirm('Marcar este veículo como vendido?')) return
     setCarregando(true)
-    const supabase = createBrowserClient()
+    const supabase = createClient()
     await supabase.from('veiculos').update({ status: 'vendido' }).eq('id', veiculoId)
     router.refresh()
     setCarregando(false)

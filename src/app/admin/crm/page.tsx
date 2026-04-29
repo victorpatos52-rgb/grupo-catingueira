@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase'
+import { createServerSupabase } from '@/lib/supabase-server'
 import type { Lead, UsuarioPerfil, Loja } from '@/types'
 import NovoLeadForm from '@/components/admin/NovoLeadForm'
 
@@ -14,7 +14,7 @@ export default async function CrmPage({
   searchParams: Promise<SearchParams>
 }) {
   const params = await searchParams
-  const supabase = await createClient()
+  const supabase = await createServerSupabase()
 
   const {
     data: { user },

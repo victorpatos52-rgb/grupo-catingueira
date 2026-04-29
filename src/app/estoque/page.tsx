@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import { createClient } from '@/lib/supabase'
+import { createServerSupabase } from '@/lib/supabase-server'
 import { getLoja } from '@/lib/getLoja'
 import VeiculoCard from '@/components/veiculo/VeiculoCard'
 import VeiculoFiltros from '@/components/veiculo/VeiculoFiltros'
@@ -24,7 +24,7 @@ export default async function EstoquePage({
 }) {
   const params = await searchParams
   const loja = await getLoja()
-  const supabase = await createClient()
+  const supabase = await createServerSupabase()
 
   let query = supabase
     .from('veiculos')

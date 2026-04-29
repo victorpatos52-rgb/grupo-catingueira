@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase'
+import { createServerSupabase } from '@/lib/supabase-server'
 import { getLoja } from '@/lib/getLoja'
 import BotaoWhatsApp from '@/components/ui/BotaoWhatsApp'
 import VeiculoCard from '@/components/veiculo/VeiculoCard'
@@ -15,7 +15,7 @@ export default async function VeiculoPage({
 }) {
   const { id } = await params
   const loja = await getLoja()
-  const supabase = await createClient()
+  const supabase = await createServerSupabase()
 
   const { data } = await supabase.from('veiculos').select('*').eq('id', id).single()
 

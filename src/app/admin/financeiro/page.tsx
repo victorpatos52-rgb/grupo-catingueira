@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase'
+import { createServerSupabase } from '@/lib/supabase-server'
 import { formatarPreco, calcularLucro, calcularDiasEstoque } from '@/lib/utils'
 import type { FinanceiroVeiculo, UsuarioPerfil } from '@/types'
 
@@ -13,7 +13,7 @@ export default async function FinanceiroPage({
   searchParams: Promise<SearchParams>
 }) {
   const params = await searchParams
-  const supabase = await createClient()
+  const supabase = await createServerSupabase()
 
   const {
     data: { user },

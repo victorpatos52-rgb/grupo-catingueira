@@ -1,11 +1,11 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase'
+import { createServerSupabase } from '@/lib/supabase-server'
 import { formatarPreco } from '@/lib/utils'
 import type { Veiculo, Lead, UsuarioPerfil } from '@/types'
 
 export default async function DashboardPage() {
-  const supabase = await createClient()
+  const supabase = await createServerSupabase()
 
   const {
     data: { user },

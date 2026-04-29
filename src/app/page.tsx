@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase'
+import { createServerSupabase } from '@/lib/supabase-server'
 import { getLoja } from '@/lib/getLoja'
 import VeiculoCard from '@/components/veiculo/VeiculoCard'
 import AnimatedSection from '@/components/ui/AnimatedSection'
@@ -55,7 +55,7 @@ const DIFERENCIAIS = [
 
 export default async function HomePage() {
   const loja = await getLoja()
-  const supabase = await createClient()
+  const supabase = await createServerSupabase()
 
   let destaques: Veiculo[] = []
   if (loja) {

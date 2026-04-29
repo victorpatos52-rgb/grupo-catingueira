@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { createBrowserClient } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase'
 import type { UsuarioPerfil, Loja } from '@/types'
 
 interface AdminSidebarProps {
@@ -61,7 +61,7 @@ export default function AdminSidebar({ perfil, loja, lojas }: AdminSidebarProps)
   const corPrimaria = loja?.cor_primaria ?? '#F5C842'
 
   async function sair() {
-    const supabase = createBrowserClient()
+    const supabase = createClient()
     await supabase.auth.signOut()
     router.push('/admin/login')
     router.refresh()

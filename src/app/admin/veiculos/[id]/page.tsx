@@ -1,5 +1,5 @@
 import { notFound, redirect } from 'next/navigation'
-import { createClient } from '@/lib/supabase'
+import { createServerSupabase } from '@/lib/supabase-server'
 import VeiculoForm from '@/components/admin/VeiculoForm'
 import type { Veiculo, UsuarioPerfil } from '@/types'
 
@@ -9,7 +9,7 @@ export default async function EditarVeiculoPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const supabase = await createClient()
+  const supabase = await createServerSupabase()
 
   const {
     data: { user },

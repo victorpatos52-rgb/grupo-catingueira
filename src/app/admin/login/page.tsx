@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { createBrowserClient } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase'
 import { useLoja } from '@/contexts/LojaContext'
 
 const schema = z.object({
@@ -30,7 +30,7 @@ export default function LoginPage() {
   async function onSubmit(data: FormData) {
     setErro('')
     setCarregando(true)
-    const supabase = createBrowserClient()
+    const supabase = createClient()
 
     const { error } = await supabase.auth.signInWithPassword({
       email: data.email,

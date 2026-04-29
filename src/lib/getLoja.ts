@@ -1,5 +1,5 @@
 import { headers } from 'next/headers'
-import { createClient } from './supabase'
+import { createServerSupabase } from './supabase-server'
 import type { Loja } from '@/types'
 
 export async function getLoja(): Promise<Loja | null> {
@@ -8,7 +8,7 @@ export async function getLoja(): Promise<Loja | null> {
 
   const dominio = host.replace(/^www\./, '').replace(/:\d+$/, '')
 
-  const supabase = await createClient()
+  const supabase = await createServerSupabase()
 
   if (dominio === 'localhost' || dominio === '127.0.0.1') {
     const { data } = await supabase

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { createBrowserClient } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase'
 
 const schema = z.object({
   nome: z.string().min(1, 'Obrigatório'),
@@ -33,7 +33,7 @@ export default function NovoLeadForm({ lojaId }: { lojaId: string }) {
 
   async function onSubmit(data: FormData) {
     setSalvando(true)
-    const supabase = createBrowserClient()
+    const supabase = createClient()
     await supabase.from('leads').insert({
       loja_id: lojaId,
       ...data,
