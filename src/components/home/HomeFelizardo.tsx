@@ -20,17 +20,11 @@ function WaIcon({ size = 18 }: { size?: number }) {
   )
 }
 
-const STATS = [
-  { valor: '2025', label: 'Fundada em' },
-  { valor: '100%', label: 'Qualidade garantida' },
-  { valor: 'Nova', label: 'Geração' },
-]
-
-const CONFIANCA = [
+const PILARES = [
   { icon: ShieldCheck, texto: 'Veículos Revisados' },
   { icon: CreditCard, texto: 'Financiamento Facilitado' },
   { icon: Users, texto: 'Atendimento Personalizado' },
-  { icon: Award, texto: 'Qualidade Garantida' },
+  { icon: Award, texto: 'Qualidade Assegurada' },
 ]
 
 const DIFERENCIAIS = [
@@ -58,106 +52,104 @@ const DIFERENCIAIS = [
 
 export default function HomeFelizardo({ loja, destaques, waHref, waDisplay, sobreTexto }: Props) {
   return (
-    <div className="pt-[70px]">
+    <div className="pt-[70px] bg-white">
 
       {/* ══════════════════════════════════════
-          SEÇÃO 1 — HERO
-          Fundo branco, altura 100svh
+          HERO — split 55/45, branco editorial
       ══════════════════════════════════════ */}
       <section
-        className="bg-white px-5 flex items-center"
+        className="bg-white overflow-hidden"
         style={{ minHeight: 'calc(100svh - 70px)' }}
       >
-        <div className="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 py-16 md:py-20">
-
-          {/* Esquerda */}
-          <AnimatedSection className="flex flex-col justify-center">
-            <span
-              className="inline-block text-[10px] font-bold uppercase tracking-[0.2em] px-3 py-1.5 rounded-full mb-6 self-start"
-              style={{ backgroundColor: '#EEF2FF', color: '#2E6BE6' }}
-            >
-              NOVA GERAÇÃO DE SEMINOVOS EM PATOS
-            </span>
-
-            <h1 className="font-[family-name:var(--font-barlow-condensed)] text-6xl md:text-8xl font-extrabold uppercase leading-none mb-6">
-              <span style={{ color: '#2E6BE6' }}>FELIZARDO</span>
-              <br />
-              <span style={{ color: '#0D1B2A' }}>VEÍCULOS</span>
-            </h1>
-
-            <p className="text-[#4A5568] text-base md:text-lg leading-relaxed mb-8 max-w-lg">
-              A Felizardo Veículos transforma a experiência de compra em algo mais leve, seguro e especial. Tradição familiar e inovação em cada negociação.
-            </p>
-
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Link
-                href="/estoque"
-                className="inline-flex items-center justify-center px-7 py-3.5 rounded-lg text-white font-bold text-sm uppercase tracking-wider hover:brightness-110 transition-all"
-                style={{ backgroundColor: '#2E6BE6' }}
-              >
-                VER ESTOQUE
-              </Link>
-              <a
-                href={waHref}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-lg bg-[#25D366] text-white font-bold text-sm uppercase tracking-wider hover:brightness-95 transition-all"
-              >
-                <WaIcon size={16} />
-                WHATSAPP
-              </a>
-            </div>
-          </AnimatedSection>
-
-          {/* Direita: card stats */}
-          <AnimatedSection delay={0.15} className="flex items-center">
-            <div
-              className="w-full rounded-2xl p-8 md:p-10 border-2"
-              style={{ backgroundColor: '#F0F4FF', borderColor: '#2E6BE6', borderRadius: '16px' }}
-            >
+        <div
+          className="grid h-full"
+          style={{ gridTemplateColumns: '55fr 45fr', minHeight: 'inherit' }}
+        >
+          {/* Esquerda — conteúdo */}
+          <div className="flex flex-col justify-center px-10 lg:px-16 xl:px-24 py-16">
+            <AnimatedSection>
               <p
-                className="font-[family-name:var(--font-barlow-condensed)] text-xs font-bold uppercase tracking-[0.25em] mb-8"
-                style={{ color: '#2E6BE6' }}
+                className="text-xs font-bold uppercase mb-6"
+                style={{ color: '#2E6BE6', letterSpacing: '0.25em' }}
               >
-                POR QUE NOS ESCOLHER
+                FELIZARDO VEÍCULOS
               </p>
-              <div className="flex flex-col gap-7">
-                {STATS.map(({ valor, label }, i) => (
-                  <div
-                    key={label}
-                    className={`flex items-center gap-5 ${i < STATS.length - 1 ? 'pb-7 border-b border-[#2E6BE6]/20' : ''}`}
-                  >
-                    <span
-                      className="font-[family-name:var(--font-barlow-condensed)] text-6xl font-extrabold leading-none shrink-0"
-                      style={{ color: '#2E6BE6' }}
-                    >
-                      {valor}
-                    </span>
-                    <span className="font-medium text-base leading-snug" style={{ color: '#0D1B2A' }}>
-                      {label}
-                    </span>
-                  </div>
-                ))}
+
+              <h1
+                className="font-[family-name:var(--font-barlow-condensed)] font-extrabold uppercase leading-none mb-6"
+                style={{ fontSize: 'clamp(3rem, 7vw, 7rem)', color: '#0D1B2A' }}
+              >
+                <span className="block">TRADIÇÃO</span>
+                <span className="block" style={{ color: '#2E6BE6' }}>E INOVAÇÃO</span>
+                <span className="block">QUE MOVEM</span>
+                <span className="block">VOCÊ</span>
+              </h1>
+
+              <p
+                className="text-lg leading-relaxed mb-8 max-w-sm"
+                style={{ color: '#6B7280' }}
+              >
+                A Felizardo Veículos combina tradição familiar e inovação para oferecer a melhor experiência em seminovos de Patos e região.
+              </p>
+
+              <div className="flex flex-col sm:flex-row gap-3 mb-6">
+                <Link
+                  href="/estoque"
+                  className="inline-flex items-center justify-center px-7 py-3.5 rounded-full font-bold text-sm uppercase tracking-wider text-white hover:brightness-110 transition-all"
+                  style={{ backgroundColor: '#2E6BE6' }}
+                >
+                  VER ESTOQUE
+                </Link>
+                <a
+                  href={waHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full bg-[#25D366] text-white font-bold text-sm uppercase tracking-wider hover:brightness-95 transition-all"
+                >
+                  <WaIcon size={16} />
+                  WHATSAPP
+                </a>
               </div>
-            </div>
-          </AnimatedSection>
+
+              <p className="text-xs" style={{ color: '#9CA3AF' }}>
+                Fundada em 2025&nbsp;&nbsp;|&nbsp;&nbsp;100% Qualidade&nbsp;&nbsp;|&nbsp;&nbsp;Atendimento Personalizado
+              </p>
+            </AnimatedSection>
+          </div>
+
+          {/* Direita — imagem */}
+          <div className="relative hidden lg:block">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="https://images.unsplash.com/photo-1580273916550-e323be2ae537?w=900&q=80"
+              alt="Carro elegante Felizardo Veículos"
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          </div>
         </div>
       </section>
 
       {/* ══════════════════════════════════════
-          SEÇÃO 2 — BARRA DE CONFIANÇA
-          Fundo #2E6BE6, texto branco
+          BARRA DE PILARES — fundo #F0F4FF
       ══════════════════════════════════════ */}
-      <section style={{ backgroundColor: '#2E6BE6' }}>
+      <section
+        style={{
+          backgroundColor: '#F0F4FF',
+          borderTop: '1px solid #E2E8F0',
+          borderBottom: '1px solid #E2E8F0',
+        }}
+      >
         <div className="max-w-7xl mx-auto px-5">
-          <div className="flex flex-col md:flex-row items-center justify-center divide-y md:divide-y-0 md:divide-x divide-white/20">
-            {CONFIANCA.map(({ icon: Icon, texto }) => (
+          <div className="flex flex-col md:flex-row divide-y md:divide-y-0 md:divide-x divide-[#E2E8F0]">
+            {PILARES.map(({ icon: Icon, texto }) => (
               <div
                 key={texto}
-                className="flex items-center gap-2.5 px-6 py-4 w-full md:w-auto justify-center"
+                className="flex items-center gap-3 px-8 py-5 w-full md:w-auto justify-center"
               >
-                <Icon className="w-4 h-4 text-white shrink-0" />
-                <span className="font-semibold text-sm text-white whitespace-nowrap">{texto}</span>
+                <Icon className="w-5 h-5 shrink-0" style={{ color: '#2E6BE6' }} />
+                <span className="font-semibold text-sm" style={{ color: '#374151' }}>
+                  {texto}
+                </span>
               </div>
             ))}
           </div>
@@ -165,26 +157,22 @@ export default function HomeFelizardo({ loja, destaques, waHref, waDisplay, sobr
       </section>
 
       {/* ══════════════════════════════════════
-          SEÇÃO 3 — ESTOQUE
-          Fundo #F8F9FA claro
+          ESTOQUE — fundo branco editorial
       ══════════════════════════════════════ */}
-      <section className="py-16 md:py-24 px-5" style={{ backgroundColor: '#F8F9FA' }}>
+      <section className="py-16 md:py-24 px-5 bg-white">
         <div className="max-w-7xl mx-auto">
-          <AnimatedSection className="mb-10">
-            <span
-              className="inline-block text-[10px] font-bold uppercase tracking-[0.2em] px-3 py-1.5 rounded-full mb-4 text-white"
-              style={{ backgroundColor: '#2E6BE6' }}
-            >
-              SELEÇÃO ESPECIAL
-            </span>
-            <h2
-              className="font-[family-name:var(--font-barlow-condensed)] text-4xl md:text-5xl font-extrabold uppercase"
-              style={{ color: '#0D1B2A' }}
-            >
-              NOSSO ESTOQUE
-            </h2>
-            <p className="text-[#4A5568] text-base mt-2 max-w-xl">
-              Veículos selecionados com procedência garantida e qualidade comprovada.
+          <AnimatedSection className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-end mb-12">
+            <div>
+              <h2
+                className="font-[family-name:var(--font-barlow-condensed)] font-extrabold uppercase leading-none mb-3"
+                style={{ fontSize: 'clamp(3rem, 7vw, 7rem)', color: '#0D1B2A' }}
+              >
+                NOSSO{'\n'}ESTOQUE
+              </h2>
+              <div className="w-14 h-[3px]" style={{ backgroundColor: '#2E6BE6' }} />
+            </div>
+            <p className="text-[#6B7280] text-base leading-relaxed max-w-sm">
+              Veículos selecionados com procedência garantida e qualidade comprovada. Cada unidade passa por nossa avaliação rigorosa.
             </p>
           </AnimatedSection>
 
@@ -196,7 +184,10 @@ export default function HomeFelizardo({ loja, destaques, waHref, waDisplay, sobr
             </div>
           ) : (
             <AnimatedSection>
-              <div className="flex flex-col items-center justify-center py-20 rounded-xl bg-white border border-[#E2E8F0]">
+              <div
+                className="flex flex-col items-center justify-center py-20 rounded-xl border"
+                style={{ borderColor: '#E2E8F0' }}
+              >
                 <p
                   className="font-[family-name:var(--font-barlow-condensed)] text-3xl font-extrabold uppercase mb-2"
                   style={{ color: '#CBD5E0' }}
@@ -211,8 +202,10 @@ export default function HomeFelizardo({ loja, destaques, waHref, waDisplay, sobr
           <AnimatedSection className="mt-10 text-center">
             <Link
               href="/estoque"
-              className="inline-flex items-center gap-2 px-7 py-3.5 rounded-lg border-2 font-bold text-sm uppercase tracking-wider transition-all hover:bg-[#2E6BE6] hover:text-white"
+              className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full border-2 font-bold text-sm uppercase tracking-wider transition-all hover:text-white"
               style={{ borderColor: '#2E6BE6', color: '#2E6BE6' }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#2E6BE6')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
             >
               VER TODO O ESTOQUE
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -224,86 +217,89 @@ export default function HomeFelizardo({ loja, destaques, waHref, waDisplay, sobr
       </section>
 
       {/* ══════════════════════════════════════
-          SEÇÃO 4 — SOBRE
-          Fundo #F0F4FF (azul bem claro)
+          NOSSA HISTÓRIA — split fundo #F8F9FA
       ══════════════════════════════════════ */}
-      <section className="py-16 md:py-24 px-5" style={{ backgroundColor: '#F0F4FF' }}>
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-stretch">
+      <section className="py-16 md:py-24 px-5" style={{ backgroundColor: '#F8F9FA' }}>
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
+          {/* Imagem esquerda */}
+          <AnimatedSection>
+            <div className="rounded-2xl overflow-hidden" style={{ height: '460px' }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800&q=80"
+                alt="Nossa história - Felizardo Veículos"
+                className="w-full h-full object-cover"
+              />
+            </div>
+          </AnimatedSection>
 
-          <AnimatedSection className="flex flex-col justify-center">
+          {/* Direita — texto */}
+          <AnimatedSection delay={0.15} className="flex flex-col justify-center">
             <span
-              className="inline-block text-[10px] font-bold uppercase tracking-[0.2em] px-3 py-1.5 rounded-full mb-5 self-start text-white"
+              className="inline-block text-xs font-bold uppercase tracking-[0.2em] px-3 py-1.5 rounded-full mb-5 self-start text-white"
               style={{ backgroundColor: '#2E6BE6' }}
             >
-              QUEM SOMOS
+              NOSSA HISTÓRIA
             </span>
             <h2
-              className="font-[family-name:var(--font-barlow-condensed)] text-4xl md:text-5xl font-extrabold uppercase leading-tight mb-5"
-              style={{ color: '#0D1B2A' }}
+              className="font-[family-name:var(--font-barlow-condensed)] font-extrabold uppercase leading-tight mb-5"
+              style={{ fontSize: 'clamp(2rem, 5vw, 5rem)', color: '#0D1B2A' }}
             >
-              FELIZARDO
-              <br />
-              VEÍCULOS
+              UM LEGADO<br />DE FAMÍLIA
             </h2>
-            <p className="text-[#4A5568] text-base leading-relaxed mb-8 max-w-lg">
+            <p className="text-[#6B7280] text-base leading-relaxed mb-8 max-w-lg">
               {sobreTexto}
             </p>
             <Link
               href="/sobre"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-lg border-2 text-sm font-bold uppercase tracking-wider transition-all hover:bg-[#2E6BE6] hover:text-white self-start"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-full border-2 text-sm font-bold uppercase tracking-wider transition-all hover:text-white self-start"
               style={{ borderColor: '#2E6BE6', color: '#2E6BE6' }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#2E6BE6')}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
             >
-              NOSSA HISTÓRIA
+              SAIBA MAIS
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </Link>
           </AnimatedSection>
+        </div>
+      </section>
 
-          <AnimatedSection delay={0.12} className="flex">
-            <div
-              className="bg-white rounded-2xl shadow-lg p-8 md:p-10 w-full flex flex-col justify-between gap-8"
-              style={{ borderTop: '4px solid #2E6BE6' }}
-            >
-              <p
-                className="font-[family-name:var(--font-barlow-condensed)] text-2xl md:text-3xl font-extrabold uppercase leading-snug"
-                style={{ color: '#0D1B2A' }}
-              >
-                "Tradição e inovação em cada negociação!"
-              </p>
-              <div>
-                <p className="text-[#4A5568] text-sm font-medium mb-4">
-                  Fale agora com nossa equipe. Atendimento rápido e sem enrolação.
-                </p>
-                <a
-                  href={waHref}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2.5 px-5 py-3 rounded-lg bg-[#25D366] text-white font-bold text-sm uppercase tracking-wider hover:brightness-95 transition-all"
-                >
-                  <WaIcon size={16} />
-                  {waDisplay}
-                </a>
-              </div>
+      {/* ══════════════════════════════════════
+          INTERIOR — imagem fullwidth
+      ══════════════════════════════════════ */}
+      <section className="py-16 md:py-24 px-5 bg-white">
+        <div className="max-w-7xl mx-auto">
+          <AnimatedSection>
+            <div className="rounded-2xl overflow-hidden" style={{ height: '500px' }}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="https://images.unsplash.com/photo-1560958089-b8a1929cea89?w=1600&q=80"
+                alt="Estrutura da Felizardo Veículos"
+                className="w-full h-full object-cover"
+              />
             </div>
+            <p className="text-center text-sm mt-4" style={{ color: '#9CA3AF' }}>
+              Nossa estrutura pensada para você
+            </p>
           </AnimatedSection>
         </div>
       </section>
 
       {/* ══════════════════════════════════════
-          SEÇÃO 5 — DIFERENCIAIS
-          Fundo #FFFFFF branco
+          DIFERENCIAIS — fundo #F0F4FF
       ══════════════════════════════════════ */}
-      <section className="py-16 md:py-24 px-5 bg-white">
+      <section className="py-16 md:py-24 px-5" style={{ backgroundColor: '#F0F4FF' }}>
         <div className="max-w-7xl mx-auto">
           <AnimatedSection className="text-center mb-12">
             <h2
-              className="font-[family-name:var(--font-barlow-condensed)] text-4xl md:text-5xl font-extrabold uppercase mb-3"
-              style={{ color: '#0D1B2A' }}
+              className="font-[family-name:var(--font-barlow-condensed)] font-extrabold uppercase leading-tight mb-4"
+              style={{ fontSize: 'clamp(2rem, 5vw, 5rem)', color: '#0D1B2A' }}
             >
-              POR QUE COMPRAR AQUI?
+              POR QUE ESCOLHER<br />A FELIZARDO?
             </h2>
-            <p className="text-[#4A5568] text-base max-w-lg mx-auto">
+            <p className="text-[#6B7280] text-base max-w-lg mx-auto">
               Tradição familiar e compromisso com cada cliente em cada negociação.
             </p>
           </AnimatedSection>
@@ -312,7 +308,7 @@ export default function HomeFelizardo({ loja, destaques, waHref, waDisplay, sobr
             {DIFERENCIAIS.map(({ icon: Icon, titulo, desc }, i) => (
               <AnimatedSection key={titulo} delay={i * 0.08}>
                 <div
-                  className="bg-white rounded-xl shadow-md hover:shadow-xl transition-shadow duration-300 p-6 h-full flex gap-5"
+                  className="bg-white rounded-2xl shadow-md p-6 h-full flex gap-5"
                   style={{ borderTop: '3px solid #2E6BE6' }}
                 >
                   <div className="shrink-0">
@@ -330,7 +326,7 @@ export default function HomeFelizardo({ loja, destaques, waHref, waDisplay, sobr
                     >
                       {titulo}
                     </h3>
-                    <p className="text-[#4A5568] text-sm leading-relaxed">{desc}</p>
+                    <p className="text-[#6B7280] text-sm leading-relaxed">{desc}</p>
                   </div>
                 </div>
               </AnimatedSection>
@@ -340,29 +336,31 @@ export default function HomeFelizardo({ loja, destaques, waHref, waDisplay, sobr
       </section>
 
       {/* ══════════════════════════════════════
-          SEÇÃO 6 — CTA FINAL
-          Fundo #1B3A6B (azul escuro)
+          CTA FINAL — fundo #1B3A6B
       ══════════════════════════════════════ */}
-      <section className="py-16 md:py-24 px-5" style={{ backgroundColor: '#1B3A6B' }}>
+      <section className="py-16 md:py-28 px-5" style={{ backgroundColor: '#1B3A6B' }}>
         <AnimatedSection className="max-w-3xl mx-auto text-center">
-          <h2 className="font-[family-name:var(--font-barlow-condensed)] text-4xl md:text-6xl font-extrabold uppercase text-white leading-tight mb-4">
-            PRONTO PARA REALIZAR SEU SONHO?
+          <h2
+            className="font-[family-name:var(--font-barlow-condensed)] font-extrabold uppercase text-white leading-tight mb-4"
+            style={{ fontSize: 'clamp(2.5rem, 6vw, 6rem)' }}
+          >
+            PRONTO PARA UMA<br />NOVA EXPERIÊNCIA?
           </h2>
-          <p className="text-white/70 text-base md:text-lg mb-10 max-w-md mx-auto leading-relaxed">
+          <p className="text-white/60 text-base md:text-lg mb-10 max-w-md mx-auto leading-relaxed">
             Fale agora com nossa equipe. Atendimento rápido, transparente e sem enrolação.
           </p>
           <a
             href={waHref}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-3 px-8 py-4 rounded-lg bg-white font-bold text-sm uppercase tracking-wider hover:bg-white/90 transition-colors"
+            className="inline-flex items-center gap-3 px-8 py-4 rounded-full bg-white font-bold text-sm uppercase tracking-wider hover:bg-white/90 transition-colors"
             style={{ color: '#1B3A6B' }}
           >
             <WaIcon size={18} />
             FALAR AGORA — {waDisplay}
           </a>
           {loja.endereco && (
-            <p className="mt-6 text-white/40 text-xs uppercase tracking-[0.15em]">
+            <p className="mt-6 text-white/30 text-xs uppercase tracking-[0.15em]">
               {loja.endereco}
             </p>
           )}

@@ -4,13 +4,11 @@ import type { NextRequest } from 'next/server'
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Só protege rotas admin que não sejam o login
-  if (pathname.startsWith('/admin') && pathname !== '/admin/login') {
-    const token = request.cookies.get('sb-access-token') ||
-                  request.cookies.get('sb-refresh-token') ||
-                  request.cookies.getAll().find(c => c.name.includes('auth-token'))
-
-    if (!token) {
+  if (pathname.startsWith('/admin') && !pathname.startsWith('/admin/login')) {
+    const hasCookie = request.cookies.getAll().some(c =>
+      c.name.includes('supabase') || c.name.includes('sb-')
+    )
+    if (!hasCookie) {
       return NextResponse.redirect(new URL('/admin/login', request.url))
     }
   }
