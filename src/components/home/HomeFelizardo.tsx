@@ -202,10 +202,8 @@ export default function HomeFelizardo({ loja, destaques, waHref, waDisplay, sobr
           <AnimatedSection className="mt-10 text-center">
             <Link
               href="/estoque"
-              className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full border-2 font-bold text-sm uppercase tracking-wider transition-all hover:text-white"
+              className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full border-2 font-bold text-sm uppercase tracking-wider transition-all hover:bg-[#2E6BE6] hover:text-white"
               style={{ borderColor: '#2E6BE6', color: '#2E6BE6' }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#2E6BE6')}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
             >
               VER TODO O ESTOQUE
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -252,10 +250,8 @@ export default function HomeFelizardo({ loja, destaques, waHref, waDisplay, sobr
             </p>
             <Link
               href="/sobre"
-              className="inline-flex items-center gap-2 px-6 py-3 rounded-full border-2 text-sm font-bold uppercase tracking-wider transition-all hover:text-white self-start"
+              className="inline-flex items-center gap-2 px-6 py-3 rounded-full border-2 text-sm font-bold uppercase tracking-wider transition-all hover:bg-[#2E6BE6] hover:text-white self-start"
               style={{ borderColor: '#2E6BE6', color: '#2E6BE6' }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#2E6BE6')}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
             >
               SAIBA MAIS
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
