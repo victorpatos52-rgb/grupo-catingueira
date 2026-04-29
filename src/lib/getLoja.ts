@@ -1,29 +1,36 @@
 import { headers } from 'next/headers'
 import { createServerSupabase } from './supabase-server'
-import type { Loja } from '@/types'
 
-export async function getLoja(): Promise<Loja | null> {
+export async function getLoja() {
   const headersList = await headers()
-  const host = headersList.get('host') ?? ''
 
-  const dominio = host.replace(/^www\./, '').replace(/:\d+$/, '')
+  // Tenta x-forwarded-host primeiro (Vercel), depois host
+  const host = headersList.get('x-forwarded-host') ||
+               headersList.get('host') ||
+               'localhost'
+
+  // Remove porta e www
+  const dominio = host.replace('www.', '').split(':')[0]
+
+  console.log('Domínio detectado:', dominio)
 
   const supabase = await createServerSupabase()
 
-  if (dominio === 'localhost' || dominio === '127.0.0.1') {
-    const { data } = await supabase
-      .from('lojas')
-      .select('*')
-      .eq('dominio', 'catingueira.com.br')
-      .single()
-    return data as Loja | null
-  }
-
-  const { data } = await supabase
+  const { data: loja } = await supabase
     .from('lojas')
     .select('*')
     .eq('dominio', dominio)
     .single()
 
-  return data as Loja | null
+  if (!loja) {
+    // Fallback: busca localhost
+    const { data: fallback } = await supabase
+      .from('lojas')
+      .select('*')
+      .eq('dominio', 'localhost')
+      .single()
+    return fallback
+  }
+
+  return loja
 }
