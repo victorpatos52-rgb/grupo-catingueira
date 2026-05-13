@@ -13,9 +13,9 @@ export default async function NovoVeiculoPage() {
   if (!user) redirect('/login')
 
   const { data: perfil } = await supabase
-    .from('usuario_perfis')
+    .from('usuarios_perfil')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('id', user.id)
     .single()
 
   if (!perfil) redirect('/login')

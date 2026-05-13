@@ -38,38 +38,38 @@ create policy "gerente atualiza própria loja"
   on lojas for update
   using (
     exists (
-      select 1 from usuario_perfis up
-      where up.user_id = auth.uid()
+      select 1 from usuarios_perfil up
+      where up.id = auth.uid()
         and up.loja_id = lojas.id
         and up.perfil in ('gerente', 'diretor', 'admin')
     )
   );
 
 -- ─────────────────────────────────────────────────────────────
--- USUARIO_PERFIS
+-- USUARIOS_PERFIL
+-- id IS the primary key AND the FK to auth.users (same UUID)
 -- ─────────────────────────────────────────────────────────────
-create table usuario_perfis (
-  id         uuid primary key default uuid_generate_v4(),
-  user_id    uuid not null references auth.users(id) on delete cascade,
+create table usuarios_perfil (
+  id         uuid primary key references auth.users(id) on delete cascade,
   loja_id    uuid not null references lojas(id) on delete cascade,
   perfil     text not null check (perfil in ('vendedor', 'gerente', 'diretor', 'admin')),
   nome       text not null,
-  created_at timestamptz not null default now(),
-  unique (user_id)
+  ativo      boolean not null default true,
+  created_at timestamptz not null default now()
 );
 
-alter table usuario_perfis enable row level security;
+alter table usuarios_perfil enable row level security;
 
 create policy "usuário lê próprio perfil"
-  on usuario_perfis for select
-  using (auth.uid() = user_id);
+  on usuarios_perfil for select
+  using (auth.uid() = id);
 
 create policy "diretor/admin gerencia perfis"
-  on usuario_perfis for all
+  on usuarios_perfil for all
   using (
     exists (
-      select 1 from usuario_perfis up
-      where up.user_id = auth.uid()
+      select 1 from usuarios_perfil up
+      where up.id = auth.uid()
         and up.perfil in ('diretor', 'admin')
     )
   );
@@ -109,25 +109,25 @@ create policy "público vê disponíveis"
 create policy "equipe lê todos da loja"
   on veiculos for select
   using (
-    exists (select 1 from usuario_perfis up where up.user_id = auth.uid() and up.loja_id = veiculos.loja_id)
+    exists (select 1 from usuarios_perfil up where up.id = auth.uid() and up.loja_id = veiculos.loja_id)
   );
 
 create policy "equipe insere veículos"
   on veiculos for insert
   with check (
-    exists (select 1 from usuario_perfis up where up.user_id = auth.uid() and up.loja_id = veiculos.loja_id)
+    exists (select 1 from usuarios_perfil up where up.id = auth.uid() and up.loja_id = veiculos.loja_id)
   );
 
 create policy "equipe atualiza veículos"
   on veiculos for update
   using (
-    exists (select 1 from usuario_perfis up where up.user_id = auth.uid() and up.loja_id = veiculos.loja_id)
+    exists (select 1 from usuarios_perfil up where up.id = auth.uid() and up.loja_id = veiculos.loja_id)
   );
 
 create policy "equipe deleta veículos"
   on veiculos for delete
   using (
-    exists (select 1 from usuario_perfis up where up.user_id = auth.uid() and up.loja_id = veiculos.loja_id)
+    exists (select 1 from usuarios_perfil up where up.id = auth.uid() and up.loja_id = veiculos.loja_id)
   );
 
 -- ─────────────────────────────────────────────────────────────
@@ -150,8 +150,8 @@ create policy "gerente acessa financeiro"
   on financeiro_veiculos for all
   using (
     exists (
-      select 1 from usuario_perfis up
-      where up.user_id = auth.uid()
+      select 1 from usuarios_perfil up
+      where up.id = auth.uid()
         and up.loja_id = financeiro_veiculos.loja_id
         and up.perfil in ('gerente', 'diretor', 'admin')
     )
@@ -182,7 +182,7 @@ create policy "público cria lead"
 create policy "equipe gerencia leads"
   on leads for all
   using (
-    exists (select 1 from usuario_perfis up where up.user_id = auth.uid() and up.loja_id = leads.loja_id)
+    exists (select 1 from usuarios_perfil up where up.id = auth.uid() and up.loja_id = leads.loja_id)
   );
 
 -- ─────────────────────────────────────────────────────────────

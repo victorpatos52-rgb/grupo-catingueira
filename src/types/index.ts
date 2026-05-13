@@ -78,10 +78,10 @@ export interface Lead {
 
 export interface UsuarioPerfil {
   id: string
-  user_id: string
   loja_id: string
   loja?: Loja | null
   perfil: Perfil
   nome: string
+  ativo: boolean
   created_at: string
 }

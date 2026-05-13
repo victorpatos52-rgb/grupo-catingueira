@@ -21,9 +21,9 @@ export default async function UsuariosPage() {
   if (!user) redirect('/login')
 
   const { data: perfilData } = await supabase
-    .from('usuario_perfis')
+    .from('usuarios_perfil')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('id', user.id)
     .single()
 
   const perfil = perfilData as UsuarioPerfil | null
@@ -39,7 +39,7 @@ export default async function UsuariosPage() {
   if (lojaIds.length > 0) {
     const admin = adminClient()
     const { data } = await admin
-      .from('usuario_perfis')
+      .from('usuarios_perfil')
       .select('*, loja:lojas(*)')
       .in('loja_id', lojaIds)
       .order('nome')

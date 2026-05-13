@@ -58,11 +58,11 @@ export default function UsuariosClient({ perfil, usuarios, lojas }: Props) {
     }
   }
 
-  async function handleDelete(perfilId: string, userId: string, nome: string) {
+  async function handleDelete(id: string, nome: string) {
     if (!confirm(`Remover o usuário "${nome}"? Esta ação não pode ser desfeita.`)) return
-    setDeleteLoading(perfilId)
+    setDeleteLoading(id)
     try {
-      await deleteUser(perfilId, userId)
+      await deleteUser(id)
       router.refresh()
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Erro ao remover usuário')
@@ -223,7 +223,7 @@ export default function UsuariosClient({ perfil, usuarios, lojas }: Props) {
                     <td className="px-4 py-3 text-white font-medium">{u.nome}</td>
                     <td className="px-4 py-3 text-[#888]">{u.loja?.nome ?? '—'}</td>
                     <td className="px-4 py-3">
-                      {u.user_id === perfil.user_id ? (
+                      {u.id === perfil.id ? (
                         <span
                           className={`text-xs px-2.5 py-1 rounded-full font-medium capitalize ${perfilBadge[u.perfil]}`}
                         >
@@ -245,9 +245,9 @@ export default function UsuariosClient({ perfil, usuarios, lojas }: Props) {
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      {u.user_id !== perfil.user_id && (
+                      {u.id !== perfil.id && (
                         <button
-                          onClick={() => handleDelete(u.id, u.user_id, u.nome)}
+                          onClick={() => handleDelete(u.id, u.nome)}
                           disabled={deleteLoading === u.id}
                           className="text-xs text-[#666] hover:text-red-400 px-2.5 py-1.5 rounded-md border border-[#2A2A2A] hover:border-red-400/30 transition-colors disabled:opacity-50"
                         >

@@ -49,7 +49,7 @@ export async function setLojaAtiva(lojaId: string) {
 export async function updateUserRole(perfilId: string, novoPerfil: Perfil) {
   const supabase = adminSupabase()
   const { error } = await supabase
-    .from('usuario_perfis')
+    .from('usuarios_perfil')
     .update({ perfil: novoPerfil })
     .eq('id', perfilId)
   if (error) throw new Error(error.message)
@@ -68,8 +68,8 @@ export async function inviteUser(
   if (inviteError || !inviteData.user) {
     throw new Error(inviteError?.message ?? 'Falha ao convidar usuário')
   }
-  const { error } = await supabase.from('usuario_perfis').insert({
-    user_id: inviteData.user.id,
+  const { error } = await supabase.from('usuarios_perfil').insert({
+    id: inviteData.user.id,
     loja_id: lojaId,
     perfil,
     nome,
@@ -78,10 +78,10 @@ export async function inviteUser(
   revalidatePath('/admin/usuarios')
 }
 
-export async function deleteUser(perfilId: string, userId: string) {
+export async function deleteUser(id: string) {
   const supabase = adminSupabase()
-  await supabase.from('usuario_perfis').delete().eq('id', perfilId)
-  await supabase.auth.admin.deleteUser(userId)
+  await supabase.from('usuarios_perfil').delete().eq('id', id)
+  await supabase.auth.admin.deleteUser(id)
   revalidatePath('/admin/usuarios')
 }
 

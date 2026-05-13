@@ -15,9 +15,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!user) redirect('/login')
 
   const { data: perfilData } = await supabase
-    .from('usuario_perfis')
+    .from('usuarios_perfil')
     .select('*, loja:lojas(*)')
-    .eq('user_id', user.id)
+    .eq('id', user.id)
     .single()
 
   const perfil = perfilData as (UsuarioPerfil & { loja: Loja | null }) | null

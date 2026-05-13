@@ -24,9 +24,9 @@ export default async function CrmPage({
   if (!user) redirect('/login')
 
   const { data: perfilData } = await supabase
-    .from('usuario_perfis')
+    .from('usuarios_perfil')
     .select('*, loja:lojas(*)')
-    .eq('user_id', user.id)
+    .eq('id', user.id)
     .single()
 
   if (!perfilData) redirect('/login')

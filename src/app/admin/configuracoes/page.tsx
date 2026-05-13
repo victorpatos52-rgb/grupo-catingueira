@@ -13,9 +13,9 @@ export default async function ConfiguracoesPage() {
   if (!user) redirect('/login')
 
   const { data: perfilData } = await supabase
-    .from('usuario_perfis')
+    .from('usuarios_perfil')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('id', user.id)
     .single()
 
   const perfil = perfilData as UsuarioPerfil | null
