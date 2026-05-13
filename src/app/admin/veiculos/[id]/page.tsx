@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation'
 import { createServerSupabase } from '@/lib/supabase-server'
 import { getLojaIdAtiva } from '@/lib/getLojaIdAtiva'
 import VeiculoForm from '@/components/admin/VeiculoForm'
+import MarcaVendidoButton from '@/components/admin/MarcaVendidoButton'
 import type { Veiculo, UsuarioPerfil } from '@/types'
 
 export default async function EditarVeiculoPage({
@@ -28,15 +29,20 @@ export default async function EditarVeiculoPage({
 
   const lojaId = await getLojaIdAtiva(perfil)
 
-  const { data } = await supabase
-    .from('veiculos')
-    .select('*')
-    .eq('id', id)
-    .eq('loja_id', lojaId)
-    .single()
+  const [{ data }, { data: vistoriaData }] = await Promise.all([
+    supabase.from('veiculos').select('*').eq('id', id).eq('loja_id', lojaId).single(),
+    supabase
+      .from('vistoria_veiculo')
+      .select('aprovado')
+      .eq('veiculo_id', id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ])
 
   if (!data) notFound()
   const veiculo = data as Veiculo
+  const vistoria = vistoriaData as { aprovado: boolean } | null
 
   return (
     <div className="p-6 md:p-8 max-w-4xl">
@@ -50,12 +56,59 @@ export default async function EditarVeiculoPage({
           </svg>
           Voltar
         </a>
-        <h1 className="font-[family-name:var(--font-barlow-condensed)] text-3xl font-black uppercase text-white">
-          Editar Veículo
-        </h1>
-        <p className="text-[#555] text-sm mt-1">
-          {veiculo.marca} {veiculo.modelo} {veiculo.ano}
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="font-[family-name:var(--font-barlow-condensed)] text-3xl font-black uppercase text-white">
+              Editar Veículo
+            </h1>
+            <p className="text-[#555] text-sm mt-1">
+              {veiculo.marca} {veiculo.modelo} {veiculo.ano}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Vistoria badge */}
+            <a
+              href={`/admin/veiculos/${id}/vistoria`}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                vistoria === null
+                  ? 'border-[#333] text-[#666] hover:border-[#444] hover:text-[#888]'
+                  : vistoria.aprovado
+                  ? 'border-green-600/40 text-green-400 bg-green-600/10'
+                  : 'border-yellow-600/40 text-yellow-400 bg-yellow-600/10'
+              }`}
+            >
+              {vistoria === null ? '⚠️ Vistoria pendente' : vistoria.aprovado ? '✅ Vistoria aprovada' : '❌ Vistoria reprovada'}
+            </a>
+            {/* PDF buttons */}
+            <a
+              href={`/api/pdf/ficha/${id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1A1A1A] border border-[#2A2A2A] text-[#888] text-xs font-medium hover:text-white hover:border-[#333] transition-colors"
+            >
+              📄 Ficha
+            </a>
+            <a
+              href={`/api/pdf/etiqueta/${id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1A1A1A] border border-[#2A2A2A] text-[#888] text-xs font-medium hover:text-white hover:border-[#333] transition-colors"
+            >
+              🏷️ Etiqueta
+            </a>
+            <a
+              href={`/api/pdf/contrato/${id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#1A1A1A] border border-[#2A2A2A] text-[#888] text-xs font-medium hover:text-white hover:border-[#333] transition-colors"
+            >
+              📋 Contrato
+            </a>
+            {veiculo.status !== 'vendido' && (
+              <MarcaVendidoButton veiculoId={id} />
+            )}
+          </div>
+        </div>
       </div>
       <VeiculoForm veiculo={veiculo} lojaId={lojaId} />
     </div>

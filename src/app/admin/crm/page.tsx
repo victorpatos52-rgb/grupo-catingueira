@@ -4,7 +4,17 @@ import { getLojaIdAtiva } from '@/lib/getLojaIdAtiva'
 import type { Lead, UsuarioPerfil, Loja } from '@/types'
 import CrmClient from './CrmClient'
 
-export default async function CrmPage() {
+interface SearchParams {
+  status?: string
+  origem?: string
+}
+
+export default async function CrmPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>
+}) {
+  const params = await searchParams
   const supabase = await createServerSupabase()
 
   const {
@@ -43,7 +53,8 @@ export default async function CrmPage() {
       leads={leads}
       vendedores={vendedores}
       lojaId={lojaId}
-      perfilAtual={perfil}
+      statusFilter={params.status ?? ''}
+      origemFilter={params.origem ?? ''}
     />
   )
 }

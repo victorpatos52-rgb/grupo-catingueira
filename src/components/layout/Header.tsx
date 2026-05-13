@@ -92,33 +92,18 @@ export default function Header() {
           </Link>
 
           <nav className="hidden md:flex items-center gap-7" aria-label="Navegação principal">
-            {NAV.map(({ label, href, external }) =>
-              external ? (
-                <a
-                  key={label}
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-semibold text-xs uppercase tracking-[0.12em] text-[#3D3D3D] transition-colors"
-                  style={{ ['--hover-color' as string]: 'var(--cor-primaria)' }}
-                  onMouseEnter={e => (e.currentTarget.style.color = 'var(--cor-primaria)')}
-                  onMouseLeave={e => (e.currentTarget.style.color = '')}
-                >
-                  {label}
-                </a>
-              ) : (
-                <Link
-                  key={label}
-                  href={href}
-                  className="font-semibold text-xs uppercase tracking-[0.12em] transition-colors"
-                  style={{ color: pathname === href ? 'var(--cor-primaria)' : '#3D3D3D' }}
-                  onMouseEnter={e => (e.currentTarget.style.color = 'var(--cor-primaria)')}
-                  onMouseLeave={e => { if (pathname !== href) e.currentTarget.style.color = '#3D3D3D' }}
-                >
-                  {label}
-                </Link>
-              )
-            )}
+            {NAV.map(({ label, href }) => (
+              <Link
+                key={label}
+                href={href}
+                className="font-semibold text-xs uppercase tracking-[0.12em] transition-colors"
+                style={{ color: pathname === href ? 'var(--cor-primaria)' : '#3D3D3D' }}
+                onMouseEnter={e => (e.currentTarget.style.color = 'var(--cor-primaria)')}
+                onMouseLeave={e => { if (pathname !== href) e.currentTarget.style.color = '#3D3D3D' }}
+              >
+                {label}
+              </Link>
+            ))}
           </nav>
 
           <a
@@ -148,28 +133,16 @@ export default function Header() {
           style={{ paddingTop: '70px' }}
         >
           <nav className="flex flex-col px-6 pt-8 gap-5" aria-label="Menu mobile">
-            {NAV.map(({ label, href, external }) =>
-              external ? (
-                <a
-                  key={label}
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-[family-name:var(--font-barlow-condensed)] text-3xl font-extrabold uppercase text-[#CCCCCC] hover:text-[#1A1A1A] transition-colors"
-                >
-                  {label}
-                </a>
-              ) : (
-                <Link
-                  key={label}
-                  href={href}
-                  className="font-[family-name:var(--font-barlow-condensed)] text-3xl font-extrabold uppercase transition-colors"
-                  style={{ color: pathname === href ? 'var(--cor-primaria)' : '#CCCCCC' }}
-                >
-                  {label}
-                </Link>
-              )
-            )}
+            {NAV.map(({ label, href }) => (
+              <Link
+                key={label}
+                href={href}
+                className="font-[family-name:var(--font-barlow-condensed)] text-3xl font-extrabold uppercase transition-colors"
+                style={{ color: pathname === href ? 'var(--cor-primaria)' : '#CCCCCC' }}
+              >
+                {label}
+              </Link>
+            ))}
           </nav>
           <div className="mt-auto px-6 pb-10 pt-10">
             <a

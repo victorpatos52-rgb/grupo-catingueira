@@ -118,9 +118,9 @@ function KanbanColumn({
         }`}
         style={{
           backgroundColor: '#111',
-          border: '1px solid #1E1E1E',
-          ringColor: coluna.cor,
-          outline: isOver ? `1px solid ${coluna.cor}` : undefined,
+          border: isOver ? `1px solid ${coluna.cor}` : '1px solid #1E1E1E',
+          outline: isOver ? `2px solid ${coluna.cor}` : undefined,
+          outlineOffset: '-1px',
         }}
       >
         {leads.map(lead => (

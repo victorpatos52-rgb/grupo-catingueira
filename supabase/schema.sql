@@ -161,17 +161,22 @@ create policy "gerente acessa financeiro"
 -- LEADS
 -- ─────────────────────────────────────────────────────────────
 create table leads (
-  id          uuid primary key default uuid_generate_v4(),
-  loja_id     uuid not null references lojas(id) on delete cascade,
-  nome        text not null,
-  telefone    text not null,
-  veiculo_id  uuid references veiculos(id) on delete set null,
-  origem      text not null default 'site'
-                check (origem in ('site','whatsapp','instagram','indicacao','outros')),
-  status      text not null default 'novo'
-                check (status in ('novo','contato_feito','negociando','fechado','perdido')),
-  observacoes text,
-  created_at  timestamptz not null default now()
+  id                 uuid primary key default uuid_generate_v4(),
+  loja_id            uuid not null references lojas(id) on delete cascade,
+  nome               text not null,
+  telefone           text not null,
+  email              text,
+  veiculo_id         uuid references veiculos(id) on delete set null,
+  veiculo_interesse  text,
+  responsavel_id     uuid references auth.users(id) on delete set null,
+  tags               text[] not null default '{}',
+  origem             text not null default 'site'
+                       check (origem in ('site','whatsapp','instagram','indicacao','outros')),
+  status             text not null default 'novo'
+                       check (status in ('novo','contato_feito','negociando','fechado','perdido')),
+  observacoes        text,
+  data_contato       timestamptz,
+  created_at         timestamptz not null default now()
 );
 
 alter table leads enable row level security;
@@ -183,6 +188,90 @@ create policy "equipe gerencia leads"
   on leads for all
   using (
     exists (select 1 from usuarios_perfil up where up.id = auth.uid() and up.loja_id = leads.loja_id)
+  );
+
+-- ─────────────────────────────────────────────────────────────
+-- LEAD_INTERACOES
+-- ─────────────────────────────────────────────────────────────
+create table lead_interacoes (
+  id          uuid primary key default uuid_generate_v4(),
+  lead_id     uuid not null references leads(id) on delete cascade,
+  loja_id     uuid not null references lojas(id) on delete cascade,
+  usuario_id  uuid references auth.users(id) on delete set null,
+  tipo        text not null check (tipo in ('ligacao','whatsapp','visita','email','observacao','status')),
+  descricao   text not null,
+  created_at  timestamptz not null default now()
+);
+
+alter table lead_interacoes enable row level security;
+
+create policy "equipe gerencia interações"
+  on lead_interacoes for all
+  using (
+    exists (select 1 from usuarios_perfil up where up.id = auth.uid() and up.loja_id = lead_interacoes.loja_id)
+  );
+
+-- ─────────────────────────────────────────────────────────────
+-- MENSAGENS_PADRAO
+-- ─────────────────────────────────────────────────────────────
+create table mensagens_padrao (
+  id         uuid primary key default uuid_generate_v4(),
+  loja_id    uuid not null references lojas(id) on delete cascade,
+  titulo     text not null,
+  mensagem   text not null,
+  created_at timestamptz not null default now()
+);
+
+alter table mensagens_padrao enable row level security;
+
+create policy "equipe gerencia mensagens padrão"
+  on mensagens_padrao for all
+  using (
+    exists (select 1 from usuarios_perfil up where up.id = auth.uid() and up.loja_id = mensagens_padrao.loja_id)
+  );
+
+-- ─────────────────────────────────────────────────────────────
+-- LEMBRETES
+-- ─────────────────────────────────────────────────────────────
+create table lembretes (
+  id              uuid primary key default uuid_generate_v4(),
+  loja_id         uuid not null references lojas(id) on delete cascade,
+  veiculo_id      uuid references veiculos(id) on delete cascade,
+  lead_id         uuid references leads(id) on delete cascade,
+  titulo          text not null,
+  descricao       text,
+  data_lembrete   date not null,
+  concluido       boolean not null default false,
+  created_at      timestamptz not null default now()
+);
+
+alter table lembretes enable row level security;
+
+create policy "equipe gerencia lembretes"
+  on lembretes for all
+  using (
+    exists (select 1 from usuarios_perfil up where up.id = auth.uid() and up.loja_id = lembretes.loja_id)
+  );
+
+-- ─────────────────────────────────────────────────────────────
+-- VISTORIA_VEICULO
+-- ─────────────────────────────────────────────────────────────
+create table vistoria_veiculo (
+  id          uuid primary key default uuid_generate_v4(),
+  veiculo_id  uuid not null references veiculos(id) on delete cascade,
+  loja_id     uuid not null references lojas(id) on delete cascade,
+  itens       jsonb not null default '{}',
+  observacoes text,
+  aprovado    boolean not null default true,
+  created_at  timestamptz not null default now()
+);
+
+alter table vistoria_veiculo enable row level security;
+
+create policy "equipe gerencia vistorias"
+  on vistoria_veiculo for all
+  using (
+    exists (select 1 from usuarios_perfil up where up.id = auth.uid() and up.loja_id = vistoria_veiculo.loja_id)
   );
 
 -- ─────────────────────────────────────────────────────────────
@@ -199,6 +288,10 @@ values
 --   Nome: veiculos-fotos
 --   Público: sim (enable public access)
 --
--- Política de upload autenticado:
---   Authenticated users podem INSERT e DELETE em veiculos-fotos
+-- Políticas de upload (authenticated users):
 -- ─────────────────────────────────────────────────────────────
+-- INSERT policy:
+-- bucket_id = 'veiculos-fotos' AND auth.role() = 'authenticated'
+--
+-- DELETE policy:
+-- bucket_id = 'veiculos-fotos' AND auth.uid() = owner::uuid
