@@ -15,10 +15,14 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>
 
+const inputCls =
+  'w-full bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl px-4 py-3 text-[#111] text-sm ' +
+  'placeholder-[#D1D5DB] focus:outline-none focus:border-[#F5C842] focus:ring-2 focus:ring-[#FEF9C3] transition-all'
+
 export default function LoginPage() {
-  const router = useRouter()
-  const loja = useLoja()
-  const [erro, setErro] = useState('')
+  const router    = useRouter()
+  const loja      = useLoja()
+  const [erro, setErro]           = useState('')
   const [carregando, setCarregando] = useState(false)
 
   const {
@@ -47,87 +51,106 @@ export default function LoginPage() {
     router.refresh()
   }
 
-  const corPrimaria = loja?.cor_primaria ?? '#F5C842'
-
   return (
-    <div className="min-h-screen bg-[#0D0D0D] flex items-center justify-center px-4">
+    <div className="min-h-screen bg-[#F9FAFB] flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <span
-            className="font-[family-name:var(--font-barlow-condensed)] text-3xl font-extrabold italic uppercase leading-none"
-            style={{ color: '#F5C200' }}
+
+        {/* Card */}
+        <div className="bg-white border border-[#E5E7EB] rounded-2xl shadow-sm overflow-hidden">
+
+          {/* Topo amarelo */}
+          <div
+            className="px-8 pt-8 pb-6 flex flex-col items-center text-center"
+            style={{ borderBottom: '1px solid #E5E7EB' }}
           >
-            CATINGUEIRA
-          </span>
-          <span className="block text-white text-[10px] font-semibold tracking-[0.3em] -mt-0.5 mb-5">
-            MULTIMARCAS
-          </span>
-          <h1 className="font-[family-name:var(--font-barlow-condensed)] text-xl font-black uppercase text-white tracking-widest">
-            ACESSO RESTRITO
-          </h1>
-          <p className="text-[#666] text-xs mt-1 uppercase tracking-wider">Entre com suas credenciais</p>
+            {/* Logo */}
+            {loja?.logo_url ? (
+              <img
+                src={loja.logo_url}
+                alt={loja.nome}
+                className="h-12 object-contain mb-4"
+              />
+            ) : (
+              <div
+                className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4 shadow-sm"
+                style={{ background: 'linear-gradient(135deg, #F5C842 0%, #F59E0B 100%)' }}
+              >
+                <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                  <path strokeLinecap="round" strokeLinejoin="round"
+                    d="M5 17H3v-4l2.5-5h11L19 13v4h-2m-10 0a2 2 0 104 0 2 2 0 00-4 0zm8 0a2 2 0 104 0 2 2 0 00-4 0z" />
+                </svg>
+              </div>
+            )}
+
+            <h1 className="font-[family-name:var(--font-barlow-condensed)] text-2xl font-black uppercase tracking-wide text-[#111] leading-tight">
+              {loja?.nome ?? 'Grupo Catingueira'}
+            </h1>
+            <p className="text-[#9CA3AF] text-xs mt-1 tracking-wide">Acesso ao painel administrativo</p>
+          </div>
+
+          {/* Formulário */}
+          <form onSubmit={handleSubmit(onSubmit)} className="px-8 py-7 flex flex-col gap-4">
+
+            <div>
+              <label className="block text-[#6B7280] text-xs font-semibold uppercase tracking-wider mb-1.5">
+                Email
+              </label>
+              <input
+                type="email"
+                autoComplete="email"
+                placeholder="seu@email.com"
+                {...register('email')}
+                className={inputCls}
+              />
+              {errors.email && (
+                <p className="text-red-500 text-xs mt-1.5">{errors.email.message}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-[#6B7280] text-xs font-semibold uppercase tracking-wider mb-1.5">
+                Senha
+              </label>
+              <input
+                type="password"
+                autoComplete="current-password"
+                placeholder="••••••••"
+                {...register('senha')}
+                className={inputCls}
+              />
+              {errors.senha && (
+                <p className="text-red-500 text-xs mt-1.5">{errors.senha.message}</p>
+              )}
+            </div>
+
+            {erro && (
+              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">
+                <p className="text-red-600 text-sm text-center">{erro}</p>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={carregando}
+              className="w-full py-3 rounded-xl font-bold text-sm uppercase tracking-wider text-[#111] transition-all hover:brightness-95 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed mt-1"
+              style={{ backgroundColor: '#F5C842' }}
+            >
+              {carregando ? 'Entrando...' : 'Entrar'}
+            </button>
+
+          </form>
         </div>
 
-        <form
-          onSubmit={handleSubmit(onSubmit)}
-          className="bg-[#111] border border-[#1E1E1E] rounded-2xl p-6 flex flex-col gap-4"
-        >
-          <div>
-            <label className="block text-xs text-[#888] uppercase tracking-wider mb-1.5">
-              Email
-            </label>
-            <input
-              type="email"
-              autoComplete="email"
-              {...register('email')}
-              className="w-full bg-[#0D0D0D] border border-[#333] rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-[#F5C200] transition-colors"
-              placeholder="seu@email.com"
-            />
-            {errors.email && (
-              <p className="text-red-400 text-xs mt-1">{errors.email.message}</p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-xs text-[#888] uppercase tracking-wider mb-1.5">
-              Senha
-            </label>
-            <input
-              type="password"
-              autoComplete="current-password"
-              {...register('senha')}
-              className="w-full bg-[#0D0D0D] border border-[#333] rounded-lg px-4 py-3 text-white text-sm focus:outline-none focus:border-[#F5C200] transition-colors"
-              placeholder="••••••••"
-            />
-            {errors.senha && (
-              <p className="text-red-400 text-xs mt-1">{errors.senha.message}</p>
-            )}
-          </div>
-
-          {erro && (
-            <p className="text-red-400 text-sm text-center bg-red-400/10 rounded-lg px-4 py-2">
-              {erro}
-            </p>
-          )}
-
-          <button
-            type="submit"
-            disabled={carregando}
-            className="w-full py-3 rounded-lg font-black text-sm uppercase tracking-wider text-[#1A1A1A] transition-all hover:brightness-90 disabled:opacity-50 disabled:cursor-not-allowed mt-1"
-            style={{ backgroundColor: '#F5C200' }}
-          >
-            {carregando ? 'Entrando...' : 'Entrar'}
-          </button>
-        </form>
-
-        <p className="text-center mt-6">
+        {/* Voltar ao site */}
+        <p className="text-center mt-5">
           <a
             href="/"
-            className="text-[#555] hover:text-white text-xs transition-colors"
+            className="text-[#9CA3AF] hover:text-[#374151] text-xs transition-colors"
           >
             ← Voltar ao site
           </a>
         </p>
+
       </div>
     </div>
   )

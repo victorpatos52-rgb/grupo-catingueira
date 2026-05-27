@@ -12,47 +12,93 @@ function adminClient() {
   )
 }
 
+const PERFIL_SELECT = 'id, nome, perfil, loja_id, ativo, modulos_permitidos, created_at'
+
 export default async function UsuariosPage() {
   const supabase = await createServerSupabase()
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: perfilData } = await supabase
-    .from('usuarios_perfil')
-    .select('*')
-    .eq('id', user.id)
-    .single()
-
-  const perfil = perfilData as UsuarioPerfil | null
-  if (!perfil) redirect('/login')
-  if (!['diretor', 'admin'].includes(perfil.perfil)) redirect('/admin/dashboard')
-
-  const { data: lojasData } = await supabase.from('lojas').select('*').order('nome')
-  const lojas = (lojasData ?? []) as Loja[]
-
   const admin = adminClient()
 
-  const lojaIds = lojas.map(l => l.id)
-  let usuariosPerfil: (UsuarioPerfil & { loja: Loja | null })[] = []
-
-  if (lojaIds.length > 0) {
-    const { data } = await admin
+  try {
+    // ── Perfil do usuário logado ─────────────────────────────────────────────
+    const { data: perfilData, error: perfilError } = await admin
       .from('usuarios_perfil')
-      .select('*, loja:lojas(*)')
-      .in('loja_id', lojaIds)
+      .select(PERFIL_SELECT)
+      .eq('id', user.id)
+      .single()
+
+    if (perfilError) {
+      console.error('[UsuariosPage] Erro ao buscar perfil:', perfilError.message, perfilError.details)
+      redirect('/login')
+    }
+    if (!perfilData) redirect('/login')
+
+    const perfil: UsuarioPerfil = {
+      ...(perfilData as UsuarioPerfil),
+      modulos_permitidos: (perfilData as UsuarioPerfil).modulos_permitidos ?? [],
+    }
+
+    if (!['diretor', 'admin'].includes(perfil.perfil)) redirect('/admin/dashboard')
+
+    // ── Lojas (admin vê todas) ───────────────────────────────────────────────
+    const { data: lojasData, error: lojasError } = await admin
+      .from('lojas')
+      .select('*')
       .order('nome')
-    usuariosPerfil = (data ?? []) as (UsuarioPerfil & { loja: Loja | null })[]
+
+    if (lojasError) {
+      console.error('[UsuariosPage] Erro ao buscar lojas:', lojasError.message)
+    }
+    const lojas = (lojasData ?? []) as Loja[]
+
+    // ── Usuários de todas as lojas ───────────────────────────────────────────
+    const lojaIds = lojas.map(l => l.id)
+    let usuariosPerfil: (UsuarioPerfil & { loja: Loja | null })[] = []
+
+    if (lojaIds.length > 0) {
+      const { data, error } = await admin
+        .from('usuarios_perfil')
+        .select(`${PERFIL_SELECT}, loja:lojas(*)`)
+        .in('loja_id', lojaIds)
+        .order('nome')
+
+      if (error) {
+        console.error('[UsuariosPage] Erro ao buscar usuarios_perfil:', error.message, error.details)
+        throw new Error(`Falha ao carregar lista de usuários: ${error.message}`)
+      }
+
+      // Cast via unknown: PostgREST tipifica loja como any[] no tipo inferido
+      usuariosPerfil = ((data ?? []) as unknown as (UsuarioPerfil & { loja: Loja | null })[]).map(u => ({
+        ...u,
+        modulos_permitidos: u.modulos_permitidos ?? [],
+      }))
+    }
+
+    // ── Emails do Auth ───────────────────────────────────────────────────────
+    const { data: authData, error: authError } = await admin.auth.admin.listUsers({ perPage: 1000 })
+
+    if (authError) {
+      console.error('[UsuariosPage] Erro ao listar auth users:', authError.message)
+    }
+
+    const emailMap: Record<string, string> = {}
+    for (const u of authData?.users ?? []) {
+      emailMap[u.id] = u.email ?? ''
+    }
+
+    const usuarios = usuariosPerfil.map(u => ({
+      ...u,
+      email: emailMap[u.id] ?? '',
+    }))
+
+    return <UsuariosClient perfil={perfil} usuarios={usuarios} lojas={lojas} />
+
+  } catch (err) {
+    // Loga o erro real antes de propagar — no Vercel aparece em Functions logs
+    console.error('[UsuariosPage] Erro não tratado:', err)
+    throw err
   }
-
-  // Merge emails from auth.users
-  const { data: authData } = await admin.auth.admin.listUsers({ perPage: 1000 })
-  const emailMap: Record<string, string> = {}
-  for (const u of authData?.users ?? []) {
-    emailMap[u.id] = u.email ?? ''
-  }
-
-  const usuarios = usuariosPerfil.map(u => ({ ...u, email: emailMap[u.id] ?? '' }))
-
-  return <UsuariosClient perfil={perfil} usuarios={usuarios} lojas={lojas} />
 }

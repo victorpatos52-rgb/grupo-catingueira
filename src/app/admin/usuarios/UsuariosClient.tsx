@@ -48,7 +48,11 @@ const MODULOS_POR_PERFIL: Record<Perfil, Modulo[]> = {
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
 
-type UsuarioComEmail = UsuarioPerfil & { loja: Loja | null; email: string }
+type UsuarioComEmail = UsuarioPerfil & {
+  loja: Loja | null
+  email: string
+  modulos_permitidos: string[]  // explícito: normalizado para [] em page.tsx antes de serializar
+}
 
 interface Props {
   perfil: UsuarioPerfil
