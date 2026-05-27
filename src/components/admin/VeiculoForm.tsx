@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase'
+import { criarVeiculo, atualizarVeiculo } from '@/app/actions'
 import type { Veiculo } from '@/types'
 
 const OPCIONAIS_LISTA = [
@@ -126,31 +127,39 @@ export default function VeiculoForm({ veiculo, lojaId }: VeiculoFormProps) {
   async function onSubmit(data: FormData) {
     setSalvando(true)
     setErro('')
-    const supabase = createClient()
 
     const payload = {
       loja_id: lojaId,
-      ...data,
+      marca: data.marca,
+      modelo: data.modelo,
       versao: data.versao || null,
+      ano: data.ano,
+      cor: data.cor,
+      km: data.km,
+      combustivel: data.combustivel,
+      cambio: data.cambio,
+      preco: data.preco,
       placa: data.placa || null,
       descricao: data.descricao || null,
+      status: data.status,
+      destaque: data.destaque,
+      data_aquisicao: data.data_aquisicao,
       fotos,
       opcionais,
     }
 
-    if (veiculo) {
-      const { error } = await supabase
-        .from('veiculos')
-        .update(payload)
-        .eq('id', veiculo.id)
-      if (error) { setErro(error.message); setSalvando(false); return }
-    } else {
-      const { error } = await supabase.from('veiculos').insert(payload)
-      if (error) { setErro(error.message); setSalvando(false); return }
+    try {
+      if (veiculo) {
+        await atualizarVeiculo(veiculo.id, payload)
+      } else {
+        await criarVeiculo(payload)
+      }
+      router.push('/admin/veiculos')
+      router.refresh()
+    } catch (err: unknown) {
+      setErro(err instanceof Error ? err.message : 'Erro ao salvar veículo')
+      setSalvando(false)
     }
-
-    router.push('/admin/veiculos')
-    router.refresh()
   }
 
   const inputClass =

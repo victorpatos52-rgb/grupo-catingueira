@@ -4,7 +4,7 @@ import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
-import type { Perfil, TipoInteracao } from '@/types'
+import type { Perfil, TipoInteracao, Veiculo } from '@/types'
 
 function adminSupabase() {
   return createClient(
@@ -403,6 +403,34 @@ export async function submitContatoLead(
     tipo: 'site',
     descricao: 'Lead gerado pelo formulário de contato do site.',
   })
+}
+
+// ─── VEÍCULO CRUD (bypassa RLS via service role) ──────────────────────────────
+
+export async function criarVeiculo(payload: Omit<Veiculo, 'id' | 'created_at'>) {
+  const supabase = adminSupabase()
+  const { data, error } = await supabase
+    .from('veiculos')
+    .insert(payload)
+    .select('id')
+    .single()
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/veiculos')
+  return { id: (data as { id: string }).id }
+}
+
+export async function atualizarVeiculo(
+  veiculoId: string,
+  payload: Omit<Veiculo, 'id' | 'created_at'>
+) {
+  const supabase = adminSupabase()
+  const { error } = await supabase
+    .from('veiculos')
+    .update(payload)
+    .eq('id', veiculoId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/veiculos')
+  revalidatePath('/admin/veiculos/' + veiculoId)
 }
 
 // ─── VISTORIA ─────────────────────────────────────────────────────────────────
