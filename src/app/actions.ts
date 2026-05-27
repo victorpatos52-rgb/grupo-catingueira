@@ -59,6 +59,7 @@ export async function criarUsuario(data: {
   nome: string
   perfil: string
   loja_id: string
+  modulos_permitidos: string[]
 }) {
   const supabase = adminSupabase()
   const { data: userData, error } = await supabase.auth.admin.createUser({
@@ -75,6 +76,7 @@ export async function criarUsuario(data: {
     nome: data.nome,
     perfil: data.perfil,
     ativo: true,
+    modulos_permitidos: data.modulos_permitidos,
   })
   if (perfilError) {
     await supabase.auth.admin.deleteUser(userData.user.id)
@@ -94,7 +96,7 @@ export async function resetarSenha(userId: string) {
 
 export async function atualizarUsuario(
   id: string,
-  data: { nome: string; perfil: Perfil; loja_id: string; ativo: boolean }
+  data: { nome: string; perfil: Perfil; loja_id: string; ativo: boolean; modulos_permitidos: string[] }
 ) {
   const supabase = adminSupabase()
   const { error } = await supabase.from('usuarios_perfil').update(data).eq('id', id)

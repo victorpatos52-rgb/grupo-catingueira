@@ -102,6 +102,7 @@ export interface UsuarioPerfil {
   nome: string
   email?: string
   ativo: boolean
+  modulos_permitidos: string[]
   created_at: string
 }
 
