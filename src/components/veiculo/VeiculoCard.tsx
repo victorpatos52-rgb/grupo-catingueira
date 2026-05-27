@@ -78,9 +78,12 @@ export default function VeiculoCard({ veiculo, loja, delay = 0 }: VeiculoCardPro
 
       <div className="flex flex-col flex-1 p-4 gap-3">
         <div>
+          <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: 'var(--cor-primaria)' }}>
+            {veiculo.marca}
+          </p>
           <Link href={`/veiculo/${veiculo.id}`}>
             <h3 className="font-[family-name:var(--font-barlow-condensed)] text-lg font-bold uppercase text-[#1A1A1A] leading-tight hover:text-[#3D3D3D] transition-colors">
-              {veiculo.marca} {veiculo.modelo}
+              {veiculo.modelo}
             </h3>
           </Link>
           {veiculo.versao && (

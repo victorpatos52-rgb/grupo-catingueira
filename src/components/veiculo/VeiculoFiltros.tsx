@@ -10,7 +10,7 @@ const MARCAS = [
 ]
 
 const inputClass =
-  'w-full bg-white border border-[#E5E5E5] rounded-lg px-3 py-2.5 text-sm text-[#1A1A1A] placeholder-[#AAA] focus:outline-none focus:border-[#F5C200] transition-colors'
+  'w-full bg-white border border-[#E5E5E5] rounded-lg px-3 py-2.5 text-sm text-[#1A1A1A] placeholder-[#AAA] focus:outline-none focus:border-[var(--cor-primaria)] transition-colors'
 
 const labelClass =
   'block text-[10px] font-bold uppercase tracking-[0.15em] text-[#888] mb-1.5'
@@ -50,10 +50,10 @@ export default function VeiculoFiltros() {
         className="md:hidden w-full flex items-center justify-between px-4 py-3 rounded-lg bg-white shadow-sm border border-[#E5E5E5] mb-3"
       >
         <span className="flex items-center gap-2 font-semibold text-sm text-[#1A1A1A]">
-          <Sliders className="w-4 h-4" style={{ color: '#F5C200' }} />
+          <Sliders className="w-4 h-4" style={{ color: 'var(--cor-primaria)' }} />
           Filtros
           {temFiltros && (
-            <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: '#F5C200' }} />
+            <span className="w-2 h-2 rounded-full inline-block" style={{ backgroundColor: 'var(--cor-primaria)' }} />
           )}
         </span>
         <svg
@@ -67,10 +67,10 @@ export default function VeiculoFiltros() {
       {/* Sidebar panel */}
       <div
         className={`${aberto ? 'block' : 'hidden'} md:block bg-white rounded-xl shadow-md p-5 flex flex-col gap-5`}
-        style={{ borderTop: '3px solid #F5C200' }}
+        style={{ borderTop: '3px solid var(--cor-primaria)' }}
       >
         <p className="font-[family-name:var(--font-barlow-condensed)] text-sm font-bold uppercase tracking-[0.15em] text-[#1A1A1A] flex items-center gap-2">
-          <Sliders className="w-4 h-4" style={{ color: '#F5C200' }} />
+          <Sliders className="w-4 h-4" style={{ color: 'var(--cor-primaria)' }} />
           Filtros
         </p>
 

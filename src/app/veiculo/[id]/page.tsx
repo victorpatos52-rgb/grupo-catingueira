@@ -5,7 +5,7 @@ import { getLoja } from '@/lib/getLoja'
 import BotaoWhatsApp from '@/components/ui/BotaoWhatsApp'
 import VeiculoCard from '@/components/veiculo/VeiculoCard'
 import GaleriaClient from './GaleriaClient'
-import { formatarPreco, formatarKm, calcularDiasEstoque } from '@/lib/utils'
+import { formatarPreco, formatarKm } from '@/lib/utils'
 import type { Veiculo } from '@/types'
 
 export default async function VeiculoPage({
@@ -41,8 +41,6 @@ export default async function VeiculoPage({
   }
 
   const badge = statusLabel[veiculo.status] ?? statusLabel.disponivel
-  const diasEstoque = calcularDiasEstoque(veiculo.data_aquisicao)
-
   const specs = [
     { label: 'Ano', value: String(veiculo.ano) },
     { label: 'Quilometragem', value: formatarKm(veiculo.km) },
@@ -50,7 +48,6 @@ export default async function VeiculoPage({
     { label: 'Combustível', value: veiculo.combustivel },
     { label: 'Cor', value: veiculo.cor },
     ...(veiculo.versao ? [{ label: 'Versão', value: veiculo.versao }] : []),
-    { label: 'No estoque há', value: `${diasEstoque} dias` },
   ]
 
   const waMsg = `Olá! Tenho interesse no ${veiculo.marca} ${veiculo.modelo} ${veiculo.ano} — ${formatarPreco(veiculo.preco)}`

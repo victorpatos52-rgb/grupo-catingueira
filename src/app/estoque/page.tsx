@@ -73,14 +73,14 @@ export default async function EstoquePage({
         <div className="max-w-7xl mx-auto">
           <p
             className="font-[family-name:var(--font-barlow-condensed)] text-xs font-bold uppercase tracking-[0.3em] mb-2"
-            style={{ color: '#F5C200' }}
+            style={{ color: 'var(--cor-primaria)' }}
           >
-            CATINGUEIRA MULTIMARCAS
+            {loja?.nome?.toUpperCase() ?? 'NOSSO ESTOQUE'}
           </p>
           <h1 className="font-[family-name:var(--font-barlow-condensed)] text-4xl md:text-5xl font-black uppercase text-[#1A1A1A] leading-none">
             NOSSO ESTOQUE
           </h1>
-          <div className="w-14 h-[3px] mt-3 mb-3" style={{ backgroundColor: '#F5C200' }} />
+          <div className="w-14 h-[3px] mt-3 mb-3" style={{ backgroundColor: 'var(--cor-primaria)' }} />
           <p className="text-[#888] text-sm">
             {veiculos.length} {veiculos.length === 1 ? 'veículo disponível' : 'veículos disponíveis'}
           </p>
@@ -101,7 +101,7 @@ export default async function EstoquePage({
           <div className="flex-1 min-w-0">
             {veiculos.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-24 text-center">
-                <Car className="w-16 h-16 mb-4" style={{ color: '#F5C200' }} />
+                <Car className="w-16 h-16 mb-4" style={{ color: 'var(--cor-primaria)' }} />
                 <p className="text-[#1A1A1A] font-[family-name:var(--font-barlow-condensed)] text-xl font-bold uppercase mb-2">
                   Nenhum veículo encontrado
                 </p>
@@ -111,7 +111,7 @@ export default async function EstoquePage({
                 <a
                   href="/estoque"
                   className="inline-flex items-center px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest text-[#1A1A1A] hover:brightness-90 transition-all"
-                  style={{ backgroundColor: '#F5C200' }}
+                  style={{ backgroundColor: 'var(--cor-primaria)' }}
                 >
                   Limpar filtros
                 </a>
