@@ -38,7 +38,13 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   // Admin client garante que todas as lojas são retornadas, sem depender de RLS
   const { data: lojasData } = await admin.from('lojas').select('*').order('nome')
-  const todasLojas = (lojasData ?? []) as Loja[]
+  // Deduplica por id: proteção contra seeds duplicados (cada id aparece uma só vez)
+  const seenIds = new Set<string>()
+  const todasLojas = ((lojasData ?? []) as Loja[]).filter(l => {
+    if (seenIds.has(l.id)) return false
+    seenIds.add(l.id)
+    return true
+  })
 
   // Vendedor/gerente só enxerga a própria loja; admin/diretor enxerga todas
   const lojas: Loja[] =
