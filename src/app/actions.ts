@@ -313,7 +313,6 @@ export async function saveAquisicao(
         veiculo_id: veiculoId,
         loja_id: lojaId,
         custo_aquisicao: custoAquisicao,
-        custos_adicionais: [],
       })
       if (error) throw new Error(error.message)
     }
@@ -389,7 +388,6 @@ export async function saveValorVenda(
         veiculo_id: veiculoId,
         loja_id: lojaId,
         custo_aquisicao: 0,
-        custos_adicionais: [],
         preco_venda: valor,
         data_venda: hoje,
       })

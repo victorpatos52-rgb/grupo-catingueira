@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import fs from 'fs'
+import path from 'path'
 
 function adminSupabase() {
   return createClient(
@@ -117,15 +119,28 @@ export async function GET(
 
   const enderecoLoja = [loja.endereco, loja.cidade, loja.estado].filter(Boolean).join(' — ')
 
-  // ── Logo ou placa de texto ──────────────────────────────────────────────────
-  console.log('logo_url:', loja.logo_url)
-  const logoHtml = loja.logo_url
-    ? `<img src="${loja.logo_url}" alt="${loja.nome}" crossorigin="anonymous" style="max-height:80px;max-width:280px;display:block;margin:0 auto;object-fit:contain"/>`
-    : `<div style="display:inline-block;border:3px solid #000;padding:4px">
-         <div style="border:1px solid #000;padding:10px 32px;font-size:24px;font-weight:900;text-transform:uppercase;letter-spacing:0.08em">
-           ${loja.nome.toUpperCase()}
-         </div>
-       </div>`
+  // ── Logo em base64 (evita problemas com URLs externas no Vercel) ────────────
+  const nomeLoja = loja.nome.toLowerCase()
+  const logoFile = nomeLoja.includes('catingueira')
+    ? 'logo-catingueira.png'
+    : nomeLoja.includes('felizardo')
+    ? 'logo-felizardo.png'
+    : null
+
+  let logoBase64 = ''
+  if (logoFile) {
+    try {
+      const logoPath = path.join(process.cwd(), 'public', logoFile)
+      const logoBuffer = fs.readFileSync(logoPath)
+      logoBase64 = `data:image/png;base64,${logoBuffer.toString('base64')}`
+    } catch {
+      logoBase64 = ''
+    }
+  }
+
+  const logoHtml = logoBase64
+    ? `<img src="${logoBase64}" style="max-height:90px;max-width:260px;object-fit:contain;display:block;margin:0 auto 6px;" />`
+    : `<div style="border:3px double #000;padding:10px 20px;display:inline-block;"><strong style="font-size:22px;text-transform:uppercase;letter-spacing:2px;">${loja.nome}</strong></div>`
 
   // ── Grid de dados ───────────────────────────────────────────────────────────
   function celula(label: string, valor: string): string {
