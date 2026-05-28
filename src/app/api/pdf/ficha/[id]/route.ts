@@ -80,7 +80,7 @@ const COL_DIREITA = [
 ]
 
 function checkboxItem(label: string, ativo: boolean): string {
-  return `<div style="margin-bottom:2px;font-size:10px">${ativo ? '(X)' : '( )'}&nbsp;${label}</div>`
+  return `<div style="font-size:13px;padding:5px 8px;min-height:24px">${ativo ? '(X)' : '( )'}&nbsp;${label}</div>`
 }
 
 export async function GET(
@@ -126,13 +126,14 @@ export async function GET(
     : null
 
   const logoHtml = logoUrl
-    ? `<img src="${logoUrl}" style="width:100%;height:auto;max-height:150px;object-fit:contain;object-position:center;display:block;margin:0 0 8px 0;" />`
+    ? `<img src="${logoUrl}" style="width:100%;height:auto;max-height:180px;object-fit:contain;object-position:center;display:block;margin:0 0 12px 0;" />`
     : `<div style="border:3px double #000;padding:10px 20px;display:inline-block;"><strong style="font-size:22px;text-transform:uppercase;letter-spacing:2px;">${loja.nome}</strong></div>`
 
   // ── Grid de dados ───────────────────────────────────────────────────────────
   function celula(label: string, valor: string): string {
-    return `<td style="border:1px solid #000;padding:5px 8px;font-size:12px;width:50%">
-      <span style="font-weight:700;font-size:10px">${label}</span><br/>${valor}
+    return `<td style="border:1px solid #000;width:50%;min-height:40px;vertical-align:top">
+      <div style="font-weight:700;font-size:11px;padding:6px 8px 2px">${label}</div>
+      <div style="font-size:14px;padding:2px 8px 8px">${valor}</div>
     </td>`
   }
 
@@ -151,7 +152,7 @@ export async function GET(
         ${celula('KM.:', formatarKm(veiculo.km))}
       </tr>
       <tr>
-        <td style="border:1px solid #000;padding:5px 8px;font-size:12px;width:50%">&nbsp;</td>
+        <td style="border:1px solid #000;width:50%;min-height:40px">&nbsp;</td>
         ${celula('MOTOR:', veiculo.versao ?? '—')}
       </tr>
     </table>`
@@ -176,38 +177,38 @@ body {
   font-family: Arial, Helvetica, sans-serif;
   color: #111;
   background: #fff;
-  font-size: 12px;
-  padding: 0 12mm;
+  font-size: 13px;
+  padding: 0;
   margin: 0;
 }
 .pagina {
-  padding: 10mm 0;
+  padding: 10mm;
 }
-.topo { margin-bottom: 6px; }
+.topo { margin-bottom: 0; }
 .slogan {
   font-style: italic;
-  font-size: 10px;
+  font-size: 13px;
   color: #333;
   text-align: center;
-  margin: 4px 0 8px;
+  margin: 4px 0 12px;
 }
-.sep { border-top: 3px solid #000; margin-bottom: 3px; }
-.sep2 { border-top: 1px solid #000; margin-bottom: 10px; }
+.sep { border-top: 3px solid #000; margin: 12px 0 3px; }
+.sep2 { border-top: 1px solid #000; margin-bottom: 12px; }
 .carro-titulo {
-  font-size: 20px;
+  font-size: 26px;
   font-weight: 900;
   text-transform: uppercase;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   letter-spacing: 0.03em;
 }
 .secao-titulo {
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   border-bottom: 1px solid #000;
-  padding-bottom: 2px;
-  margin: 10px 0 6px;
+  padding-bottom: 3px;
+  margin: 14px 0 6px;
 }
 .opcionais-grid {
   display: flex;
@@ -216,38 +217,38 @@ body {
 }
 .opcol {
   flex: 1;
-  padding: 4px 8px;
+  padding: 4px 0;
   border-right: 1px solid #000;
 }
 .opcol:last-child { border-right: none; }
-.preco-bloco { margin: 10px 0 6px; }
+.preco-bloco { margin: 0; }
 .preco {
-  font-size: 52px;
+  font-size: 72px;
   font-weight: 900;
   letter-spacing: -1px;
   line-height: 1;
+  margin: 16px 0 8px;
 }
 .motor-linha {
-  margin-top: 6px;
   display: flex;
   gap: 40px;
-  font-size: 11px;
+  font-size: 14px;
+  margin-bottom: 12px;
 }
 .motor-campo {
   border-bottom: 1px solid #000;
-  min-width: 140px;
-  padding-bottom: 1px;
+  min-width: 160px;
+  padding-bottom: 2px;
 }
 .pagamento {
-  margin-top: 10px;
-  font-size: 11px;
-  line-height: 1.7;
+  font-size: 13px;
+  line-height: 1.8;
 }
 .rodape {
-  margin-top: 10px;
-  padding-top: 6px;
+  margin-top: 16px;
+  padding-top: 10px;
   border-top: 1px solid #000;
-  font-size: 10px;
+  font-size: 12px;
   color: #333;
   display: flex;
   justify-content: space-between;
@@ -256,10 +257,10 @@ body {
   position: fixed;
   bottom: 24px;
   right: 24px;
-  padding: 12px 28px;
+  padding: 12px 24px;
   background: #000;
   color: #fff;
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   border: none;
   cursor: pointer;
@@ -268,10 +269,10 @@ body {
 }
 .btn-imprimir:hover { background: #333; }
 @media print {
-  body { margin: 0; }
-  .pagina { padding: 0; max-width: 100%; }
+  body { margin: 0; padding: 0; }
+  .pagina { padding: 0; }
   .btn-imprimir { display: none; }
-  @page { size: A4 portrait; margin: 12mm; }
+  @page { size: A4 portrait; margin: 10mm; }
 }
 </style>
 </head>
