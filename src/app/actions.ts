@@ -57,21 +57,23 @@ export async function criarUsuario(data: {
   email: string
   senha: string
   nome: string
-  perfil: string
+  perfil: Perfil
   loja_id: string
   modulos_permitidos: string[]
 }) {
   const supabase = adminSupabase()
-  const { data: userData, error } = await supabase.auth.admin.createUser({
+
+  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
     email: data.email,
     password: data.senha,
     email_confirm: true,
     user_metadata: { nome: data.nome },
   })
-  if (error || !userData.user) throw new Error(error?.message ?? 'Falha ao criar usuário')
+  if (authError) throw new Error(`Erro ao criar usuário no Auth: ${authError.message}`)
+  if (!authData?.user) throw new Error('Usuário não foi criado (auth retornou vazio)')
 
   const { error: perfilError } = await supabase.from('usuarios_perfil').insert({
-    id: userData.user.id,
+    id: authData.user.id,
     loja_id: data.loja_id,
     nome: data.nome,
     perfil: data.perfil,
@@ -79,11 +81,12 @@ export async function criarUsuario(data: {
     modulos_permitidos: data.modulos_permitidos,
   })
   if (perfilError) {
-    await supabase.auth.admin.deleteUser(userData.user.id)
-    throw new Error(perfilError.message)
+    await supabase.auth.admin.deleteUser(authData.user.id)
+    throw new Error(`Erro ao salvar perfil (auth revertido): ${perfilError.message} | code: ${perfilError.code} | details: ${perfilError.details}`)
   }
+
   revalidatePath('/admin/usuarios')
-  return { userId: userData.user.id }
+  return { userId: authData.user.id }
 }
 
 export async function resetarSenha(userId: string) {
