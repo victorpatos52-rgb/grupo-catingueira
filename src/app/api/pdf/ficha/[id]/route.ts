@@ -126,7 +126,7 @@ export async function GET(
     : null
 
   const logoHtml = logoUrl
-    ? `<img src="${logoUrl}" style="max-height:90px;max-width:260px;object-fit:contain;display:block;margin:0 auto 6px;" />`
+    ? `<img src="${logoUrl}" style="width:100%;max-height:120px;object-fit:contain;display:block;margin:0 auto 8px;" />`
     : `<div style="border:3px double #000;padding:10px 20px;display:inline-block;"><strong style="font-size:22px;text-transform:uppercase;letter-spacing:2px;">${loja.nome}</strong></div>`
 
   // ── Grid de dados ───────────────────────────────────────────────────────────
