@@ -24,7 +24,7 @@ export default async function EditarVeiculoPage({
 
   const admin = adminSupabase()
   const [{ data }, { data: finData }, { data: custosData }] = await Promise.all([
-    supabase.from('veiculos').select('*').eq('id', id).eq('loja_id', lojaId).single(),
+    admin.from('veiculos').select('*').eq('id', id).eq('loja_id', lojaId).single(),
     admin
       .from('financeiro_veiculos')
       .select('*')

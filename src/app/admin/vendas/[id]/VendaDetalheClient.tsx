@@ -121,6 +121,12 @@ export default function VendaDetalheClient({ venda: initial, perfil }: Props) {
 
         <div className="flex items-center gap-2 flex-wrap">
           <a
+            href={`/admin/veiculos/${venda.veiculo_id}`}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border border-[#E5E7EB] text-[#6B7280] hover:text-[#111827] hover:border-[#D1D5DB] transition-colors bg-white"
+          >
+            🚗 Ver veículo
+          </a>
+          <a
             href={`/api/pdf/venda/${venda.id}`}
             target="_blank"
             rel="noopener noreferrer"
