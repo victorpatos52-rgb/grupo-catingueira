@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase'
-import { criarVeiculo, atualizarVeiculo } from '@/app/actions'
+import { criarVeiculo, atualizarVeiculo, atualizarDadosVeiculo } from '@/app/actions'
 import type { Veiculo } from '@/types'
 
 const OPCIONAIS_LISTA = [
@@ -40,16 +40,20 @@ type FormData = z.infer<typeof schema>
 interface VeiculoFormProps {
   veiculo?: Veiculo
   lojaId: string
+  hideFotos?: boolean
+  fotos?: string[]
+  noRedirect?: boolean
 }
 
-export default function VeiculoForm({ veiculo, lojaId }: VeiculoFormProps) {
+export default function VeiculoForm({ veiculo, lojaId, hideFotos, fotos: fotosExterna, noRedirect }: VeiculoFormProps) {
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const [fotos, setFotos] = useState<string[]>(veiculo?.fotos ?? [])
+  const [fotos, setFotos] = useState<string[]>(hideFotos ? (fotosExterna ?? veiculo?.fotos ?? []) : (veiculo?.fotos ?? []))
   const [opcionais, setOpcionais] = useState<string[]>(veiculo?.opcionais ?? [])
   const [uploading, setUploading] = useState(false)
   const [salvando, setSalvando] = useState(false)
+  const [salvoOk, setSalvoOk] = useState(false)
   const [erro, setErro] = useState('')
   const [dragOver, setDragOver] = useState<number | null>(null)
 
@@ -126,9 +130,10 @@ export default function VeiculoForm({ veiculo, lojaId }: VeiculoFormProps) {
 
   async function onSubmit(data: FormData) {
     setSalvando(true)
+    setSalvoOk(false)
     setErro('')
 
-    const payload = {
+    const dadosBase = {
       loja_id: lojaId,
       marca: data.marca,
       modelo: data.modelo,
@@ -144,18 +149,27 @@ export default function VeiculoForm({ veiculo, lojaId }: VeiculoFormProps) {
       status: data.status,
       destaque: data.destaque,
       data_aquisicao: data.data_aquisicao,
-      fotos,
       opcionais,
     }
 
     try {
       if (veiculo) {
-        await atualizarVeiculo(veiculo.id, payload)
+        if (hideFotos) {
+          await atualizarDadosVeiculo(veiculo.id, dadosBase)
+        } else {
+          await atualizarVeiculo(veiculo.id, { ...dadosBase, fotos })
+        }
       } else {
-        await criarVeiculo(payload)
+        await criarVeiculo({ ...dadosBase, fotos })
       }
-      router.push('/admin/veiculos')
-      router.refresh()
+      if (noRedirect) {
+        setSalvoOk(true)
+        router.refresh()
+        setSalvando(false)
+      } else {
+        router.push('/admin/veiculos')
+        router.refresh()
+      }
     } catch (err: unknown) {
       setErro(err instanceof Error ? err.message : 'Erro ao salvar veículo')
       setSalvando(false)
@@ -170,7 +184,7 @@ export default function VeiculoForm({ veiculo, lojaId }: VeiculoFormProps) {
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       {/* Fotos */}
-      <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-sm">
+      {!hideFotos && <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-sm">
         <h2 className="text-[#111827] font-bold text-sm uppercase tracking-wider mb-4">Fotos</h2>
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3 mb-4">
           {fotos.map((foto, i) => (
@@ -227,7 +241,7 @@ export default function VeiculoForm({ veiculo, lojaId }: VeiculoFormProps) {
           onChange={e => e.target.files && uploadFotos(e.target.files)}
         />
         <p className="text-[#9CA3AF] text-xs">Arraste para reordenar. A primeira foto será a capa.</p>
-      </div>
+      </div>}
 
       {/* Dados básicos */}
       <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-sm">
@@ -355,14 +369,16 @@ export default function VeiculoForm({ veiculo, lojaId }: VeiculoFormProps) {
         <p className="text-red-600 text-sm bg-red-50 border border-red-200 rounded-xl px-4 py-3">{erro}</p>
       )}
 
-      <div className="flex gap-3">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="px-6 py-2.5 rounded-xl border border-[#E5E7EB] text-sm text-[#6B7280] hover:text-[#111827] hover:border-[#D0D0D0] transition-colors"
-        >
-          Cancelar
-        </button>
+      <div className="flex items-center gap-3">
+        {!noRedirect && (
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="px-6 py-2.5 rounded-xl border border-[#E5E7EB] text-sm text-[#6B7280] hover:text-[#111827] hover:border-[#D0D0D0] transition-colors"
+          >
+            Cancelar
+          </button>
+        )}
         <button
           type="submit"
           disabled={salvando || uploading}
@@ -370,6 +386,9 @@ export default function VeiculoForm({ veiculo, lojaId }: VeiculoFormProps) {
         >
           {salvando ? 'Salvando...' : veiculo ? 'Salvar alterações' : 'Cadastrar veículo'}
         </button>
+        {salvoOk && !salvando && (
+          <span className="text-green-600 text-sm font-medium">✓ Salvo</span>
+        )}
       </div>
     </form>
   )

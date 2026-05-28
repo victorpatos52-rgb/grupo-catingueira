@@ -1,10 +1,9 @@
 import { notFound, redirect } from 'next/navigation'
 import { createServerSupabase } from '@/lib/supabase-server'
 import { getLojaIdAtiva } from '@/lib/getLojaIdAtiva'
-import VeiculoForm from '@/components/admin/VeiculoForm'
 import MarcaVendidoButton from '@/components/admin/MarcaVendidoButton'
-import CustosVeiculoClient from './CustosVeiculoClient'
-import type { Veiculo, UsuarioPerfil, FinanceiroVeiculo, CustoManutencao } from '@/types'
+import VeiculoTabs from './VeiculoTabs'
+import type { Veiculo, UsuarioPerfil, FinanceiroVeiculo, CustoManutencao, VistoriaVeiculo } from '@/types'
 
 export default async function EditarVeiculoPage({
   params,
@@ -27,7 +26,7 @@ export default async function EditarVeiculoPage({
     supabase.from('veiculos').select('*').eq('id', id).eq('loja_id', lojaId).single(),
     supabase
       .from('vistoria_veiculo')
-      .select('aprovado')
+      .select('*')
       .eq('veiculo_id', id)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -47,7 +46,7 @@ export default async function EditarVeiculoPage({
 
   if (!data) notFound()
   const veiculo = data as Veiculo
-  const vistoria = vistoriaData as { aprovado: boolean } | null
+  const vistoria = vistoriaData as VistoriaVeiculo | null
   const financeiro = finData as FinanceiroVeiculo | null
   const custos = (custosData ?? []) as CustoManutencao[]
 
@@ -76,40 +75,12 @@ export default async function EditarVeiculoPage({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <a
-              href={`/admin/veiculos/${id}/vistoria`}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
-                vistoria === null
-                  ? 'border-[#E5E5E5] text-[#9CA3AF] hover:border-[#D0D0D0] hover:text-[#6B7280] bg-white'
-                  : vistoria.aprovado
-                  ? 'border-green-200 text-green-700 bg-green-50'
-                  : 'border-amber-200 text-amber-700 bg-amber-50'
-              }`}
-            >
-              {vistoria === null ? '⚠️ Vistoria pendente' : vistoria.aprovado ? '✅ Vistoria aprovada' : '❌ Vistoria reprovada'}
-            </a>
-            <a
-              href={`/api/pdf/ficha/${id}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-[#E5E5E5] text-[#6B7280] text-xs font-medium hover:text-[#111] hover:border-[#D0D0D0] transition-colors"
-            >
-              📄 Ficha
-            </a>
-            <a
               href={`/api/pdf/etiqueta/${id}`}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-[#E5E5E5] text-[#6B7280] text-xs font-medium hover:text-[#111] hover:border-[#D0D0D0] transition-colors"
             >
               🏷️ Etiqueta
-            </a>
-            <a
-              href={`/api/pdf/contrato/${id}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-[#E5E5E5] text-[#6B7280] text-xs font-medium hover:text-[#111] hover:border-[#D0D0D0] transition-colors"
-            >
-              📋 Contrato
             </a>
             {veiculo.status !== 'vendido' && (
               <MarcaVendidoButton veiculoId={id} />
@@ -118,12 +89,11 @@ export default async function EditarVeiculoPage({
         </div>
       </div>
 
-      <VeiculoForm veiculo={veiculo} lojaId={lojaId} />
-
-      <CustosVeiculoClient
+      <VeiculoTabs
         veiculo={veiculo}
         financeiro={financeiro}
         custos={custos}
+        vistoria={vistoria}
         lojaId={lojaId}
         podeVerFinanceiro={podeVerFinanceiro}
       />

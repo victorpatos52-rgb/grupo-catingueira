@@ -433,6 +433,30 @@ export async function atualizarVeiculo(
   revalidatePath('/admin/veiculos/' + veiculoId)
 }
 
+export async function atualizarDadosVeiculo(
+  veiculoId: string,
+  payload: Omit<Veiculo, 'id' | 'created_at' | 'fotos'>
+) {
+  const supabase = adminSupabase()
+  const { error } = await supabase
+    .from('veiculos')
+    .update(payload)
+    .eq('id', veiculoId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/veiculos')
+  revalidatePath('/admin/veiculos/' + veiculoId)
+}
+
+export async function atualizarFotosVeiculo(veiculoId: string, fotos: string[]) {
+  const supabase = adminSupabase()
+  const { error } = await supabase
+    .from('veiculos')
+    .update({ fotos })
+    .eq('id', veiculoId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/veiculos/' + veiculoId)
+}
+
 // ─── VISTORIA ─────────────────────────────────────────────────────────────────
 
 export async function saveVistoria(
