@@ -50,12 +50,13 @@ create policy "gerente atualiza própria loja"
 -- id IS the primary key AND the FK to auth.users (same UUID)
 -- ─────────────────────────────────────────────────────────────
 create table usuarios_perfil (
-  id         uuid primary key references auth.users(id) on delete cascade,
-  loja_id    uuid not null references lojas(id) on delete cascade,
-  perfil     text not null check (perfil in ('vendedor', 'gerente', 'diretor', 'admin')),
-  nome       text not null,
-  ativo      boolean not null default true,
-  created_at timestamptz not null default now()
+  id                  uuid primary key references auth.users(id) on delete cascade,
+  loja_id             uuid not null references lojas(id) on delete cascade,
+  perfil              text not null check (perfil in ('vendedor', 'gerente', 'diretor', 'admin')),
+  nome                text not null,
+  ativo               boolean not null default true,
+  modulos_permitidos  text[] not null default '{}',
+  created_at          timestamptz not null default now()
 );
 
 alter table usuarios_perfil enable row level security;

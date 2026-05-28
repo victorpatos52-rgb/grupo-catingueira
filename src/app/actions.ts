@@ -289,7 +289,7 @@ export async function saveAquisicao(
   custoAquisicao: number,
   financeiroId?: string
 ) {
-  const supabase = await userSupabase()
+  const supabase = adminSupabase()
   if (financeiroId) {
     const { error } = await supabase
       .from('financeiro_veiculos')
@@ -330,7 +330,7 @@ export async function saveCustoManutencao(data: {
   valor: number
   data: string | null
 }) {
-  const supabase = await userSupabase()
+  const supabase = adminSupabase()
   if (data.id) {
     const { error } = await supabase
       .from('custos_manutencao')
@@ -352,7 +352,7 @@ export async function saveCustoManutencao(data: {
 }
 
 export async function deleteCustoManutencao(id: string, veiculoId: string) {
-  const supabase = await userSupabase()
+  const supabase = adminSupabase()
   const { error } = await supabase.from('custos_manutencao').delete().eq('id', id)
   if (error) throw new Error(error.message)
   revalidatePath('/admin/veiculos/' + veiculoId)
@@ -467,8 +467,9 @@ export async function saveVistoria(
   aprovado: boolean,
   vistoriaId?: string
 ) {
-  const supabase = await userSupabase()
-  const { data: { session } } = await supabase.auth.getSession()
+  const userClient = await userSupabase()
+  const { data: { session } } = await userClient.auth.getSession()
+  const supabase = adminSupabase()
 
   if (vistoriaId) {
     const { error } = await supabase
