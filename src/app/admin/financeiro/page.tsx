@@ -115,10 +115,10 @@ export default async function FinanceiroPage({
     <FinanceiroClient
       perfil={perfil}
       lojaId={lojaId}
-      vendas={(vendasData ?? []) as VendaResumo[]}
-      despesas={(despesasData ?? []) as DespesaLoja[]}
-      financeiroVeiculos={(financeiroData ?? []) as FinVeiculoSimples[]}
-      custosManut={(custosData ?? []) as CustoManutSimples[]}
+      vendas={(vendasData ?? []) as unknown as VendaResumo[]}
+      despesas={(despesasData ?? []) as unknown as DespesaLoja[]}
+      financeiroVeiculos={(financeiroData ?? []) as unknown as FinVeiculoSimples[]}
+      custosManut={(custosData ?? []) as unknown as CustoManutSimples[]}
       dadosAnuais={dadosAnuais}
       ano={ano}
       mes={mes}
