@@ -80,7 +80,7 @@ const COL_DIREITA = [
 ]
 
 function checkboxItem(label: string, ativo: boolean): string {
-  return `<div style="margin-bottom:3px;font-size:11px">${ativo ? '(X)' : '( )'}&nbsp;${label}</div>`
+  return `<div style="margin-bottom:2px;font-size:10px">${ativo ? '(X)' : '( )'}&nbsp;${label}</div>`
 }
 
 export async function GET(
@@ -180,31 +180,31 @@ body {
   margin: 0 auto;
   padding: 10mm 0;
 }
-.topo { text-align: center; margin-bottom: 8px; }
+.topo { text-align: center; margin-bottom: 6px; }
 .slogan {
   font-style: italic;
-  font-size: 11px;
+  font-size: 10px;
   color: #333;
   text-align: center;
-  margin: 6px 0 12px;
+  margin: 4px 0 8px;
 }
 .sep { border-top: 3px solid #000; margin-bottom: 3px; }
-.sep2 { border-top: 1px solid #000; margin-bottom: 14px; }
+.sep2 { border-top: 1px solid #000; margin-bottom: 10px; }
 .carro-titulo {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 900;
   text-transform: uppercase;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
   letter-spacing: 0.03em;
 }
 .secao-titulo {
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   border-bottom: 1px solid #000;
-  padding-bottom: 3px;
-  margin: 14px 0 8px;
+  padding-bottom: 2px;
+  margin: 10px 0 6px;
 }
 .opcionais-grid {
   display: flex;
@@ -213,22 +213,22 @@ body {
 }
 .opcol {
   flex: 1;
-  padding: 6px 10px;
+  padding: 4px 8px;
   border-right: 1px solid #000;
 }
 .opcol:last-child { border-right: none; }
-.preco-bloco { margin: 14px 0 8px; }
+.preco-bloco { margin: 10px 0 6px; }
 .preco {
-  font-size: 58px;
+  font-size: 52px;
   font-weight: 900;
   letter-spacing: -1px;
   line-height: 1;
 }
 .motor-linha {
-  margin-top: 8px;
+  margin-top: 6px;
   display: flex;
   gap: 40px;
-  font-size: 12px;
+  font-size: 11px;
 }
 .motor-campo {
   border-bottom: 1px solid #000;
@@ -236,13 +236,13 @@ body {
   padding-bottom: 1px;
 }
 .pagamento {
-  margin-top: 14px;
-  font-size: 12px;
-  line-height: 1.8;
+  margin-top: 10px;
+  font-size: 11px;
+  line-height: 1.7;
 }
 .rodape {
-  margin-top: 16px;
-  padding-top: 8px;
+  margin-top: 10px;
+  padding-top: 6px;
   border-top: 1px solid #000;
   font-size: 10px;
   color: #333;
@@ -268,7 +268,7 @@ body {
   body { margin: 0; }
   .pagina { padding: 0; max-width: 100%; }
   .btn-imprimir { display: none; }
-  @page { size: A4 portrait; margin: 15mm; }
+  @page { size: A4 portrait; margin: 12mm; }
 }
 </style>
 </head>

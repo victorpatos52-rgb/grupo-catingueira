@@ -38,9 +38,16 @@ export default function CustosVeiculoClient({
   const router = useRouter()
 
   // ── Aquisição ──────────────────────────────────────────────────────────────
+  function formatarInput(raw: string) {
+    const numeros = raw.replace(/\D/g, '')
+    if (!numeros) return ''
+    const valor = parseInt(numeros) / 100
+    return valor.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+  }
+
   const [custoAquisicao, setCustoAquisicao] = useState(
     financeiro?.custo_aquisicao != null
-      ? financeiro.custo_aquisicao.toFixed(2)
+      ? (financeiro.custo_aquisicao).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
       : ''
   )
   const [salvandoAquisicao, setSalvandoAquisicao] = useState(false)
@@ -59,7 +66,7 @@ export default function CustosVeiculoClient({
   const [deletandoCusto, setDeletandoCusto] = useState<string | null>(null)
 
   // ── Cálculos financeiros ───────────────────────────────────────────────────
-  const custoAqNum = parseFloat(custoAquisicao.replace(',', '.')) || 0
+  const custoAqNum = parseFloat(custoAquisicao.replace(/\./g, '').replace(',', '.')) || 0
   const totalAdicionais = custos.reduce((a, c) => a + c.valor, 0)
   const custoTotal = custoAqNum + totalAdicionais
   const precoVenda = financeiro?.preco_venda ?? veiculo.preco
@@ -304,11 +311,10 @@ export default function CustosVeiculoClient({
           <div className="flex-1 min-w-[180px]">
             <label className={labelCls}>Valor de aquisição (R$)</label>
             <input
-              type="number"
-              min={0}
-              step={0.01}
+              type="text"
+              inputMode="numeric"
               value={custoAquisicao}
-              onChange={e => { setCustoAquisicao(e.target.value); setAquisicaoOk(false) }}
+              onChange={e => { setCustoAquisicao(formatarInput(e.target.value)); setAquisicaoOk(false) }}
               className={inputCls}
               placeholder="0,00"
             />

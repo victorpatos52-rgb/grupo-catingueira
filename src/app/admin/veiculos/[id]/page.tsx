@@ -1,5 +1,5 @@
 import { notFound, redirect } from 'next/navigation'
-import { createServerSupabase } from '@/lib/supabase-server'
+import { createServerSupabase, adminSupabase } from '@/lib/supabase-server'
 import { getLojaIdAtiva } from '@/lib/getLojaIdAtiva'
 import MarcaVendidoButton from '@/components/admin/MarcaVendidoButton'
 import VeiculoTabs from './VeiculoTabs'
@@ -22,15 +22,16 @@ export default async function EditarVeiculoPage({
 
   const lojaId = await getLojaIdAtiva(perfil)
 
+  const admin = adminSupabase()
   const [{ data }, { data: finData }, { data: custosData }] = await Promise.all([
     supabase.from('veiculos').select('*').eq('id', id).eq('loja_id', lojaId).single(),
-    supabase
+    admin
       .from('financeiro_veiculos')
       .select('*')
       .eq('veiculo_id', id)
       .eq('loja_id', lojaId)
       .maybeSingle(),
-    supabase
+    admin
       .from('custos_manutencao')
       .select('*')
       .eq('veiculo_id', id)
@@ -73,14 +74,6 @@ export default async function EditarVeiculoPage({
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-[#E5E5E5] text-[#6B7280] text-xs font-medium hover:text-[#111] hover:border-[#D0D0D0] transition-colors"
             >
               📄 Ficha
-            </a>
-            <a
-              href={`/api/pdf/etiqueta/${id}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-[#E5E5E5] text-[#6B7280] text-xs font-medium hover:text-[#111] hover:border-[#D0D0D0] transition-colors"
-            >
-              🏷️ Etiqueta
             </a>
             {veiculo.status !== 'vendido' && (
               <MarcaVendidoButton veiculoId={id} />
