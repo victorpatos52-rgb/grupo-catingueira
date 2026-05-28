@@ -26,7 +26,7 @@ export async function GET(
 
   const { data: venda, error } = await supabase
     .from('vendas')
-    .select('*, veiculo:veiculos(*), vendedor:usuarios_perfil(nome)')
+    .select('*, veiculo:veiculos(id,marca,modelo,ano,fotos,preco,placa,cor,km,cambio,combustivel,versao,chassi,renavam,tipo,portas,hodometro_venda), vendedor:usuarios_perfil(nome)')
     .eq('id', id)
     .single()
 
@@ -97,21 +97,24 @@ export async function GET(
         </tr>
         <tr>
           <th>Est. Civil</th><td>${venda.comprador_estado_civil ?? ''}</td>
-          <th>N. FISCAL</th><td></td>
-          <th>INSC. EST.</th><td></td>
+          <th>N. FISCAL</th><td>${venda.numero_fiscal ?? ''}</td>
+          <th>INSC. EST.</th><td>${venda.inscricao_estadual ?? ''}</td>
+        </tr>
+        <tr>
+          <th>Origem</th><td colspan="5">${venda.origem ?? ''}</td>
         </tr>
       </table>
 
       <div class="campo"><label>Nome</label><span>${venda.comprador_nome}</span></div>
       <div class="grid2">
         <div class="campo"><label>Prof.</label><span>${venda.comprador_profissao ?? ''}</span></div>
-        <div class="campo"><label>Origem</label><span></span></div>
+        <div class="campo"><label>Hodômetro na entrega</label><span>${venda.hodometro_venda ? fmtKm(venda.hodometro_venda) : ''}</span></div>
       </div>
       <div class="grid2">
         <div class="campo"><label>E-mail</label><span>${venda.comprador_email ?? ''}</span></div>
         <div class="campo"><label>Tels.</label><span>${venda.comprador_telefone ?? ''}</span></div>
       </div>
-      <div class="campo"><label>Endereço</label><span>${venda.comprador_endereco ?? ''}</span></div>
+      <div class="campo"><label>Endereço</label><span>${venda.comprador_endereco ?? ''}, ${venda.comprador_numero ?? '___'} - ${venda.comprador_bairro ?? '___'}</span></div>
       <div class="grid2">
         <div class="campo"><label>Cidade</label><span>${venda.comprador_cidade ?? ''}</span></div>
         <div class="campo"><label>UF / CEP</label><span>${venda.comprador_uf ?? ''} / ${venda.comprador_cep ?? ''}</span></div>
@@ -123,14 +126,19 @@ export async function GET(
           <th>Modelo</th><td>${v.versao ?? ''}</td>
         </tr>
         <tr>
+          <th>Tipos</th><td>${v.tipo ?? '___'}</td>
+          <th>Portas</th><td>${v.portas ?? '___'}</td>
+          <th>Cor</th><td>${v.cor ?? ''}</td>
+        </tr>
+        <tr>
           <th>Ano/Fab</th><td>${v.ano ?? ''}</td>
           <th>Ano/Mod</th><td>${v.ano ?? ''}</td>
-          <th>Cor</th><td>${v.cor ?? ''}</td>
+          <th>Chassi</th><td>${v.chassi ?? '___'}</td>
         </tr>
         <tr>
           <th>Km</th><td>${fmtKm(v.km)}</td>
           <th>Placa</th><td>${v.placa ?? ''}</td>
-          <th>Série</th><td></td>
+          <th>Renavam</th><td>${v.renavam ?? '___'}</td>
         </tr>
       </table>
 
@@ -165,7 +173,7 @@ export async function GET(
       <div style="border-top:3px double #000;border-bottom:3px double #000;padding:4px 0;margin-bottom:16px;"></div>
 
       <div class="campo"><label>Nome do Comprador</label><span>${venda.comprador_nome}</span></div>
-      <div class="campo"><label>Endereço</label><span>${venda.comprador_endereco ?? ''}</span></div>
+      <div class="campo"><label>Endereço</label><span>${venda.comprador_endereco ?? ''}, ${venda.comprador_numero ?? '___'} - ${venda.comprador_bairro ?? '___'}</span></div>
       <div class="grid2">
         <div class="campo"><label>Cidade</label><span>${venda.comprador_cidade ?? ''}</span></div>
         <div class="campo"><label>UF</label><span>${venda.comprador_uf ?? ''}</span></div>
@@ -200,14 +208,14 @@ export async function GET(
       <div class="titulo">Certificado de Garantia</div>
 
       <p>EU, <strong>${venda.comprador_nome}</strong>, Portador do CPF ou CNPJ: <strong>${venda.comprador_cpf ?? '_______________'}</strong>,</p>
-      <p>Com domicílio a Rua: ${venda.comprador_endereco ?? '_______________'} Nº ___ Bairro: ___</p>
+      <p>Com domicílio a Rua: ${venda.comprador_endereco ?? '_______________'} Nº ${venda.comprador_numero ?? '___'} Bairro: ${venda.comprador_bairro ?? '___'}</p>
       <p>Cidade: ${venda.comprador_cidade ?? '_______________'} UF: ${venda.comprador_uf ?? '___'} CEP: ${venda.comprador_cep ?? '_______________'} Tel.:( ) ${venda.comprador_telefone ?? '_______________'}</p>
 
       <p style="margin-top:12px;font-weight:bold;text-align:center;">COMPREI O SEGUINTE VEÍCULO ABAIXO:</p>
 
-      <p>Veículo: <strong>${v.marca ?? ''} ${v.modelo ?? ''}</strong> Marca: ${v.marca ?? '___'} Tipos: ___ Portas: ___</p>
-      <p>Chassi: ___ Ano/Mod.: ${v.ano ?? '___'} Ano/Fab.: ${v.ano ?? '___'} Cor: ${v.cor ?? '___'}</p>
-      <p>Placa: ${v.placa ?? '___'} UF: ___ Renavam: ___ Hora: ___ Km: ${fmtKm(v.km)}</p>
+      <p>Veículo: <strong>${v.marca ?? ''} ${v.modelo ?? ''}</strong> Marca: ${v.marca ?? '___'} Tipos: ${v.tipo ?? '___'} Portas: ${v.portas ?? '___'}</p>
+      <p>Chassi: ${v.chassi ?? '___'} Ano/Mod.: ${v.ano ?? '___'} Ano/Fab.: ${v.ano ?? '___'} Cor: ${v.cor ?? '___'}</p>
+      <p>Placa: ${v.placa ?? '___'} UF: ___ Renavam: ${v.renavam ?? '___'} Hora: ___ Km: ${venda.hodometro_venda ? fmtKm(venda.hodometro_venda) : fmtKm(v.km)}</p>
 
       <p style="margin-top:12px;">O qual tem a <strong>GARANTIA DE MOTOR E CÂMBIO</strong> contra defeitos resultantes de vício oculto ou que não possam ser identificados em procedimentos normais de revisão, pelo prazo <strong>90 (noventa) dias ou 5.000 (cinco mil) quilômetros</strong>. Vendendo-se pelo que ocorre primeiro.</p>
 

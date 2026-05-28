@@ -43,6 +43,8 @@ type FormData = {
   comprador_data_nasc: string
   comprador_estado_civil: string
   comprador_endereco: string
+  comprador_numero: string
+  comprador_bairro: string
   comprador_cep: string
   comprador_cidade: string
   comprador_uf: string
@@ -69,6 +71,10 @@ type FormData = {
   pagamento_financeira_valor: number
   pagamento_outros_desc: string
   pagamento_outros_valor: number
+  origem: string
+  numero_fiscal: string
+  inscricao_estadual: string
+  hodometro_venda: number | null
   observacoes: string
 }
 
@@ -87,6 +93,8 @@ function initialForm(veiculoIdInicial: string | null, vendedorId: string): FormD
     comprador_data_nasc: '',
     comprador_estado_civil: '',
     comprador_endereco: '',
+    comprador_numero: '',
+    comprador_bairro: '',
     comprador_cep: '',
     comprador_cidade: '',
     comprador_uf: '',
@@ -113,6 +121,10 @@ function initialForm(veiculoIdInicial: string | null, vendedorId: string): FormD
     pagamento_financeira_valor: 0,
     pagamento_outros_desc: '',
     pagamento_outros_valor: 0,
+    origem: '',
+    numero_fiscal: '',
+    inscricao_estadual: '',
+    hodometro_venda: null,
     observacoes: '',
   }
 }
@@ -252,6 +264,8 @@ export default function NovaVendaClient({ veiculos, usuarios, lojaId, vendedorId
       comprador_estado_civil: form.comprador_estado_civil || null,
       comprador_profissao: form.comprador_profissao || null,
       comprador_endereco: form.comprador_endereco || null,
+      comprador_numero: form.comprador_numero || null,
+      comprador_bairro: form.comprador_bairro || null,
       comprador_cep: form.comprador_cep || null,
       comprador_cidade: form.comprador_cidade || null,
       comprador_uf: form.comprador_uf || null,
@@ -277,6 +291,10 @@ export default function NovaVendaClient({ veiculos, usuarios, lojaId, vendedorId
       pagamento_financeira_valor: form.pagamento_financeira_valor,
       pagamento_outros_desc: form.pagamento_outros_desc || null,
       pagamento_outros_valor: form.pagamento_outros_valor,
+      origem: form.origem || null,
+      numero_fiscal: form.numero_fiscal || null,
+      inscricao_estadual: form.inscricao_estadual || null,
+      hodometro_venda: form.hodometro_venda ?? null,
       observacoes: form.observacoes || null,
       documentos_urls: [],
       status: 'rascunho' as const,
@@ -473,6 +491,14 @@ export default function NovaVendaClient({ veiculos, usuarios, lojaId, vendedorId
               <input type="text" value={form.comprador_endereco} onChange={e => set('comprador_endereco', e.target.value)} className={inputCls} />
             </div>
             <div>
+              <label className={labelCls}>Número</label>
+              <input type="text" value={form.comprador_numero} onChange={e => set('comprador_numero', e.target.value)} className={inputCls} placeholder="123" />
+            </div>
+            <div>
+              <label className={labelCls}>Bairro</label>
+              <input type="text" value={form.comprador_bairro} onChange={e => set('comprador_bairro', e.target.value)} className={inputCls} />
+            </div>
+            <div>
               <label className={labelCls}>CEP</label>
               <input type="text" value={form.comprador_cep} onChange={e => set('comprador_cep', e.target.value)} className={inputCls} placeholder="00000-000" />
             </div>
@@ -508,6 +534,36 @@ export default function NovaVendaClient({ veiculos, usuarios, lojaId, vendedorId
             <div>
               <label className={labelCls}>Data da venda</label>
               <input type="date" value={form.data_venda} onChange={e => set('data_venda', e.target.value)} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Origem</label>
+              <select value={form.origem} onChange={e => set('origem', e.target.value)} className={`${inputCls} cursor-pointer`}>
+                <option value="">— Selecione —</option>
+                <option>Site</option>
+                <option>WhatsApp</option>
+                <option>Instagram</option>
+                <option>Indicação</option>
+                <option>Passagem</option>
+                <option>Outros</option>
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>N. Fiscal</label>
+              <input type="text" value={form.numero_fiscal} onChange={e => set('numero_fiscal', e.target.value)} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Inscrição Estadual</label>
+              <input type="text" value={form.inscricao_estadual} onChange={e => set('inscricao_estadual', e.target.value)} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Hodômetro na venda (km)</label>
+              <input
+                type="number"
+                value={form.hodometro_venda ?? ''}
+                onChange={e => set('hodometro_venda', e.target.value === '' ? null : Number(e.target.value))}
+                className={inputCls}
+                placeholder="0"
+              />
             </div>
           </div>
         </div>

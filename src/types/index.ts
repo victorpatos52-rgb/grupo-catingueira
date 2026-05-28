@@ -38,6 +38,11 @@ export interface Veiculo {
   cambio: string
   preco: number
   placa: string | null
+  chassi: string | null
+  renavam: string | null
+  tipo: string | null
+  portas: number | null
+  hodometro_venda: number | null
   descricao: string | null
   opcionais: string[]
   status: StatusVeiculo
@@ -167,6 +172,8 @@ export interface Venda {
   comprador_estado_civil: string | null
   comprador_profissao: string | null
   comprador_endereco: string | null
+  comprador_numero: string | null
+  comprador_bairro: string | null
   comprador_cep: string | null
   comprador_cidade: string | null
   comprador_uf: string | null
@@ -192,6 +199,10 @@ export interface Venda {
   pagamento_financeira_valor: number
   pagamento_outros_desc: string | null
   pagamento_outros_valor: number
+  origem: string | null
+  numero_fiscal: string | null
+  inscricao_estadual: string | null
+  hodometro_venda: number | null
   observacoes: string | null
   documentos_urls: string[]
   status: VendaStatus

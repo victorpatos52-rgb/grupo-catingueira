@@ -29,6 +29,11 @@ const schema = z.object({
   cambio: z.string().min(1, 'Obrigatório'),
   preco: z.number().min(1, 'Obrigatório'),
   placa: z.string().optional(),
+  chassi: z.string().optional(),
+  renavam: z.string().optional(),
+  tipo: z.string().optional(),
+  portas: z.number().nullable().optional(),
+  hodometro_venda: z.number().nullable().optional(),
   descricao: z.string().optional(),
   status: z.enum(['disponivel', 'reservado', 'vendido', 'manutencao']),
   destaque: z.boolean(),
@@ -74,6 +79,11 @@ export default function VeiculoForm({ veiculo, lojaId, hideFotos, fotos: fotosEx
       cambio: veiculo?.cambio ?? '',
       preco: veiculo?.preco ?? 0,
       placa: veiculo?.placa ?? '',
+      chassi: veiculo?.chassi ?? '',
+      renavam: veiculo?.renavam ?? '',
+      tipo: veiculo?.tipo ?? '',
+      portas: veiculo?.portas ?? null,
+      hodometro_venda: veiculo?.hodometro_venda ?? null,
       descricao: veiculo?.descricao ?? '',
       status: veiculo?.status ?? 'disponivel',
       destaque: veiculo?.destaque ?? false,
@@ -145,6 +155,11 @@ export default function VeiculoForm({ veiculo, lojaId, hideFotos, fotos: fotosEx
       cambio: data.cambio,
       preco: data.preco,
       placa: data.placa || null,
+      chassi: data.chassi || null,
+      renavam: data.renavam || null,
+      tipo: data.tipo || null,
+      portas: data.portas ?? null,
+      hodometro_venda: data.hodometro_venda ?? null,
       descricao: data.descricao || null,
       status: data.status,
       destaque: data.destaque,
@@ -303,6 +318,44 @@ export default function VeiculoForm({ veiculo, lojaId, hideFotos, fotos: fotosEx
           <div>
             <label className={labelClass}>Placa</label>
             <input {...register('placa')} className={inputClass} placeholder="AAA-0000" />
+          </div>
+          <div>
+            <label className={labelClass}>Chassi</label>
+            <input {...register('chassi')} className={inputClass} placeholder="9BWZZZ377VT004251" />
+          </div>
+          <div>
+            <label className={labelClass}>Renavam</label>
+            <input {...register('renavam')} className={inputClass} placeholder="00000000000" />
+          </div>
+          <div>
+            <label className={labelClass}>Tipo</label>
+            <select {...register('tipo')} className={inputClass}>
+              <option value="">Selecione</option>
+              <option>Sedan</option>
+              <option>Hatch</option>
+              <option>SUV</option>
+              <option>Picape</option>
+              <option>Minivan</option>
+              <option>Conversível</option>
+              <option>Coupé</option>
+              <option>Perua/SW</option>
+              <option>Van</option>
+              <option>Outros</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelClass}>Portas</label>
+            <select {...register('portas', { valueAsNumber: true })} className={inputClass}>
+              <option value="">Selecione</option>
+              <option value={2}>2</option>
+              <option value={3}>3</option>
+              <option value={4}>4</option>
+              <option value={5}>5</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelClass}>Hodômetro na venda (km)</label>
+            <input type="number" {...register('hodometro_venda', { valueAsNumber: true, setValueAs: v => v === '' ? null : Number(v) })} className={inputClass} placeholder="0" />
           </div>
           <div>
             <label className={labelClass}>Preço (R$) *</label>
