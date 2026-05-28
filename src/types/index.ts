@@ -155,6 +155,17 @@ export interface VistoriaVeiculo {
   created_at: string
 }
 
+export interface DespesaLoja {
+  id: string
+  loja_id: string
+  descricao: string
+  categoria: string
+  valor: number
+  data: string
+  recorrente: boolean
+  created_at: string
+}
+
 export type VendaStatus = 'rascunho' | 'finalizada'
 
 export interface Venda {

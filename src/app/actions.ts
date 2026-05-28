@@ -4,7 +4,7 @@ import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
-import type { Perfil, TipoInteracao, Venda, Veiculo } from '@/types'
+import type { DespesaLoja, Perfil, TipoInteracao, Venda, Veiculo } from '@/types'
 
 function adminSupabase() {
   return createClient(
@@ -494,6 +494,29 @@ export async function atualizarFotosVeiculo(veiculoId: string, fotos: string[]) 
     .eq('id', veiculoId)
   if (error) throw new Error(error.message)
   revalidatePath('/admin/veiculos/' + veiculoId)
+}
+
+// ─── DESPESAS ─────────────────────────────────────────────────────────────────
+
+export async function salvarDespesa(
+  data: Omit<DespesaLoja, 'id' | 'created_at'> & { id?: string }
+): Promise<void> {
+  const supabase = adminSupabase()
+  if (data.id) {
+    const { error } = await supabase.from('despesas_loja').update(data).eq('id', data.id)
+    if (error) throw new Error(error.message)
+  } else {
+    const { error } = await supabase.from('despesas_loja').insert(data)
+    if (error) throw new Error(error.message)
+  }
+  revalidatePath('/admin/financeiro')
+}
+
+export async function deletarDespesa(id: string): Promise<void> {
+  const supabase = adminSupabase()
+  const { error } = await supabase.from('despesas_loja').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/financeiro')
 }
 
 // ─── VENDAS ───────────────────────────────────────────────────────────────────

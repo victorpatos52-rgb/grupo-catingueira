@@ -1,0 +1,808 @@
+'use client'
+
+import { useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
+import {
+  ComposedChart, Bar, Line, XAxis, YAxis, Tooltip,
+  Legend, ResponsiveContainer, CartesianGrid,
+} from 'recharts'
+import { salvarDespesa, deletarDespesa } from '@/app/actions'
+import type { DespesaLoja, UsuarioPerfil } from '@/types'
+
+// ── Tipos exportados (usados em page.tsx) ─────────────────────────────────────
+
+export interface VendaResumo {
+  id: string
+  valor_venda: number
+  desconto: number
+  valor_liquido: number
+  data_venda: string
+  veiculo_id: string
+  veiculo: { marca: string; modelo: string; ano: number } | null
+}
+
+export interface FinVeiculoSimples {
+  veiculo_id: string
+  custo_aquisicao: number
+}
+
+export interface CustoManutSimples {
+  veiculo_id: string
+  valor: number
+}
+
+export interface DadosMensais {
+  mes: number
+  receitas: number
+  despesas: number
+  vendidos: number
+}
+
+interface Props {
+  perfil: UsuarioPerfil
+  lojaId: string
+  vendas: VendaResumo[]
+  despesas: DespesaLoja[]
+  financeiroVeiculos: FinVeiculoSimples[]
+  custosManut: CustoManutSimples[]
+  dadosAnuais: DadosMensais[]
+  ano: number
+  mes: number
+  periodoInicio: string
+  periodoFim: string
+  personalizado: boolean
+}
+
+// ── Constantes ────────────────────────────────────────────────────────────────
+
+const MESES = [
+  'Janeiro','Fevereiro','Março','Abril','Maio','Junho',
+  'Julho','Agosto','Setembro','Outubro','Novembro','Dezembro',
+]
+
+const CATEGORIAS = [
+  'Salário','Escritório','Utilidades','Marketing',
+  'Contabilidade','Manutenção','Combustível','Comissão','Outros',
+]
+
+const CATEGORIA_COR: Record<string, string> = {
+  'Salário':       'bg-blue-50 text-blue-700 border border-blue-200',
+  'Escritório':    'bg-slate-50 text-slate-700 border border-slate-200',
+  'Utilidades':    'bg-amber-50 text-amber-700 border border-amber-200',
+  'Marketing':     'bg-purple-50 text-purple-700 border border-purple-200',
+  'Contabilidade': 'bg-indigo-50 text-indigo-700 border border-indigo-200',
+  'Manutenção':    'bg-orange-50 text-orange-700 border border-orange-200',
+  'Combustível':   'bg-yellow-50 text-yellow-700 border border-yellow-200',
+  'Comissão':      'bg-green-50 text-green-700 border border-green-200',
+  'Outros':        'bg-gray-50 text-gray-600 border border-gray-200',
+}
+
+const ANOS = [2024, 2025, 2026, 2027]
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function fmt(v: number) {
+  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
+function fmtData(s: string) {
+  if (!s) return '—'
+  const [y, m, d] = s.split('T')[0].split('-')
+  return `${d}/${m}/${y}`
+}
+
+// ── Sub-componentes ────────────────────────────────────────────────────────────
+
+function CardResumo({
+  label,
+  valor,
+  cor,
+  icone,
+}: {
+  label: string
+  valor: string
+  cor: string
+  icone: React.ReactNode
+}) {
+  return (
+    <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-sm">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-[#9CA3AF] text-xs font-semibold uppercase tracking-wider">{label}</p>
+        <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${cor}`}>
+          {icone}
+        </div>
+      </div>
+      <p className="text-[#111] font-bold text-xl">{valor}</p>
+    </div>
+  )
+}
+
+const inputCls = 'w-full bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl px-3 py-2 text-[#111] text-sm focus:outline-none focus:border-[#F5C842] focus:ring-2 focus:ring-[#FEF9C3] transition-all placeholder-[#D1D5DB]'
+const labelCls = 'block text-[#6B7280] text-xs font-semibold uppercase tracking-wider mb-1.5'
+
+// ── Componente principal ──────────────────────────────────────────────────────
+
+export default function FinanceiroClient({
+  lojaId,
+  vendas,
+  despesas,
+  financeiroVeiculos,
+  custosManut,
+  dadosAnuais,
+  ano,
+  mes,
+  periodoInicio,
+  periodoFim,
+  personalizado,
+}: Props) {
+  const router = useRouter()
+  const [abaAtiva, setAbaAtiva] = useState<'balanco' | 'despesas' | 'receitas' | 'anual'>('balanco')
+
+  // ── Filtros ─────────────────────────────────────────────────────────────────
+  const [modoPersonalizado, setModoPersonalizado] = useState(personalizado)
+  const [filtroMes, setFiltroMes] = useState(mes)
+  const [filtroAno, setFiltroAno] = useState(ano)
+  const [filtroInicio, setFiltroInicio] = useState(periodoInicio)
+  const [filtroFim, setFiltroFim] = useState(periodoFim)
+
+  function aplicarFiltro() {
+    if (modoPersonalizado) {
+      router.push(`/admin/financeiro?periodo_inicio=${filtroInicio}&periodo_fim=${filtroFim}`)
+    } else {
+      router.push(`/admin/financeiro?mes=${filtroMes}&ano=${filtroAno}`)
+    }
+  }
+
+  // ── Cálculos ─────────────────────────────────────────────────────────────────
+  const stats = useMemo(() => {
+    const totalReceitas = vendas.reduce((a, v) => a + v.valor_liquido, 0)
+    const totalDespesas = despesas.reduce((a, d) => a + d.valor, 0)
+    const lucroLiquido = totalReceitas - totalDespesas
+
+    const porCategoria = despesas.reduce((acc, d) => {
+      acc[d.categoria] = (acc[d.categoria] ?? 0) + d.valor
+      return acc
+    }, {} as Record<string, number>)
+
+    const topVeiculos = vendas.map(v => {
+      const fin = financeiroVeiculos.find(f => f.veiculo_id === v.veiculo_id)
+      const manut = custosManut
+        .filter(c => c.veiculo_id === v.veiculo_id)
+        .reduce((a, c) => a + c.valor, 0)
+      const custo = (fin?.custo_aquisicao ?? 0) + manut
+      const lucro = v.valor_venda - custo
+      return { ...v, custo, lucro }
+    }).sort((a, b) => b.lucro - a.lucro).slice(0, 5)
+
+    return { totalReceitas, totalDespesas, lucroLiquido, porCategoria, topVeiculos }
+  }, [vendas, despesas, financeiroVeiculos, custosManut])
+
+  const vendasComLucro = useMemo(() => vendas.map(v => {
+    const fin = financeiroVeiculos.find(f => f.veiculo_id === v.veiculo_id)
+    const manut = custosManut
+      .filter(c => c.veiculo_id === v.veiculo_id)
+      .reduce((a, c) => a + c.valor, 0)
+    const custo = (fin?.custo_aquisicao ?? 0) + manut
+    return {
+      ...v,
+      custoAquisicao: fin?.custo_aquisicao ?? 0,
+      custosManut: manut,
+      custo,
+      lucro: v.valor_venda - custo,
+    }
+  }), [vendas, financeiroVeiculos, custosManut])
+
+  const totalVendido = vendasComLucro.reduce((a, v) => a + v.valor_venda, 0)
+  const totalLucroVeiculos = vendasComLucro.reduce((a, v) => a + v.lucro, 0)
+  const ticketMedio = vendas.length > 0 ? totalVendido / vendas.length : 0
+  const mediaLucro = vendas.length > 0 ? totalLucroVeiculos / vendas.length : 0
+
+  const chartData = dadosAnuais.map(d => ({
+    name: MESES[d.mes - 1].slice(0, 3),
+    Despesas: d.despesas,
+    Receitas: d.receitas,
+    Lucro: d.receitas - d.despesas,
+  }))
+
+  const totalAnual = dadosAnuais.reduce(
+    (a, d) => ({
+      despesas: a.despesas + d.despesas,
+      receitas: a.receitas + d.receitas,
+      vendidos: a.vendidos + d.vendidos,
+    }),
+    { despesas: 0, receitas: 0, vendidos: 0 }
+  )
+
+  // ── Formulário de despesa ────────────────────────────────────────────────────
+  const [formAberto, setFormAberto] = useState(false)
+  const [editando, setEditando] = useState<DespesaLoja | null>(null)
+  const [fDescricao, setFDescricao]   = useState('')
+  const [fCategoria, setFCategoria]   = useState('Outros')
+  const [fValor, setFValor]           = useState('')
+  const [fData, setFData]             = useState(new Date().toISOString().split('T')[0])
+  const [fRecorrente, setFRecorrente] = useState(false)
+  const [salvandoDesp, setSalvandoDesp] = useState(false)
+  const [deletandoId, setDeletandoId]   = useState<string | null>(null)
+  const [erroForm, setErroForm]         = useState<string | null>(null)
+
+  function abrirNovaDesp() {
+    setEditando(null)
+    setFDescricao(''); setFCategoria('Outros')
+    setFValor(''); setFData(new Date().toISOString().split('T')[0])
+    setFRecorrente(false); setErroForm(null)
+    setFormAberto(true)
+  }
+
+  function abrirEditarDesp(d: DespesaLoja) {
+    setEditando(d)
+    setFDescricao(d.descricao); setFCategoria(d.categoria)
+    setFValor(String(d.valor)); setFData(d.data)
+    setFRecorrente(d.recorrente); setErroForm(null)
+    setFormAberto(true)
+  }
+
+  function fecharForm() { setFormAberto(false); setEditando(null) }
+
+  async function handleSalvarDesp(e: React.FormEvent) {
+    e.preventDefault()
+    const valorNum = parseFloat(fValor.replace(',', '.'))
+    if (!fDescricao.trim()) { setErroForm('Descrição obrigatória'); return }
+    if (isNaN(valorNum) || valorNum <= 0) { setErroForm('Valor inválido'); return }
+    setSalvandoDesp(true); setErroForm(null)
+    try {
+      await salvarDespesa({
+        ...(editando ? { id: editando.id } : {}),
+        loja_id: lojaId,
+        descricao: fDescricao.trim(),
+        categoria: fCategoria,
+        valor: valorNum,
+        data: fData,
+        recorrente: fRecorrente,
+      })
+      fecharForm()
+      router.refresh()
+    } catch (err: unknown) {
+      setErroForm(err instanceof Error ? err.message : 'Erro ao salvar')
+    } finally {
+      setSalvandoDesp(false)
+    }
+  }
+
+  async function handleDeletarDesp(id: string) {
+    if (!confirm('Deletar esta despesa?')) return
+    setDeletandoId(id)
+    try {
+      await deletarDespesa(id)
+      router.refresh()
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Erro ao deletar')
+    } finally {
+      setDeletandoId(null)
+    }
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────────
+  return (
+    <div className="p-6 md:p-8">
+
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
+        <div>
+          <h1 className="font-[family-name:var(--font-barlow-condensed)] text-3xl font-black uppercase text-[#111]">
+            Financeiro
+          </h1>
+          <p className="text-[#6B7280] text-sm mt-1">
+            {personalizado
+              ? `${fmtData(periodoInicio)} — ${fmtData(periodoFim)}`
+              : `${MESES[mes - 1]} de ${ano}`}
+          </p>
+        </div>
+
+        {/* Filtros */}
+        <div className="bg-white border border-[#E5E7EB] rounded-xl p-3 flex flex-wrap items-end gap-3 shadow-sm">
+          <div className="flex rounded-lg overflow-hidden border border-[#E5E7EB] text-xs font-semibold">
+            <button
+              onClick={() => setModoPersonalizado(false)}
+              className={`px-3 py-1.5 transition-colors ${!modoPersonalizado ? 'bg-[#F5C842] text-[#111]' : 'text-[#6B7280] hover:bg-[#F9FAFB]'}`}
+            >
+              Mês/Ano
+            </button>
+            <button
+              onClick={() => setModoPersonalizado(true)}
+              className={`px-3 py-1.5 transition-colors ${modoPersonalizado ? 'bg-[#F5C842] text-[#111]' : 'text-[#6B7280] hover:bg-[#F9FAFB]'}`}
+            >
+              Personalizado
+            </button>
+          </div>
+
+          {!modoPersonalizado ? (
+            <>
+              <select
+                value={filtroMes}
+                onChange={e => setFiltroMes(Number(e.target.value))}
+                className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg px-2 py-1.5 text-sm text-[#111] focus:outline-none focus:border-[#F5C842]"
+              >
+                {MESES.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+              </select>
+              <select
+                value={filtroAno}
+                onChange={e => setFiltroAno(Number(e.target.value))}
+                className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg px-2 py-1.5 text-sm text-[#111] focus:outline-none focus:border-[#F5C842]"
+              >
+                {ANOS.map(a => <option key={a} value={a}>{a}</option>)}
+              </select>
+            </>
+          ) : (
+            <>
+              <div>
+                <p className="text-[#9CA3AF] text-[10px] mb-0.5">De</p>
+                <input
+                  type="date"
+                  value={filtroInicio}
+                  onChange={e => setFiltroInicio(e.target.value)}
+                  className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg px-2 py-1.5 text-sm text-[#111] focus:outline-none focus:border-[#F5C842]"
+                />
+              </div>
+              <div>
+                <p className="text-[#9CA3AF] text-[10px] mb-0.5">Até</p>
+                <input
+                  type="date"
+                  value={filtroFim}
+                  onChange={e => setFiltroFim(e.target.value)}
+                  className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg px-2 py-1.5 text-sm text-[#111] focus:outline-none focus:border-[#F5C842]"
+                />
+              </div>
+            </>
+          )}
+
+          <button
+            onClick={aplicarFiltro}
+            className="px-4 py-1.5 rounded-lg text-sm font-semibold text-[#92400E] bg-[#FEF9C3] border border-[#F5C842] hover:bg-[#FEF08A] transition-colors"
+          >
+            Aplicar
+          </button>
+        </div>
+      </div>
+
+      {/* ── Abas ───────────────────────────────────────────────────────────── */}
+      <div className="flex gap-0 border-b border-[#E5E7EB] mb-6">
+        {(
+          [
+            { key: 'balanco', label: 'Balanço do Período' },
+            { key: 'despesas', label: 'Despesas' },
+            { key: 'receitas', label: 'Receitas' },
+            { key: 'anual', label: 'Balanço Anual' },
+          ] as const
+        ).map(({ key, label }) => (
+          <button
+            key={key}
+            onClick={() => setAbaAtiva(key)}
+            className={`px-5 py-2.5 text-sm font-semibold transition-colors whitespace-nowrap border-b-2 -mb-px ${
+              abaAtiva === key
+                ? 'border-[#F5C842] text-[#111]'
+                : 'border-transparent text-[#6B7280] hover:text-[#111]'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* ABA 1 — BALANÇO DO PERÍODO                                         */}
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {abaAtiva === 'balanco' && (
+        <div className="space-y-6">
+          {/* Cards 2x2 / 4 cols */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <CardResumo
+              label="Total Receitas"
+              valor={fmt(stats.totalReceitas)}
+              cor="bg-green-50"
+              icone={<svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>}
+            />
+            <CardResumo
+              label="Total Despesas"
+              valor={fmt(stats.totalDespesas)}
+              cor="bg-red-50"
+              icone={<svg className="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>}
+            />
+            <CardResumo
+              label="Lucro Líquido"
+              valor={fmt(stats.lucroLiquido)}
+              cor={stats.lucroLiquido >= 0 ? 'bg-green-50' : 'bg-red-50'}
+              icone={<svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>}
+            />
+            <CardResumo
+              label="Veículos Vendidos"
+              valor={String(vendas.length)}
+              cor="bg-blue-50"
+              icone={<svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 17H3v-4l2.5-5h11L19 13v4h-2m-10 0a2 2 0 104 0 2 2 0 00-4 0zm8 0a2 2 0 104 0 2 2 0 00-4 0z"/></svg>}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+            {/* Despesas por categoria */}
+            <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-sm">
+              <h3 className="text-sm font-bold text-[#111] mb-4">Despesas por categoria</h3>
+              {Object.keys(stats.porCategoria).length === 0 ? (
+                <p className="text-[#9CA3AF] text-sm text-center py-6">Nenhuma despesa no período.</p>
+              ) : (
+                <div className="space-y-3">
+                  {Object.entries(stats.porCategoria)
+                    .sort(([, a], [, b]) => b - a)
+                    .map(([cat, total]) => {
+                      const pct = stats.totalDespesas > 0 ? (total / stats.totalDespesas) * 100 : 0
+                      return (
+                        <div key={cat}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className={`text-xs px-2 py-0.5 rounded-md font-medium ${CATEGORIA_COR[cat] ?? CATEGORIA_COR['Outros']}`}>{cat}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[#9CA3AF] text-xs">{pct.toFixed(1)}%</span>
+                              <span className="text-[#111] text-sm font-semibold">{fmt(total)}</span>
+                            </div>
+                          </div>
+                          <div className="h-1.5 bg-[#F3F4F6] rounded-full overflow-hidden">
+                            <div className="h-full bg-red-400 rounded-full" style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      )
+                    })}
+                </div>
+              )}
+            </div>
+
+            {/* Top veículos mais lucrativos */}
+            <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-sm">
+              <h3 className="text-sm font-bold text-[#111] mb-4">Top veículos mais lucrativos</h3>
+              {stats.topVeiculos.length === 0 ? (
+                <p className="text-[#9CA3AF] text-sm text-center py-6">Nenhuma venda no período.</p>
+              ) : (
+                <div className="space-y-3">
+                  {stats.topVeiculos.map((v, i) => (
+                    <div key={v.id} className="flex items-center gap-3">
+                      <span className="text-[#9CA3AF] text-xs w-5 shrink-0 text-right">{i + 1}.</span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[#111] text-sm font-medium truncate">
+                          {v.veiculo ? `${v.veiculo.marca} ${v.veiculo.modelo} ${v.veiculo.ano}` : v.veiculo_id}
+                        </p>
+                        <div className="flex items-center gap-3 text-xs text-[#9CA3AF] mt-0.5">
+                          <span>Custo {fmt(v.custo)}</span>
+                          <span>Venda {fmt(v.valor_venda)}</span>
+                        </div>
+                      </div>
+                      <span className={`text-sm font-bold shrink-0 ${v.lucro >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                        {fmt(v.lucro)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* ABA 2 — DESPESAS                                                   */}
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {abaAtiva === 'despesas' && (
+        <div className="space-y-5">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold text-[#111]">Despesas do período</h2>
+            <button
+              onClick={abrirNovaDesp}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-[#92400E] bg-[#FEF9C3] border border-[#F5C842] hover:bg-[#FEF08A] transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Nova Despesa
+            </button>
+          </div>
+
+          {/* Formulário inline */}
+          {formAberto && (
+            <div className="bg-[#FFFBEB] border border-[#F5C842] rounded-xl p-5 shadow-sm">
+              <h3 className="text-sm font-bold text-[#111] mb-4">
+                {editando ? 'Editar despesa' : 'Nova despesa'}
+              </h3>
+              <form onSubmit={handleSalvarDesp}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                  <div className="sm:col-span-2 lg:col-span-1">
+                    <label className={labelCls}>Descrição *</label>
+                    <input
+                      required
+                      type="text"
+                      value={fDescricao}
+                      onChange={e => setFDescricao(e.target.value)}
+                      className={inputCls}
+                      placeholder="Ex: Conta de luz"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Categoria</label>
+                    <select value={fCategoria} onChange={e => setFCategoria(e.target.value)} className={`${inputCls} cursor-pointer`}>
+                      {CATEGORIAS.map(c => <option key={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={labelCls}>Valor (R$) *</label>
+                    <input
+                      required
+                      type="text"
+                      inputMode="decimal"
+                      value={fValor}
+                      onChange={e => setFValor(e.target.value)}
+                      className={inputCls}
+                      placeholder="0,00"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Data</label>
+                    <input type="date" value={fData} onChange={e => setFData(e.target.value)} className={inputCls} />
+                  </div>
+                  <div className="flex items-end pb-2">
+                    <label className="flex items-center gap-2 cursor-pointer text-sm text-[#374151]">
+                      <input
+                        type="checkbox"
+                        checked={fRecorrente}
+                        onChange={e => setFRecorrente(e.target.checked)}
+                        className="w-4 h-4 accent-[#F5C842]"
+                      />
+                      Despesa recorrente
+                    </label>
+                  </div>
+                </div>
+
+                {erroForm && <p className="text-red-600 text-sm mb-3">{erroForm}</p>}
+
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={salvandoDesp}
+                    className="px-5 py-2 rounded-xl text-sm font-semibold text-[#92400E] bg-[#FEF9C3] border border-[#F5C842] hover:bg-[#FEF08A] transition-colors disabled:opacity-50"
+                  >
+                    {salvandoDesp ? 'Salvando...' : 'Salvar'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={fecharForm}
+                    className="px-5 py-2 rounded-xl text-sm text-[#6B7280] border border-[#E5E7EB] hover:border-[#D1D5DB] transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Tabela */}
+          <div className="bg-white border border-[#E5E7EB] rounded-xl overflow-hidden shadow-sm">
+            {despesas.length === 0 ? (
+              <p className="px-5 py-12 text-center text-[#9CA3AF] text-sm">Nenhuma despesa no período.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-[#E5E7EB] bg-[#F9FAFB]">
+                      {['Descrição', 'Categoria', 'Valor', 'Data', 'Recorrente', 'Ações'].map(h => (
+                        <th key={h} className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#F3F4F6]">
+                    {despesas.map(d => (
+                      <tr key={d.id} className="hover:bg-[#FAFAFA] transition-colors">
+                        <td className="px-4 py-3 text-[#111] font-medium">{d.descricao}</td>
+                        <td className="px-4 py-3">
+                          <span className={`text-xs px-2 py-0.5 rounded-md font-medium ${CATEGORIA_COR[d.categoria] ?? CATEGORIA_COR['Outros']}`}>
+                            {d.categoria}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-[#111] font-semibold whitespace-nowrap">{fmt(d.valor)}</td>
+                        <td className="px-4 py-3 text-[#6B7280] whitespace-nowrap">{fmtData(d.data)}</td>
+                        <td className="px-4 py-3">
+                          {d.recorrente
+                            ? <span className="text-xs bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-md font-medium">Sim</span>
+                            : <span className="text-[#9CA3AF] text-xs">—</span>}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex gap-1.5">
+                            <button
+                              onClick={() => abrirEditarDesp(d)}
+                              className="text-xs text-[#6B7280] hover:text-[#111] px-2.5 py-1 rounded-lg border border-[#E5E7EB] hover:border-[#D1D5DB] transition-colors"
+                            >
+                              Editar
+                            </button>
+                            <button
+                              onClick={() => handleDeletarDesp(d.id)}
+                              disabled={deletandoId === d.id}
+                              className="text-xs text-[#6B7280] hover:text-red-600 px-2.5 py-1 rounded-lg border border-[#E5E7EB] hover:border-red-200 hover:bg-red-50 transition-colors disabled:opacity-50"
+                            >
+                              {deletandoId === d.id ? '...' : 'Deletar'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-[#E5E7EB] bg-[#F9FAFB]">
+                      <td colSpan={2} className="px-4 py-3 text-[#6B7280] text-xs font-semibold uppercase tracking-wider">Total</td>
+                      <td className="px-4 py-3 text-[#111] font-bold whitespace-nowrap">
+                        {fmt(despesas.reduce((a, d) => a + d.valor, 0))}
+                      </td>
+                      <td colSpan={3} />
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* ABA 3 — RECEITAS                                                   */}
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {abaAtiva === 'receitas' && (
+        <div className="space-y-5">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <CardResumo label="Total Vendido" valor={fmt(totalVendido)} cor="bg-green-50"
+              icone={<svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>}
+            />
+            <CardResumo label="Lucro Total" valor={fmt(totalLucroVeiculos)} cor={totalLucroVeiculos >= 0 ? 'bg-green-50' : 'bg-red-50'}
+              icone={<svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>}
+            />
+            <CardResumo label="Ticket Médio" valor={fmt(ticketMedio)} cor="bg-blue-50"
+              icone={<svg className="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 11h.01M12 11h.01M15 11h.01M4 19h16a2 2 0 002-2V7a2 2 0 00-2-2H4a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>}
+            />
+            <CardResumo label="Média de Lucro" valor={fmt(mediaLucro)} cor="bg-purple-50"
+              icone={<svg className="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>}
+            />
+          </div>
+
+          <div className="bg-white border border-[#E5E7EB] rounded-xl overflow-hidden shadow-sm">
+            {vendasComLucro.length === 0 ? (
+              <p className="px-5 py-12 text-center text-[#9CA3AF] text-sm">Nenhuma venda finalizada no período.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-[#E5E7EB] bg-[#F9FAFB]">
+                      {['Veículo', 'Data', 'Valor Venda', 'Custo Aq.', 'Custo Manut.', 'Lucro', 'Ver'].map(h => (
+                        <th key={h} className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#F3F4F6]">
+                    {vendasComLucro.map(v => (
+                      <tr key={v.id} className="hover:bg-[#FAFAFA] transition-colors">
+                        <td className="px-4 py-3 text-[#111] font-medium whitespace-nowrap">
+                          {v.veiculo ? `${v.veiculo.marca} ${v.veiculo.modelo} ${v.veiculo.ano}` : '—'}
+                        </td>
+                        <td className="px-4 py-3 text-[#6B7280] whitespace-nowrap">{fmtData(v.data_venda)}</td>
+                        <td className="px-4 py-3 text-[#111] font-semibold whitespace-nowrap">{fmt(v.valor_venda)}</td>
+                        <td className="px-4 py-3 text-[#6B7280] whitespace-nowrap">{v.custoAquisicao > 0 ? fmt(v.custoAquisicao) : '—'}</td>
+                        <td className="px-4 py-3 text-[#6B7280] whitespace-nowrap">{v.custosManut > 0 ? fmt(v.custosManut) : '—'}</td>
+                        <td className={`px-4 py-3 font-bold whitespace-nowrap ${v.lucro >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                          {fmt(v.lucro)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <a
+                            href={`/admin/vendas/${v.id}`}
+                            className="text-xs text-[#F59E0B] hover:underline whitespace-nowrap"
+                          >
+                            Ver venda
+                          </a>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* ABA 4 — BALANÇO ANUAL                                              */}
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {abaAtiva === 'anual' && (
+        <div className="space-y-6">
+          <h2 className="text-base font-bold text-[#111]">Balanço anual — {ano}</h2>
+
+          {/* Gráfico */}
+          <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-sm">
+            <ResponsiveContainer width="100%" height={300}>
+              <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" />
+                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#9CA3AF' }} axisLine={false} tickLine={false} />
+                <YAxis
+                  tick={{ fontSize: 11, fill: '#9CA3AF' }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={v => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
+                />
+                <Tooltip
+                  formatter={(value: number) => fmt(value)}
+                  contentStyle={{ borderRadius: '10px', border: '1px solid #E5E7EB', fontSize: 12 }}
+                />
+                <Legend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} />
+                <Bar dataKey="Despesas" fill="#FCA5A5" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Receitas" fill="#86EFAC" radius={[4, 4, 0, 0]} />
+                <Line
+                  type="monotone"
+                  dataKey="Lucro"
+                  stroke="#3B82F6"
+                  strokeWidth={2}
+                  dot={{ r: 3, fill: '#3B82F6' }}
+                />
+              </ComposedChart>
+            </ResponsiveContainer>
+          </div>
+
+          {/* Tabela mensal */}
+          <div className="bg-white border border-[#E5E7EB] rounded-xl overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-[#E5E7EB] bg-[#F9FAFB]">
+                    {['Mês', 'Despesas', 'Receitas', 'Lucro', 'Veículos Vendidos'].map(h => (
+                      <th key={h} className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#F3F4F6]">
+                  {dadosAnuais.map(d => {
+                    const lucro = d.receitas - d.despesas
+                    const ehMesAtual = !personalizado && d.mes === mes && ano === filtroAno
+                    return (
+                      <tr
+                        key={d.mes}
+                        className={`hover:bg-[#FAFAFA] transition-colors ${ehMesAtual ? 'bg-[#FFFBEB]' : ''}`}
+                      >
+                        <td className="px-4 py-3 text-[#111] font-medium whitespace-nowrap">
+                          {MESES[d.mes - 1]}
+                          {ehMesAtual && <span className="ml-2 text-[10px] text-[#F59E0B] font-bold">(atual)</span>}
+                        </td>
+                        <td className="px-4 py-3 text-red-500 whitespace-nowrap">{d.despesas > 0 ? fmt(d.despesas) : '—'}</td>
+                        <td className="px-4 py-3 text-green-600 whitespace-nowrap">{d.receitas > 0 ? fmt(d.receitas) : '—'}</td>
+                        <td className={`px-4 py-3 font-semibold whitespace-nowrap ${lucro >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                          {d.receitas > 0 || d.despesas > 0 ? fmt(lucro) : '—'}
+                        </td>
+                        <td className="px-4 py-3 text-[#6B7280] whitespace-nowrap">
+                          {d.vendidos > 0 ? d.vendidos : '—'}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-[#E5E7EB] bg-[#F9FAFB]">
+                    <td className="px-4 py-3 text-[#111] font-bold text-xs uppercase tracking-wider">Total</td>
+                    <td className="px-4 py-3 text-red-500 font-bold whitespace-nowrap">{fmt(totalAnual.despesas)}</td>
+                    <td className="px-4 py-3 text-green-600 font-bold whitespace-nowrap">{fmt(totalAnual.receitas)}</td>
+                    <td className={`px-4 py-3 font-bold whitespace-nowrap ${totalAnual.receitas - totalAnual.despesas >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                      {fmt(totalAnual.receitas - totalAnual.despesas)}
+                    </td>
+                    <td className="px-4 py-3 text-[#111] font-bold">{totalAnual.vendidos}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div>
+  )
+}
