@@ -163,15 +163,15 @@ export default function VeiculoForm({ veiculo, lojaId }: VeiculoFormProps) {
   }
 
   const inputClass =
-    'w-full bg-[#0D0D0D] border border-[#2A2A2A] rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-[var(--cor-primaria)] transition-colors'
-  const labelClass = 'block text-xs text-[#888] uppercase tracking-wider mb-1.5'
-  const errorClass = 'text-red-400 text-xs mt-1'
+    'w-full bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl px-3.5 py-2.5 text-[#111827] text-sm focus:outline-none focus:ring-2 focus:ring-[#F5C842] focus:border-[#F5C842] transition-all placeholder-[#D1D5DB]'
+  const labelClass = 'block text-[#6B7280] text-xs font-semibold uppercase tracking-wider mb-1.5'
+  const errorClass = 'text-red-600 text-xs mt-1'
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       {/* Fotos */}
-      <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-5">
-        <h2 className="text-white font-semibold text-sm uppercase tracking-wider mb-4">Fotos</h2>
+      <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-sm">
+        <h2 className="text-[#111827] font-bold text-sm uppercase tracking-wider mb-4">Fotos</h2>
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3 mb-4">
           {fotos.map((foto, i) => (
             <div
@@ -181,20 +181,20 @@ export default function VeiculoForm({ veiculo, lojaId }: VeiculoFormProps) {
               onDragOver={e => { e.preventDefault(); setDragOver(i) }}
               onDrop={e => onDrop(e, i)}
               onDragLeave={() => setDragOver(null)}
-              className={`relative aspect-square rounded-lg overflow-hidden bg-[#111] cursor-grab border-2 transition-colors ${
-                dragOver === i ? 'border-[var(--cor-primaria)]' : 'border-transparent'
-              } ${i === 0 ? 'ring-2 ring-offset-2 ring-offset-[#1A1A1A] ring-[var(--cor-primaria)]' : ''}`}
+              className={`relative aspect-square rounded-lg overflow-hidden bg-[#F9FAFB] cursor-grab border-2 transition-colors ${
+                dragOver === i ? 'border-[#F5C842]' : 'border-[#E5E7EB]'
+              } ${i === 0 ? 'ring-2 ring-offset-2 ring-offset-white ring-[#F5C842]' : ''}`}
             >
               <Image src={foto} alt={`Foto ${i + 1}`} fill className="object-cover" sizes="100px" />
               {i === 0 && (
-                <span className="absolute bottom-0 left-0 right-0 bg-[var(--cor-primaria)] text-[#0D0D0D] text-[10px] font-bold text-center py-0.5">
+                <span className="absolute bottom-0 left-0 right-0 bg-[#F5C842] text-[#111827] text-[10px] font-bold text-center py-0.5">
                   CAPA
                 </span>
               )}
               <button
                 type="button"
                 onClick={() => removerFoto(i)}
-                className="absolute top-1 right-1 w-5 h-5 bg-red-600 rounded-full flex items-center justify-center text-white text-[10px] opacity-0 group-hover:opacity-100 hover:opacity-100 transition-opacity"
+                className="absolute top-1 right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-[10px] opacity-0 group-hover:opacity-100 hover:opacity-100 transition-opacity"
               >
                 ×
               </button>
@@ -204,16 +204,16 @@ export default function VeiculoForm({ veiculo, lojaId }: VeiculoFormProps) {
             type="button"
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
-            className="aspect-square rounded-lg border-2 border-dashed border-[#2A2A2A] hover:border-[var(--cor-primaria)] flex flex-col items-center justify-center gap-1 transition-colors disabled:opacity-50"
+            className="aspect-square rounded-lg border-2 border-dashed border-[#E5E7EB] hover:border-[#F5C842] bg-[#F9FAFB] flex flex-col items-center justify-center gap-1 transition-colors disabled:opacity-50"
           >
             {uploading ? (
-              <span className="text-[#555] text-xs">Enviando...</span>
+              <span className="text-[#9CA3AF] text-xs">Enviando...</span>
             ) : (
               <>
-                <svg className="w-6 h-6 text-[#555]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg className="w-6 h-6 text-[#D1D5DB]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
                 </svg>
-                <span className="text-[#555] text-[10px]">Adicionar</span>
+                <span className="text-[#9CA3AF] text-[10px]">Adicionar</span>
               </>
             )}
           </button>
@@ -226,12 +226,12 @@ export default function VeiculoForm({ veiculo, lojaId }: VeiculoFormProps) {
           className="hidden"
           onChange={e => e.target.files && uploadFotos(e.target.files)}
         />
-        <p className="text-[#444] text-xs">Arraste para reordenar. A primeira foto será a capa.</p>
+        <p className="text-[#9CA3AF] text-xs">Arraste para reordenar. A primeira foto será a capa.</p>
       </div>
 
       {/* Dados básicos */}
-      <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-5">
-        <h2 className="text-white font-semibold text-sm uppercase tracking-wider mb-4">Informações</h2>
+      <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-sm">
+        <h2 className="text-[#111827] font-bold text-sm uppercase tracking-wider mb-4">Informações</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div>
             <label className={labelClass}>Marca *</label>
@@ -314,9 +314,9 @@ export default function VeiculoForm({ veiculo, lojaId }: VeiculoFormProps) {
               type="checkbox"
               id="destaque"
               {...register('destaque')}
-              className="w-4 h-4 accent-[var(--cor-primaria)]"
+              className="w-4 h-4 accent-[#F5C842]"
             />
-            <label htmlFor="destaque" className="text-sm text-white cursor-pointer">
+            <label htmlFor="destaque" className="text-sm text-[#111827] cursor-pointer">
               Destaque na vitrine
             </label>
           </div>
@@ -334,43 +334,39 @@ export default function VeiculoForm({ veiculo, lojaId }: VeiculoFormProps) {
       </div>
 
       {/* Opcionais */}
-      <div className="bg-[#1A1A1A] border border-[#2A2A2A] rounded-xl p-5">
-        <h2 className="text-white font-semibold text-sm uppercase tracking-wider mb-4">Opcionais</h2>
+      <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-sm">
+        <h2 className="text-[#111827] font-bold text-sm uppercase tracking-wider mb-4">Opcionais</h2>
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
           {OPCIONAIS_LISTA.map(op => (
-            <label
-              key={op}
-              className="flex items-center gap-2 cursor-pointer group"
-            >
+            <label key={op} className="flex items-center gap-2 cursor-pointer group">
               <input
                 type="checkbox"
                 checked={opcionais.includes(op)}
                 onChange={() => toggleOpcional(op)}
-                className="w-4 h-4 accent-[var(--cor-primaria)] shrink-0"
+                className="w-4 h-4 accent-[#F5C842] shrink-0"
               />
-              <span className="text-sm text-[#888] group-hover:text-white transition-colors">{op}</span>
+              <span className="text-sm text-[#374151] group-hover:text-[#111827] transition-colors">{op}</span>
             </label>
           ))}
         </div>
       </div>
 
       {erro && (
-        <p className="text-red-400 text-sm bg-red-400/10 rounded-lg px-4 py-3">{erro}</p>
+        <p className="text-red-600 text-sm bg-red-50 border border-red-200 rounded-xl px-4 py-3">{erro}</p>
       )}
 
       <div className="flex gap-3">
         <button
           type="button"
           onClick={() => router.back()}
-          className="px-6 py-2.5 rounded-lg border border-[#2A2A2A] text-sm text-[#888] hover:text-white hover:border-[#333] transition-colors"
+          className="px-6 py-2.5 rounded-xl border border-[#E5E7EB] text-sm text-[#6B7280] hover:text-[#111827] hover:border-[#D0D0D0] transition-colors"
         >
           Cancelar
         </button>
         <button
           type="submit"
           disabled={salvando || uploading}
-          className="flex-1 py-2.5 rounded-lg font-bold text-sm text-[#0D0D0D] transition-all hover:brightness-90 disabled:opacity-50"
-          style={{ backgroundColor: 'var(--cor-primaria)' }}
+          className="flex-1 py-2.5 rounded-xl font-bold text-sm text-[#111827] bg-[#F5C842] hover:brightness-90 transition-all disabled:opacity-50"
         >
           {salvando ? 'Salvando...' : veiculo ? 'Salvar alterações' : 'Cadastrar veículo'}
         </button>

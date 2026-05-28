@@ -120,14 +120,13 @@ export default async function EditarVeiculoPage({
 
       <VeiculoForm veiculo={veiculo} lojaId={lojaId} />
 
-      {podeVerFinanceiro && (
-        <CustosVeiculoClient
-          veiculo={veiculo}
-          financeiro={financeiro}
-          custos={custos}
-          lojaId={lojaId}
-        />
-      )}
+      <CustosVeiculoClient
+        veiculo={veiculo}
+        financeiro={financeiro}
+        custos={custos}
+        lojaId={lojaId}
+        podeVerFinanceiro={podeVerFinanceiro}
+      />
     </div>
   )
 }
