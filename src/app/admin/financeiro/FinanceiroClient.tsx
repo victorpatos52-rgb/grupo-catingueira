@@ -731,7 +731,7 @@ export default function FinanceiroClient({
                   tickFormatter={v => v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)}
                 />
                 <Tooltip
-                  formatter={(value: number) => fmt(value)}
+                  formatter={(value) => fmt(Number(value ?? 0))}
                   contentStyle={{ borderRadius: '10px', border: '1px solid #E5E7EB', fontSize: 12 }}
                 />
                 <Legend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} />
