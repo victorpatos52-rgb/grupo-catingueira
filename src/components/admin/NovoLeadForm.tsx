@@ -12,7 +12,7 @@ interface Props {
 const inputCls = 'w-full bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl px-3 py-2 text-[#111] text-sm focus:outline-none focus:border-[#F5C842] focus:ring-2 focus:ring-[#FEF9C3] transition-all placeholder-[#D1D5DB]'
 const labelCls = 'block text-[#6B7280] text-xs font-semibold uppercase tracking-wider mb-1.5'
 
-const ORIGENS = ['site', 'whatsapp', 'instagram', 'indicacao', 'passagem', 'outros']
+const ORIGENS = ['site', 'whatsapp', 'instagram', 'indicacao', 'outros']
 
 export default function NovoLeadForm({ lojaId, vendedores }: Props) {
   const router = useRouter()

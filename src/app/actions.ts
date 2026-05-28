@@ -214,8 +214,24 @@ export async function criarLead(data: {
   tags: string[]
 }): Promise<void> {
   const supabase = adminSupabase()
-  const { error } = await supabase.from('leads').insert(data)
-  if (error) throw new Error(error.message)
+  // Campos base garantidamente existentes na tabela
+  const payload: Record<string, unknown> = {
+    loja_id: data.loja_id,
+    nome: data.nome,
+    telefone: data.telefone,
+    email: data.email ?? null,
+    origem: data.origem,
+    observacoes: data.observacoes ?? null,
+    veiculo_interesse: data.veiculo_interesse ?? null,
+    responsavel_id: data.responsavel_id ?? null,
+    status: data.status,
+    tags: data.tags ?? [],
+  }
+  // Campos novos — só incluídos se tiverem valor (seguro caso migration ainda não rodou)
+  if (data.proximo_atendimento) payload.proximo_atendimento = data.proximo_atendimento
+
+  const { error } = await supabase.from('leads').insert(payload)
+  if (error) throw new Error(`criarLead falhou: ${error.message} | code: ${error.code} | details: ${error.details}`)
   revalidatePath('/admin/crm')
 }
 

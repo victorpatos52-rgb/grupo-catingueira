@@ -53,6 +53,7 @@ export default async function CrmPage({
       leads={leads}
       vendedores={vendedores}
       lojaId={lojaId}
+      userId={user.id}
       statusFilter={params.status ?? ''}
       origemFilter={params.origem ?? ''}
     />
