@@ -41,7 +41,7 @@ export default async function HomePage() {
       .eq('loja_id', loja.id)
       .eq('status', 'disponivel')
       .eq('destaque', true)
-      .limit(6)
+      .limit(9)
     destaques = (data ?? []) as Veiculo[]
   }
 

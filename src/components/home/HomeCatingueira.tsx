@@ -348,7 +348,7 @@ export default function HomeCatingueira({ loja, destaques, waHref, waDisplay }: 
             className="font-[family-name:var(--font-barlow-condensed)] font-black italic uppercase text-white leading-none mb-4"
             style={{ fontSize: 'clamp(2rem, 6vw, 6rem)' }}
           >
-            CATINGUEIRA<br />MULTIMARCAS
+            {loja.nome.toUpperCase()}
           </h2>
           <p className="text-white/50 text-sm uppercase tracking-[0.3em]">{endereco}</p>
         </div>

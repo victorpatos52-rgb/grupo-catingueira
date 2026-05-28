@@ -106,8 +106,8 @@ export default function VeiculoCard({ veiculo, loja, delay = 0 }: VeiculoCardPro
         <div className="flex gap-2 mt-1">
           <Link
             href={`/veiculo/${veiculo.id}`}
-            className="flex-1 text-center py-2 rounded-md text-xs font-bold text-[#1A1A1A] uppercase tracking-wider hover:brightness-90 transition-all"
-            style={{ backgroundColor: 'var(--cor-primaria)' }}
+            className="flex-1 text-center py-2 rounded-md text-xs font-bold uppercase tracking-wider hover:brightness-90 transition-all"
+            style={{ backgroundColor: 'var(--cor-primaria)', color: 'white' }}
           >
             VER MAIS
           </Link>

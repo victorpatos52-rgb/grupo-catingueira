@@ -66,8 +66,19 @@ export default function HomeFelizardo({ loja, destaques, waHref, waDisplay, sobr
           style={{ minHeight: 'inherit' }}
         >
           {/* Esquerda — conteúdo */}
-          <div className="flex flex-col justify-center px-6 sm:px-10 lg:px-16 xl:px-24 py-16">
-            <AnimatedSection>
+          <div className="flex flex-col justify-center px-6 sm:px-10 lg:px-16 xl:px-24 py-16 relative overflow-hidden">
+            {/* Imagem de fundo no mobile (hidden no desktop onde a imagem fica à direita) */}
+            <div
+              className="absolute inset-0 lg:hidden"
+              style={{
+                backgroundImage: 'url(https://images.unsplash.com/photo-1580273916550-e323be2ae537?w=900&q=80)',
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+              }}
+            />
+            <div className="absolute inset-0 lg:hidden bg-white/85" />
+
+            <AnimatedSection className="relative z-10">
               <p
                 className="text-xs font-bold uppercase mb-6"
                 style={{ color: '#2E6BE6', letterSpacing: '0.25em' }}
