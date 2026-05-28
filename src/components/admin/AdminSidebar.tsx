@@ -75,12 +75,21 @@ function IconUsuarios() {
   )
 }
 
+function IconReceipt() {
+  return (
+    <svg className="w-[18px] h-[18px] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+    </svg>
+  )
+}
+
 // ── Menu config ──────────────────────────────────────────────────────────────
 
 const GESTAO_ITEMS = [
   { href: '/admin/dashboard',  label: 'Dashboard',  modulo: 'dashboard',  Icon: IconDashboard },
   { href: '/admin/veiculos',   label: 'Veículos',   modulo: 'veiculos',   Icon: IconCar },
   { href: '/admin/crm',        label: 'CRM',        modulo: 'crm',        Icon: IconCRM },
+  { href: '/admin/vendas',     label: 'Vendas',     modulo: 'vendas',     Icon: IconReceipt },
   { href: '/admin/financeiro', label: 'Financeiro', modulo: 'financeiro', Icon: IconFinanceiro },
   { href: '/admin/relatorios', label: 'Relatórios', modulo: 'relatorios', Icon: IconRelatorios },
 ]

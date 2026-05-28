@@ -4,7 +4,7 @@ import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
-import type { Perfil, TipoInteracao, Veiculo } from '@/types'
+import type { Perfil, TipoInteracao, Venda, Veiculo } from '@/types'
 
 function adminSupabase() {
   return createClient(
@@ -494,6 +494,46 @@ export async function atualizarFotosVeiculo(veiculoId: string, fotos: string[]) 
     .eq('id', veiculoId)
   if (error) throw new Error(error.message)
   revalidatePath('/admin/veiculos/' + veiculoId)
+}
+
+// ─── VENDAS ───────────────────────────────────────────────────────────────────
+
+export async function salvarVenda(
+  data: Partial<Venda> & { loja_id: string; veiculo_id: string; comprador_nome: string }
+): Promise<{ id: string }> {
+  const supabase = adminSupabase()
+  if (data.id) {
+    const { id, veiculo, vendedor, ...rest } = data as Venda & { veiculo?: unknown; vendedor?: unknown }
+    const { error } = await supabase.from('vendas').update(rest).eq('id', id)
+    if (error) throw new Error(error.message)
+    revalidatePath('/admin/vendas')
+    return { id }
+  } else {
+    const { veiculo, vendedor, ...rest } = data as Venda & { veiculo?: unknown; vendedor?: unknown }
+    const { data: nova, error } = await supabase.from('vendas').insert(rest).select('id').single()
+    if (error) throw new Error(error.message)
+    revalidatePath('/admin/vendas')
+    return { id: (nova as { id: string }).id }
+  }
+}
+
+export async function finalizarVenda(vendaId: string, veiculoId: string): Promise<void> {
+  const supabase = adminSupabase()
+  const [{ error: e1 }, { error: e2 }] = await Promise.all([
+    supabase.from('vendas').update({ status: 'finalizada' }).eq('id', vendaId),
+    supabase.from('veiculos').update({ status: 'vendido' }).eq('id', veiculoId),
+  ])
+  if (e1) throw new Error(e1.message)
+  if (e2) throw new Error(e2.message)
+  revalidatePath('/admin/vendas')
+  revalidatePath('/admin/veiculos')
+}
+
+export async function deletarVenda(vendaId: string): Promise<void> {
+  const supabase = adminSupabase()
+  const { error } = await supabase.from('vendas').delete().eq('id', vendaId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/vendas')
 }
 
 // ─── VISTORIA ─────────────────────────────────────────────────────────────────

@@ -149,3 +149,53 @@ export interface VistoriaVeiculo {
   aprovado: boolean
   created_at: string
 }
+
+export type VendaStatus = 'rascunho' | 'finalizada'
+
+export interface Venda {
+  id: string
+  loja_id: string
+  veiculo_id: string
+  vendedor_id: string | null
+  numero_negociacao: string | null
+  data_venda: string
+  comprador_nome: string
+  comprador_cpf: string | null
+  comprador_rg: string | null
+  comprador_identidade: string | null
+  comprador_data_nasc: string | null
+  comprador_estado_civil: string | null
+  comprador_profissao: string | null
+  comprador_endereco: string | null
+  comprador_cep: string | null
+  comprador_cidade: string | null
+  comprador_uf: string | null
+  comprador_telefone: string | null
+  comprador_email: string | null
+  valor_venda: number
+  desconto: number
+  valor_liquido: number
+  pagamento_dinheiro: number
+  pagamento_cheque1_banco: string | null
+  pagamento_cheque1_data: string | null
+  pagamento_cheque1_valor: number
+  pagamento_cheque2_banco: string | null
+  pagamento_cheque2_data: string | null
+  pagamento_cheque2_valor: number
+  pagamento_duplicata1_banco: string | null
+  pagamento_duplicata1_data: string | null
+  pagamento_duplicata1_valor: number
+  pagamento_duplicata2_banco: string | null
+  pagamento_duplicata2_data: string | null
+  pagamento_duplicata2_valor: number
+  pagamento_financeira_nome: string | null
+  pagamento_financeira_valor: number
+  pagamento_outros_desc: string | null
+  pagamento_outros_valor: number
+  observacoes: string | null
+  documentos_urls: string[]
+  status: VendaStatus
+  created_at: string
+  veiculo?: Pick<Veiculo, 'id' | 'marca' | 'modelo' | 'ano' | 'fotos' | 'preco' | 'placa' | 'cor' | 'km' | 'cambio' | 'combustivel' | 'versao'> | null
+  vendedor?: Pick<UsuarioPerfil, 'nome'> | null
+}
