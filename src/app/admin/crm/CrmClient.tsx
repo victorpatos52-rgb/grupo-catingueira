@@ -60,7 +60,7 @@ export default function CrmClient({ leads, vendedores, lojaId, statusFilter, ori
   const vendedorMap = Object.fromEntries(vendedores.map(v => [v.id, v.nome]))
 
   return (
-    <div className="p-6 md:p-8">
+    <div className="p-6 md:p-8 pb-24 md:pb-8">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="font-[family-name:var(--font-barlow-condensed)] text-3xl font-black uppercase text-[#111]">

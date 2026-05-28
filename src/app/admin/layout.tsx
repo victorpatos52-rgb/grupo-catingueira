@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js'
 import { AdminProvider } from '@/contexts/AdminContext'
 import type { Loja, UsuarioPerfil } from '@/types'
 import AdminSidebar from '@/components/admin/AdminSidebar'
+import AdminBottomBar from '@/components/admin/AdminBottomBar'
 
 function adminClient() {
   return createClient(
@@ -73,10 +74,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <AdminProvider value={{ perfil, loja: lojaAtiva, lojas }}>
       <div className="min-h-screen bg-[#F8F8F8] flex">
         <AdminSidebar perfil={perfilComLoja} loja={lojaAtiva} lojas={lojas} />
-        <main className="flex-1 min-w-0 overflow-auto">
+        <main className="flex-1 min-w-0 overflow-auto pb-16 md:pb-0">
           {children}
         </main>
       </div>
+      <AdminBottomBar perfil={perfil} />
     </AdminProvider>
   )
 }

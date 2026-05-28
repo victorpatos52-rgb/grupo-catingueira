@@ -45,7 +45,7 @@ export default function VendasClient({ vendas }: Props) {
   }
 
   return (
-    <div className="p-6 md:p-8">
+    <div className="p-6 md:p-8 pb-24 md:pb-8">
 
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
