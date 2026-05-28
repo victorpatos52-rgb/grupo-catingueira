@@ -37,8 +37,8 @@ const MODULO_COR: Record<Modulo, string> = {
 }
 
 const MODULOS_POR_PERFIL: Record<Perfil, Modulo[]> = {
-  vendedor: ['dashboard', 'veiculos', 'crm', 'vendas'],
-  gerente:  ['dashboard', 'veiculos', 'crm', 'vendas', 'financeiro'],
+  vendedor: ['veiculos', 'crm', 'vendas'],
+  gerente:  ['veiculos', 'crm', 'vendas', 'financeiro'],
   diretor:  [...TODOS_MODULOS],
   admin:    [...TODOS_MODULOS],
 }
@@ -95,7 +95,6 @@ function ModulosCheckbox({
   onChange: (v: string[]) => void
 }) {
   function toggle(modulo: Modulo) {
-    if (modulo === 'dashboard') return
     if (value.includes(modulo)) {
       onChange(value.filter(m => m !== modulo))
     } else {
@@ -106,19 +105,17 @@ function ModulosCheckbox({
   return (
     <div className="flex flex-wrap gap-2">
       {TODOS_MODULOS.map(modulo => {
-        const ativo    = value.includes(modulo)
-        const disabled = modulo === 'dashboard'
+        const ativo = value.includes(modulo)
         return (
           <button
             key={modulo}
             type="button"
             onClick={() => toggle(modulo)}
-            disabled={disabled}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-all cursor-pointer ${
               ativo
                 ? 'bg-[#FEF9C3] border-[#F5C842] text-[#92400E]'
                 : 'bg-white border-[#E5E7EB] text-[#6B7280] hover:border-[#D1D5DB] hover:text-[#374151]'
-            } ${disabled ? 'cursor-default opacity-80' : 'cursor-pointer'}`}
+            }`}
           >
             <span
               className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 transition-colors ${
@@ -132,7 +129,6 @@ function ModulosCheckbox({
               )}
             </span>
             {MODULO_LABEL[modulo]}
-            {disabled && <span className="text-[10px] text-[#9CA3AF]">(obrigatório)</span>}
           </button>
         )
       })}
