@@ -3,33 +3,15 @@
 import { useState } from 'react'
 import VeiculoForm from '@/components/admin/VeiculoForm'
 import FotosVeiculoClient from './FotosVeiculoClient'
-import VistoriaClient from './vistoria/VistoriaClient'
 import CustosVeiculoClient from './CustosVeiculoClient'
-import type { Veiculo, FinanceiroVeiculo, CustoManutencao, VistoriaVeiculo } from '@/types'
+import type { Veiculo, FinanceiroVeiculo, CustoManutencao } from '@/types'
 
-const ITENS_VISTORIA = [
-  { key: 'lataria', label: 'Lataria' },
-  { key: 'pintura', label: 'Pintura' },
-  { key: 'vidros', label: 'Vidros' },
-  { key: 'pneus', label: 'Pneus' },
-  { key: 'motor', label: 'Motor' },
-  { key: 'cambio', label: 'Câmbio' },
-  { key: 'freios', label: 'Freios' },
-  { key: 'suspensao', label: 'Suspensão' },
-  { key: 'parte_eletrica', label: 'Parte elétrica' },
-  { key: 'interior', label: 'Interior' },
-  { key: 'documentacao', label: 'Documentação' },
-  { key: 'chave_reserva', label: 'Chave reserva' },
-  { key: 'manual', label: 'Manual do proprietário' },
-]
-
-type Aba = 'dados' | 'fotos' | 'vistoria' | 'controle'
+type Aba = 'dados' | 'fotos' | 'controle'
 
 interface Props {
   veiculo: Veiculo
   financeiro: FinanceiroVeiculo | null
   custos: CustoManutencao[]
-  vistoria: VistoriaVeiculo | null
   lojaId: string
   podeVerFinanceiro: boolean
 }
@@ -37,11 +19,10 @@ interface Props {
 const ABAS: { id: Aba; label: string }[] = [
   { id: 'dados', label: 'Dados' },
   { id: 'fotos', label: 'Fotos' },
-  { id: 'vistoria', label: 'Vistoria' },
   { id: 'controle', label: 'Controle' },
 ]
 
-export default function VeiculoTabs({ veiculo, financeiro, custos, vistoria, lojaId, podeVerFinanceiro }: Props) {
+export default function VeiculoTabs({ veiculo, financeiro, custos, lojaId, podeVerFinanceiro }: Props) {
   const [aba, setAba] = useState<Aba>('dados')
 
   return (
@@ -71,15 +52,6 @@ export default function VeiculoTabs({ veiculo, financeiro, custos, vistoria, loj
           veiculoId={veiculo.id}
           lojaId={lojaId}
           fotosIniciais={veiculo.fotos}
-        />
-      )}
-
-      {aba === 'vistoria' && (
-        <VistoriaClient
-          veiculoId={veiculo.id}
-          lojaId={lojaId}
-          itensConfig={ITENS_VISTORIA}
-          vistoria={vistoria}
         />
       )}
 

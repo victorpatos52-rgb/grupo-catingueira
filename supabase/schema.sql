@@ -255,16 +255,39 @@ create policy "equipe gerencia lembretes"
   );
 
 -- ─────────────────────────────────────────────────────────────
--- VISTORIA_VEICULO
+-- CUSTOS_MANUTENCAO
 -- ─────────────────────────────────────────────────────────────
-create table vistoria_veiculo (
+create table custos_manutencao (
   id          uuid primary key default uuid_generate_v4(),
   veiculo_id  uuid not null references veiculos(id) on delete cascade,
   loja_id     uuid not null references lojas(id) on delete cascade,
-  itens       jsonb not null default '{}',
-  observacoes text,
-  aprovado    boolean not null default true,
+  categoria   text not null default 'Outros',
+  descricao   text not null,
+  valor       numeric(12,2) not null default 0,
+  data        date,
   created_at  timestamptz not null default now()
+);
+
+alter table custos_manutencao enable row level security;
+
+create policy "equipe gerencia custos"
+  on custos_manutencao for all
+  using (
+    exists (select 1 from usuarios_perfil up where up.id = auth.uid() and up.loja_id = custos_manutencao.loja_id)
+  );
+
+-- ─────────────────────────────────────────────────────────────
+-- VISTORIA_VEICULO
+-- ─────────────────────────────────────────────────────────────
+create table vistoria_veiculo (
+  id           uuid primary key default uuid_generate_v4(),
+  veiculo_id   uuid not null references veiculos(id) on delete cascade,
+  loja_id      uuid not null references lojas(id) on delete cascade,
+  inspetor_id  uuid references auth.users(id) on delete set null,
+  itens        jsonb not null default '{}',
+  observacoes  text,
+  aprovado     boolean not null default true,
+  created_at   timestamptz not null default now()
 );
 
 alter table vistoria_veiculo enable row level security;

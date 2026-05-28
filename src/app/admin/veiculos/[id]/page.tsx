@@ -3,7 +3,7 @@ import { createServerSupabase } from '@/lib/supabase-server'
 import { getLojaIdAtiva } from '@/lib/getLojaIdAtiva'
 import MarcaVendidoButton from '@/components/admin/MarcaVendidoButton'
 import VeiculoTabs from './VeiculoTabs'
-import type { Veiculo, UsuarioPerfil, FinanceiroVeiculo, CustoManutencao, VistoriaVeiculo } from '@/types'
+import type { Veiculo, UsuarioPerfil, FinanceiroVeiculo, CustoManutencao } from '@/types'
 
 export default async function EditarVeiculoPage({
   params,
@@ -22,15 +22,8 @@ export default async function EditarVeiculoPage({
 
   const lojaId = await getLojaIdAtiva(perfil)
 
-  const [{ data }, { data: vistoriaData }, { data: finData }, { data: custosData }] = await Promise.all([
+  const [{ data }, { data: finData }, { data: custosData }] = await Promise.all([
     supabase.from('veiculos').select('*').eq('id', id).eq('loja_id', lojaId).single(),
-    supabase
-      .from('vistoria_veiculo')
-      .select('*')
-      .eq('veiculo_id', id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
     supabase
       .from('financeiro_veiculos')
       .select('*')
@@ -46,7 +39,6 @@ export default async function EditarVeiculoPage({
 
   if (!data) notFound()
   const veiculo = data as Veiculo
-  const vistoria = vistoriaData as VistoriaVeiculo | null
   const financeiro = finData as FinanceiroVeiculo | null
   const custos = (custosData ?? []) as CustoManutencao[]
 
@@ -75,6 +67,14 @@ export default async function EditarVeiculoPage({
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <a
+              href={`/api/pdf/ficha/${id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-[#E5E5E5] text-[#6B7280] text-xs font-medium hover:text-[#111] hover:border-[#D0D0D0] transition-colors"
+            >
+              📄 Ficha
+            </a>
+            <a
               href={`/api/pdf/etiqueta/${id}`}
               target="_blank"
               rel="noopener noreferrer"
@@ -93,7 +93,6 @@ export default async function EditarVeiculoPage({
         veiculo={veiculo}
         financeiro={financeiro}
         custos={custos}
-        vistoria={vistoria}
         lojaId={lojaId}
         podeVerFinanceiro={podeVerFinanceiro}
       />
