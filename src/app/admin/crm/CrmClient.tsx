@@ -126,7 +126,7 @@ export default function CrmClient({ leads, vendedores, lojaId, statusFilter, ori
       )}
 
       <div className="mb-5">
-        <NovoLeadForm lojaId={lojaId} />
+        <NovoLeadForm lojaId={lojaId} vendedores={vendedores} />
       </div>
 
       {view === 'kanban' ? (
