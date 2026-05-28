@@ -6,9 +6,11 @@ import { getLojaIdAtiva } from '@/lib/getLojaIdAtiva'
 import { formatarPreco, formatarKm } from '@/lib/utils'
 import type { Veiculo, UsuarioPerfil } from '@/types'
 import MarcaVendidoButton from '@/components/admin/MarcaVendidoButton'
+import VeiculosBuscaClient from './VeiculosBuscaClient'
 
 interface SearchParams {
   status?: string
+  q?: string
 }
 
 export default async function VeiculosAdminPage({
@@ -32,6 +34,10 @@ export default async function VeiculosAdminPage({
   let query = admin.from('veiculos').select('*').eq('loja_id', lojaId).order('created_at', { ascending: false })
   if (params.status) {
     query = query.eq('status', params.status as 'disponivel' | 'reservado' | 'vendido' | 'manutencao')
+  }
+  if (params.q) {
+    const q = params.q.replace(/'/g, "''")
+    query = query.or(`marca.ilike.%${q}%,modelo.ilike.%${q}%,placa.ilike.%${q}%`)
   }
 
   const { data } = await query
@@ -73,11 +79,19 @@ export default async function VeiculosAdminPage({
         </Link>
       </div>
 
+      <VeiculosBuscaClient valorInicial={params.q ?? ''} status={params.status ?? ''} />
+
       <div className="flex gap-2 mb-6 flex-wrap">
         {statusOptions.map(opt => (
           <a
             key={opt.value}
-            href={opt.value ? `/admin/veiculos?status=${opt.value}` : '/admin/veiculos'}
+            href={(() => {
+              const p = new URLSearchParams()
+              if (opt.value) p.set('status', opt.value)
+              if (params.q) p.set('q', params.q)
+              const qs = p.toString()
+              return `/admin/veiculos${qs ? `?${qs}` : ''}`
+            })()}
             className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
               params.status === opt.value || (!params.status && opt.value === '')
                 ? 'border-[var(--cor-primaria)] text-[var(--cor-primaria)] bg-white'

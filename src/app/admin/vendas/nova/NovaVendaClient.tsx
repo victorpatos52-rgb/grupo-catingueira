@@ -220,6 +220,7 @@ function MoedaInput({
 export default function NovaVendaClient({ veiculos, usuarios, lojaId, vendedorId, veiculoIdInicial }: Props) {
   const router = useRouter()
   const [etapa, setEtapa] = useState(1)
+  const [buscaVeiculo, setBuscaVeiculo] = useState('')
   const [form, setForm] = useState<FormData>(() => initialForm(veiculoIdInicial, vendedorId))
   const [vendaId, setVendaId] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
@@ -364,11 +365,57 @@ export default function NovaVendaClient({ veiculos, usuarios, lojaId, vendedorId
         <div>
           <h2 className="text-lg font-bold text-[#111] mb-4">Selecione o veículo</h2>
 
+          {veiculos.length > 0 && (
+            <div className="relative mb-5">
+              <svg
+                className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#9CA3AF] pointer-events-none"
+                fill="none" viewBox="0 0 24 24" stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35M17 11A6 6 0 105 11a6 6 0 0012 0z" />
+              </svg>
+              <input
+                type="text"
+                value={buscaVeiculo}
+                onChange={e => setBuscaVeiculo(e.target.value)}
+                placeholder="Buscar veículo..."
+                className="w-full bg-white border border-[#E5E7EB] rounded-xl pl-9 pr-4 py-2.5 text-sm text-[#111] placeholder-[#9CA3AF] focus:outline-none focus:border-[#F5C842] focus:ring-2 focus:ring-[#FEF9C3] transition-all"
+              />
+              {buscaVeiculo && (
+                <button
+                  type="button"
+                  onClick={() => setBuscaVeiculo('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#6B7280] transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          )}
+
           {veiculos.length === 0 ? (
             <p className="text-[#9CA3AF] text-sm py-8 text-center">Nenhum veículo disponível ou reservado.</p>
-          ) : (
+          ) : (() => {
+            const termo = buscaVeiculo.toLowerCase().trim()
+            const filtrados = termo
+              ? veiculos.filter(v =>
+                  v.marca.toLowerCase().includes(termo) ||
+                  v.modelo.toLowerCase().includes(termo) ||
+                  String(v.ano).includes(termo) ||
+                  (v.placa ?? '').toLowerCase().includes(termo)
+                )
+              : veiculos
+            if (filtrados.length === 0) {
+              return (
+                <p className="text-[#9CA3AF] text-sm py-8 text-center">
+                  Nenhum veículo encontrado para &quot;{buscaVeiculo}&quot;.
+                </p>
+              )
+            }
+            return (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-              {veiculos.map(v => {
+              {filtrados.map(v => {
                 const selecionado = form.veiculo_id === v.id
                 return (
                   <button
@@ -405,7 +452,8 @@ export default function NovaVendaClient({ veiculos, usuarios, lojaId, vendedorId
                 )
               })}
             </div>
-          )}
+            )
+          })()}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 max-w-2xl">
             <div>

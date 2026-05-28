@@ -41,6 +41,9 @@ export default function VendaDetalheClient({ venda: initial, perfil }: Props) {
   const [finalizando, setFinalizando] = useState(false)
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  const [obsEditando, setObsEditando] = useState(false)
+  const [novaObs, setNovaObs] = useState(initial.observacoes ?? '')
+  const [salvandoObs, setSalvandoObs] = useState(false)
 
   const total =
     venda.pagamento_dinheiro +
@@ -62,6 +65,26 @@ export default function VendaDetalheClient({ venda: initial, perfil }: Props) {
       alert(err instanceof Error ? err.message : 'Erro ao finalizar')
     } finally {
       setFinalizando(false)
+    }
+  }
+
+  async function handleSalvarObs() {
+    setSalvandoObs(true)
+    try {
+      await salvarVenda({
+        id: venda.id,
+        loja_id: venda.loja_id,
+        veiculo_id: venda.veiculo_id,
+        comprador_nome: venda.comprador_nome,
+        observacoes: novaObs || null,
+      })
+      setVenda(v => ({ ...v, observacoes: novaObs || null }))
+      setObsEditando(false)
+      router.refresh()
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Erro ao salvar')
+    } finally {
+      setSalvandoObs(false)
     }
   }
 
@@ -270,12 +293,6 @@ export default function VendaDetalheClient({ venda: initial, perfil }: Props) {
               </div>
             </div>
           </div>
-          {venda.observacoes && (
-            <div className="mt-4 pt-4 border-t border-[#E5E7EB]">
-              <p className="text-[#9CA3AF] text-xs font-semibold uppercase tracking-wider mb-1">Observações</p>
-              <p className="text-[#374151] text-sm">{venda.observacoes}</p>
-            </div>
-          )}
         </div>
 
         {/* Card Documentos */}
@@ -327,6 +344,53 @@ export default function VendaDetalheClient({ venda: initial, perfil }: Props) {
         </div>
 
       </div>
+
+      {/* Card Observações */}
+      <div className="mt-5 bg-white border border-[#E5E7EB] rounded-xl p-5">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-xs font-bold uppercase tracking-wider text-[#9CA3AF]">Observações</p>
+          {!obsEditando && (
+            <button
+              onClick={() => { setNovaObs(venda.observacoes ?? ''); setObsEditando(true) }}
+              className="text-xs text-[#6B7280] hover:text-[#111] px-2.5 py-1 rounded-lg border border-[#E5E7EB] hover:border-[#D1D5DB] transition-colors"
+            >
+              Editar
+            </button>
+          )}
+        </div>
+
+        {obsEditando ? (
+          <div className="space-y-3">
+            <textarea
+              value={novaObs}
+              onChange={e => setNovaObs(e.target.value)}
+              rows={4}
+              className="w-full bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl px-3 py-2 text-[#111] text-sm focus:outline-none focus:border-[#F5C842] focus:ring-2 focus:ring-[#FEF9C3] transition-all resize-none placeholder-[#D1D5DB]"
+              placeholder="Observações sobre a venda..."
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={handleSalvarObs}
+                disabled={salvandoObs}
+                className="px-4 py-1.5 rounded-lg text-sm font-semibold text-[#92400E] bg-[#FEF9C3] border border-[#F5C842] hover:bg-[#FEF08A] transition-colors disabled:opacity-50"
+              >
+                {salvandoObs ? 'Salvando...' : 'Salvar'}
+              </button>
+              <button
+                onClick={() => setObsEditando(false)}
+                className="px-4 py-1.5 rounded-lg text-sm text-[#6B7280] border border-[#E5E7EB] hover:border-[#D1D5DB] transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p className="text-[#374151] text-sm">
+            {venda.observacoes || <span className="text-[#9CA3AF]">Nenhuma observação.</span>}
+          </p>
+        )}
+      </div>
+
     </div>
   )
 }
