@@ -170,7 +170,7 @@ export default function FinanceiroClient({
         .filter(c => c.veiculo_id === v.veiculo_id)
         .reduce((a, c) => a + c.valor, 0)
       const custo = (fin?.custo_aquisicao ?? 0) + manut
-      const lucro = v.valor_venda - custo
+      const lucro = v.valor_liquido - custo
       return { ...v, custo, lucro }
     }).sort((a, b) => b.lucro - a.lucro).slice(0, 5)
 
@@ -188,7 +188,7 @@ export default function FinanceiroClient({
       custoAquisicao: fin?.custo_aquisicao ?? 0,
       custosManut: manut,
       custo,
-      lucro: v.valor_venda - custo,
+      lucro: v.valor_liquido - custo,
     }
   }), [vendas, financeiroVeiculos, custosManut])
 

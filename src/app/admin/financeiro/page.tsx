@@ -57,11 +57,10 @@ export default async function FinanceiroPage({
     periodoFim = `${ano}-${String(mes).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`
   }
 
+  // Passo 1 — dados que não dependem dos veiculo_ids
   const [
     { data: vendasData },
     { data: despesasData },
-    { data: financeiroData },
-    { data: custosData },
     { data: vendasAnuaisData },
     { data: despesasAnuaisData },
   ] = await Promise.all([
@@ -78,12 +77,6 @@ export default async function FinanceiroPage({
       .gte('data', periodoInicio)
       .lte('data', periodoFim)
       .order('data', { ascending: false }),
-    admin.from('financeiro_veiculos')
-      .select('veiculo_id, custo_aquisicao')
-      .eq('loja_id', lojaId),
-    admin.from('custos_manutencao')
-      .select('veiculo_id, valor')
-      .eq('loja_id', lojaId),
     admin.from('vendas')
       .select('valor_liquido, data_venda')
       .eq('loja_id', lojaId)
@@ -95,6 +88,24 @@ export default async function FinanceiroPage({
       .eq('loja_id', lojaId)
       .gte('data', `${ano}-01-01`)
       .lte('data', `${ano}-12-31`),
+  ])
+
+  // Passo 2 — custos filtrados pelos veiculo_ids das vendas do período
+  const veiculoIds = (vendasData ?? [])
+    .map((v: Record<string, unknown>) => v.veiculo_id as string)
+    .filter(Boolean)
+
+  const [{ data: financeiroData }, { data: custosData }] = await Promise.all([
+    veiculoIds.length > 0
+      ? admin.from('financeiro_veiculos')
+          .select('veiculo_id, custo_aquisicao')
+          .in('veiculo_id', veiculoIds)
+      : Promise.resolve({ data: [] as { veiculo_id: string; custo_aquisicao: number }[] }),
+    veiculoIds.length > 0
+      ? admin.from('custos_manutencao')
+          .select('veiculo_id, valor')
+          .in('veiculo_id', veiculoIds)
+      : Promise.resolve({ data: [] as { veiculo_id: string; valor: number }[] }),
   ])
 
   const dadosAnuais: DadosMensais[] = Array.from({ length: 12 }, (_, i) => {

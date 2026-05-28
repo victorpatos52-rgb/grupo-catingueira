@@ -13,7 +13,6 @@ const TODOS_MODULOS = [
   'crm',
   'vendas',
   'financeiro',
-  'relatorios',
   'configuracoes',
   'usuarios',
 ] as const
@@ -26,7 +25,6 @@ const MODULO_LABEL: Record<Modulo, string> = {
   crm:           'CRM',
   vendas:        'Vendas',
   financeiro:    'Financeiro',
-  relatorios:    'Relatórios',
   configuracoes: 'Configurações',
   usuarios:      'Usuários',
 }
@@ -37,14 +35,13 @@ const MODULO_COR: Record<Modulo, string> = {
   crm:           'bg-purple-50 text-purple-700 border-purple-200',
   vendas:        'bg-amber-50 text-amber-700 border-amber-200',
   financeiro:    'bg-green-50 text-green-700 border-green-200',
-  relatorios:    'bg-orange-50 text-orange-700 border-orange-200',
   configuracoes: 'bg-yellow-50 text-yellow-700 border-yellow-200',
   usuarios:      'bg-red-50 text-red-700 border-red-200',
 }
 
 const MODULOS_POR_PERFIL: Record<Perfil, Modulo[]> = {
   vendedor: ['dashboard', 'veiculos', 'crm', 'vendas'],
-  gerente:  ['dashboard', 'veiculos', 'crm', 'vendas', 'financeiro', 'relatorios', 'configuracoes'],
+  gerente:  ['dashboard', 'veiculos', 'crm', 'vendas', 'financeiro', 'configuracoes'],
   diretor:  [...TODOS_MODULOS],
   admin:    [...TODOS_MODULOS],
 }
