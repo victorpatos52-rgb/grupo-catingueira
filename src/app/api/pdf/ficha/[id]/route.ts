@@ -16,62 +16,71 @@ function formatarKm(v: number) {
   return v.toLocaleString('pt-BR') + ' km'
 }
 
-const PDF_OPCIONAIS: { label: string; dbKeys: string[] }[] = [
-  { label: 'AR CONDICIONADO', dbKeys: ['Ar-condicionado'] },
-  { label: 'DIREÇÃO HIDRÁULICA', dbKeys: ['Direção hidráulica', 'Direção elétrica'] },
-  { label: 'VIDROS ELÉTRICOS', dbKeys: ['Vidro elétrico'] },
-  { label: 'TRAVA ELÉTRICA', dbKeys: ['Trava elétrica'] },
-  { label: 'ALARME', dbKeys: ['Alarme'] },
-  { label: 'RETROVISOR ELÉTRICO', dbKeys: [] },
-  { label: 'SOM USB e BTF', dbKeys: ['Bluetooth', 'Central multimídia'] },
-  { label: 'AIRBAG e ABS', dbKeys: ['Airbag', 'ABS'] },
-  { label: 'CONTROLE SOM VOLANTE', dbKeys: [] },
-  { label: 'RODAS DE LIGA LEVE', dbKeys: ['Rodas de liga leve'] },
-  { label: 'SENSOR ESTACIONAR', dbKeys: ['Sensor de ré', 'Câmera de ré'] },
-  { label: 'CÂMBIO AUTOMÁTICO', dbKeys: [] },
-  { label: 'BANCOS COURO', dbKeys: ['Bancos de couro'] },
-  { label: 'REGULAGEM DO VOLANTE', dbKeys: [] },
-  { label: 'FARÓIS DE NEBLINA', dbKeys: ['Farol de milha', 'Farol LED'] },
-  { label: 'PINTURA METÁLICA', dbKeys: [] },
-  { label: 'LIMP. e DES. TRASEIRO', dbKeys: [] },
-  { label: 'PROTETOR DE CAÇAMBA', dbKeys: [] },
-  { label: 'CAPOTA MARÍTIMA / FIBRA', dbKeys: [] },
-  { label: 'PERSONALIZAÇÃO', dbKeys: [] },
-]
-
-function isOpcionalAtivo(
-  opcionalVeiculo: string[],
-  item: { label: string; dbKeys: string[] },
-  cambio: string
-): boolean {
-  if (item.label === 'CÂMBIO AUTOMÁTICO') {
-    return cambio.toLowerCase().includes('automático') || cambio.toLowerCase().includes('cvt')
-  }
-  return item.dbKeys.some(key => opcionalVeiculo.includes(key))
+// ── Matching case-insensitive + substring por palavras ──────────────────────
+function normalizar(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[-/]/g, ' ')
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
-function renderOpcionais(opcionaisVeiculo: string[], cambio: string): string {
-  const metade = Math.ceil(PDF_OPCIONAIS.length / 2)
-  const col1 = PDF_OPCIONAIS.slice(0, metade)
-  const col2 = PDF_OPCIONAIS.slice(metade)
+function corresponde(dbOpcional: string, listItem: string): boolean {
+  const nd = normalizar(dbOpcional)
+  const nl = normalizar(listItem)
+  if (nd === nl || nd.includes(nl) || nl.includes(nd)) return true
+  const wordsD = nd.split(' ')
+  const wordsL = nl.split(' ')
+  return wordsD.some(wd =>
+    wordsL.some(wl => {
+      const minLen = 3
+      return (wd.length >= minLen && wl.includes(wd)) || (wl.length >= minLen && wd.includes(wl))
+    })
+  )
+}
 
-  const renderItem = (item: { label: string; dbKeys: string[] }) => {
-    const marcado = isOpcionalAtivo(opcionaisVeiculo, item, cambio)
-    return `<div style="margin-bottom:4px;font-size:11px">${marcado ? '(X)' : '( )'} ${item.label}</div>`
+function isAtivo(opcionaisVeiculo: string[], cambio: string, listItem: string): boolean {
+  if (listItem === 'CAMBIO AUTOMÁTICO') {
+    return (
+      /autom/i.test(cambio) ||
+      /cvt/i.test(cambio) ||
+      opcionaisVeiculo.some(op => corresponde(op, listItem))
+    )
   }
+  return opcionaisVeiculo.some(op => corresponde(op, listItem))
+}
 
-  return `
-    <table style="width:100%;border-collapse:collapse">
-      <tr>
-        <td style="width:50%;vertical-align:top;padding-right:16px">
-          ${col1.map(renderItem).join('')}
-        </td>
-        <td style="width:50%;vertical-align:top">
-          ${col2.map(renderItem).join('')}
-        </td>
-      </tr>
-    </table>
-  `
+const COL_ESQUERDA = [
+  'AR CONDICIONADO',
+  'DIREÇÃO HIDRÁULICA',
+  'VIDROS ELÉTRICOS',
+  'TRAVA ELÉTRICA',
+  'ALARME',
+  'RETROVISOR ELÉTRICO',
+  'SOM USB e BTF',
+  'AIRBAG e ABS',
+  'CONTROLE SOM VOLANTE',
+  'RODAS DE LIGA LEVE',
+]
+
+const COL_DIREITA = [
+  'SENSOR ESTACIONAR',
+  'CAMBIO AUTOMÁTICO',
+  'BANCOS COURO',
+  'REGULAGEM DO VOLANTE',
+  'FARÓIS DE NEBLINA',
+  'PINTURA METÁLICA',
+  'LIMP. e DES. TRASEIRO',
+  'PROTETOR DE CAÇAMBA',
+  'CAPOTA MARÍTIMA / FIBRA',
+  'PERSONALIZAÇÃO',
+]
+
+function checkboxItem(label: string, ativo: boolean): string {
+  return `<div style="margin-bottom:3px;font-size:11px">${ativo ? '(X)' : '( )'}&nbsp;${label}</div>`
 }
 
 export async function GET(
@@ -97,21 +106,61 @@ export async function GET(
     endereco: string | null
     cidade: string | null
     estado: string | null
+    descricao: string | null
+    logo_url: string | null
   }
 
   const opcionaisVeiculo: string[] = veiculo.opcionais ?? []
-
-  const nomeGrid = [
-    { label: 'MODELO', valor: `${veiculo.marca} ${veiculo.modelo}` },
-    { label: 'COR', valor: veiculo.cor },
-    { label: 'ANO/FAB', valor: String(veiculo.ano) },
-    { label: 'ANO/MOD', valor: String(veiculo.ano) },
-    { label: 'COMBUSTÍVEL', valor: veiculo.combustivel },
-    { label: 'KM', valor: formatarKm(veiculo.km) },
-    { label: 'MOTOR', valor: veiculo.versao ?? '—' },
-  ]
+  const slogan =
+    loja.descricao?.trim() ||
+    'SUA REVENDA MULTIMARCAS EM PATOS E REGIÃO.'
 
   const enderecoLoja = [loja.endereco, loja.cidade, loja.estado].filter(Boolean).join(' — ')
+
+  // ── Logo ou placa de texto ──────────────────────────────────────────────────
+  const logoHtml = loja.logo_url
+    ? `<img src="${loja.logo_url}" alt="${loja.nome}" style="max-height:80px;max-width:280px;display:block;margin:0 auto;object-fit:contain"/>`
+    : `<div style="display:inline-block;border:3px solid #000;padding:4px">
+         <div style="border:1px solid #000;padding:10px 32px;font-size:24px;font-weight:900;text-transform:uppercase;letter-spacing:0.08em">
+           ${loja.nome.toUpperCase()}
+         </div>
+       </div>`
+
+  // ── Grid de dados ───────────────────────────────────────────────────────────
+  function celula(label: string, valor: string): string {
+    return `<td style="border:1px solid #000;padding:5px 8px;font-size:12px;width:50%">
+      <span style="font-weight:700;font-size:10px">${label}</span><br/>${valor}
+    </td>`
+  }
+
+  const tabelaDados = `
+    <table style="width:100%;border-collapse:collapse;border:1px solid #000">
+      <tr>
+        ${celula('MODELO:', veiculo.versao ?? '—')}
+        ${celula('COR:', veiculo.cor)}
+      </tr>
+      <tr>
+        ${celula('ANO/FAB.:', String(veiculo.ano))}
+        ${celula('ANO/MOD.:', String(veiculo.ano))}
+      </tr>
+      <tr>
+        ${celula('COMBUSTÍVEL:', veiculo.combustivel)}
+        ${celula('KM.:', formatarKm(veiculo.km))}
+      </tr>
+      <tr>
+        <td style="border:1px solid #000;padding:5px 8px;font-size:12px;width:50%">&nbsp;</td>
+        ${celula('MOTOR:', veiculo.versao ?? '—')}
+      </tr>
+    </table>`
+
+  // ── Opcionais ───────────────────────────────────────────────────────────────
+  const colEsquerdaHtml = COL_ESQUERDA
+    .map(item => checkboxItem(item, isAtivo(opcionaisVeiculo, veiculo.cambio, item)))
+    .join('')
+
+  const colDireitaHtml = COL_DIREITA
+    .map(item => checkboxItem(item, isAtivo(opcionaisVeiculo, veiculo.cambio, item)))
+    .join('')
 
   const html = `<!DOCTYPE html>
 <html lang="pt-BR">
@@ -124,51 +173,29 @@ body {
   font-family: Arial, Helvetica, sans-serif;
   color: #000;
   background: #fff;
-  padding: 20px 28px;
-  max-width: 210mm;
-  margin: 0 auto;
   font-size: 12px;
 }
-.placa-wrapper {
-  text-align: center;
-  margin-bottom: 6px;
+.pagina {
+  max-width: 190mm;
+  margin: 0 auto;
+  padding: 10mm 0;
 }
-.placa {
-  display: inline-block;
-  border: 3px solid #000;
-  padding: 4px;
-}
-.placa-inner {
-  border: 1px solid #000;
-  padding: 8px 32px;
-  font-size: 26px;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
+.topo { text-align: center; margin-bottom: 8px; }
 .slogan {
-  text-align: center;
   font-style: italic;
   font-size: 11px;
   color: #333;
-  margin-bottom: 10px;
+  text-align: center;
+  margin: 6px 0 12px;
 }
-.sep-duplo {
-  border: none;
-  border-top: 3px solid #000;
-  margin-bottom: 3px;
-}
-.sep-duplo2 {
-  border: none;
-  border-top: 1px solid #000;
-  margin-bottom: 10px;
-}
+.sep { border-top: 3px solid #000; margin-bottom: 3px; }
+.sep2 { border-top: 1px solid #000; margin-bottom: 14px; }
 .carro-titulo {
   font-size: 22px;
   font-weight: 900;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
   margin-bottom: 10px;
+  letter-spacing: 0.03em;
 }
 .secao-titulo {
   font-size: 11px;
@@ -176,105 +203,131 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.1em;
   border-bottom: 1px solid #000;
-  margin-bottom: 6px;
-  padding-bottom: 2px;
+  padding-bottom: 3px;
+  margin: 14px 0 8px;
 }
-.grid-specs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px 16px;
-  margin-bottom: 12px;
+.opcionais-grid {
+  display: flex;
+  gap: 0;
+  border: 1px solid #000;
 }
-.spec-item {
-  border: 1px solid #ccc;
-  padding: 4px 8px;
+.opcol {
+  flex: 1;
+  padding: 6px 10px;
+  border-right: 1px solid #000;
 }
-.spec-label {
-  font-size: 9px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: #555;
-}
-.spec-valor {
-  font-size: 13px;
-  font-weight: 600;
-}
+.opcol:last-child { border-right: none; }
+.preco-bloco { margin: 14px 0 8px; }
 .preco {
-  text-align: center;
-  font-size: 52px;
+  font-size: 58px;
   font-weight: 900;
   letter-spacing: -1px;
-  margin: 12px 0 8px;
   line-height: 1;
 }
+.motor-linha {
+  margin-top: 8px;
+  display: flex;
+  gap: 40px;
+  font-size: 12px;
+}
+.motor-campo {
+  border-bottom: 1px solid #000;
+  min-width: 140px;
+  padding-bottom: 1px;
+}
 .pagamento {
-  font-size: 11px;
-  text-align: center;
-  margin-bottom: 16px;
-  line-height: 1.6;
+  margin-top: 14px;
+  font-size: 12px;
+  line-height: 1.8;
 }
 .rodape {
-  border-top: 2px solid #000;
-  padding-top: 6px;
-  margin-top: 8px;
+  margin-top: 16px;
+  padding-top: 8px;
+  border-top: 1px solid #000;
   font-size: 10px;
+  color: #333;
   display: flex;
   justify-content: space-between;
 }
+.btn-imprimir {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  padding: 12px 28px;
+  background: #000;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  border-radius: 4px;
+  font-family: Arial, sans-serif;
+}
+.btn-imprimir:hover { background: #333; }
 @media print {
-  body { padding: 10px 16px; }
-  @page { size: A4; margin: 10mm; }
+  body { margin: 0; }
+  .pagina { padding: 0; max-width: 100%; }
+  .btn-imprimir { display: none; }
+  @page { size: A4 portrait; margin: 15mm; }
 }
 </style>
 </head>
 <body>
 
-<div class="placa-wrapper">
-  <div class="placa">
-    <div class="placa-inner">${loja.nome.toUpperCase()}</div>
+<button class="btn-imprimir" onclick="window.print()">🖨 Imprimir</button>
+
+<div class="pagina">
+
+  <!-- TOPO: Logo ou placa -->
+  <div class="topo">${logoHtml}</div>
+  <div class="slogan">${slogan}</div>
+
+  <!-- Separador duplo -->
+  <div class="sep"></div>
+  <div class="sep2"></div>
+
+  <!-- Dados do carro -->
+  <div class="carro-titulo">CARRO: ${veiculo.marca.toUpperCase()} ${veiculo.modelo.toUpperCase()}</div>
+
+  ${tabelaDados}
+
+  <!-- Opcionais -->
+  <div class="secao-titulo">OPCIONAIS:</div>
+  <div class="opcionais-grid">
+    <div class="opcol">${colEsquerdaHtml}</div>
+    <div class="opcol">${colDireitaHtml}</div>
   </div>
-</div>
-<div class="slogan">${enderecoLoja || loja.whatsapp}</div>
 
-<hr class="sep-duplo"/>
-<hr class="sep-duplo2"/>
-
-<div class="carro-titulo">CARRO: ${veiculo.marca.toUpperCase()} ${veiculo.modelo.toUpperCase()}</div>
-
-<div class="secao-titulo">Especificações</div>
-<div class="grid-specs">
-  ${nomeGrid.map(item => `
-    <div class="spec-item">
-      <div class="spec-label">${item.label}</div>
-      <div class="spec-valor">${item.valor}</div>
+  <!-- Preço -->
+  <div class="preco-bloco">
+    <div class="sep" style="margin-top:14px"></div>
+    <div class="sep2"></div>
+    <div class="preco">${formatarPreco(veiculo.preco)}</div>
+    <div class="motor-linha">
+      <div>
+        <span style="font-weight:700">MOTOR:</span>
+        <span class="motor-campo">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+      </div>
+      <div>
+        <span style="font-weight:700">PLACA:</span>
+        <span class="motor-campo">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+      </div>
     </div>
-  `).join('')}
-</div>
-
-<div class="secao-titulo">Opcionais</div>
-${renderOpcionais(opcionaisVeiculo, veiculo.cambio)}
-
-<hr class="sep-duplo" style="margin-top:12px"/>
-<hr class="sep-duplo2"/>
-
-<div class="preco">${formatarPreco(veiculo.preco)}</div>
-
-<div class="pagamento">
-  <strong>FORMA DE PAGAMENTO:</strong> A VISTA, PIX, FINANCIAMENTO E CONSÓRCIO<br/>
-  <strong>TROCA EM VEÍCULO:</strong> CARRO E MOTO
-</div>
-
-<div class="rodape">
-  <div>
-    <strong>${loja.nome.toUpperCase()}</strong><br/>
-    ${enderecoLoja}
   </div>
-  <div style="text-align:right">
-    WhatsApp: ${loja.whatsapp}
-  </div>
-</div>
 
+  <!-- Forma de pagamento -->
+  <div class="pagamento">
+    <div><strong>FORMA DE PAGAMENTO:</strong> A VISTA, PIX, FINANCIAMENTO E CONSÓRCIO.</div>
+    <div><strong>TROCA EM VEÍCULO:</strong> CARRO E MOTO</div>
+  </div>
+
+  <!-- Rodapé -->
+  <div class="rodape">
+    <div><strong>${loja.nome.toUpperCase()}</strong>${enderecoLoja ? ' — ' + enderecoLoja : ''}</div>
+    <div>WhatsApp: ${loja.whatsapp}</div>
+  </div>
+
+</div>
 </body>
 </html>`
 
