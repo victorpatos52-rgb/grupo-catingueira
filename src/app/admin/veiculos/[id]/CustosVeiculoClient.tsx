@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { saveAquisicao, saveCustoManutencao, deleteCustoManutencao } from '@/app/actions'
+import { saveAquisicao, saveValorVenda, saveCustoManutencao, deleteCustoManutencao } from '@/app/actions'
 import { formatarPreco, calcularDiasEstoque } from '@/lib/utils'
 import type { Veiculo, FinanceiroVeiculo, CustoManutencao } from '@/types'
 
@@ -53,6 +53,15 @@ export default function CustosVeiculoClient({
   const [salvandoAquisicao, setSalvandoAquisicao] = useState(false)
   const [aquisicaoOk, setAquisicaoOk] = useState(false)
 
+  // ── Valor de venda ─────────────────────────────────────────────────────────
+  const [valorVenda, setValorVenda] = useState(
+    financeiro?.preco_venda != null
+      ? (financeiro.preco_venda).toLocaleString('pt-BR', { minimumFractionDigits: 2 })
+      : ''
+  )
+  const [salvandoVenda, setSalvandoVenda] = useState(false)
+  const [vendaOk, setVendaOk] = useState(false)
+
   // ── Custos / Serviços ──────────────────────────────────────────────────────
   const [custos, setCustos] = useState(initialCustos)
   const [adicionando, setAdicionando] = useState(false)
@@ -67,9 +76,11 @@ export default function CustosVeiculoClient({
 
   // ── Cálculos financeiros ───────────────────────────────────────────────────
   const custoAqNum = parseFloat(custoAquisicao.replace(/\./g, '').replace(',', '.')) || 0
+  const valorVendaNum = parseFloat(valorVenda.replace(/\./g, '').replace(',', '.')) || 0
   const totalAdicionais = custos.reduce((a, c) => a + c.valor, 0)
   const custoTotal = custoAqNum + totalAdicionais
-  const precoVenda = financeiro?.preco_venda ?? veiculo.preco
+  const precoVenda = valorVendaNum > 0 ? valorVendaNum : veiculo.preco
+  const usandoValorVenda = valorVendaNum > 0
   const lucroBruto = precoVenda - custoAqNum
   const lucroLiquido = precoVenda - custoTotal
   const margem = precoVenda > 0 ? (lucroLiquido / precoVenda) * 100 : 0
@@ -83,11 +94,24 @@ export default function CustosVeiculoClient({
     try {
       await saveAquisicao(veiculo.id, lojaId, custoAqNum, financeiro?.id)
       setAquisicaoOk(true)
-      router.refresh()
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Erro ao salvar')
     } finally {
       setSalvandoAquisicao(false)
+    }
+  }
+
+  async function handleSalvarVenda(e: React.FormEvent) {
+    e.preventDefault()
+    setSalvandoVenda(true)
+    setVendaOk(false)
+    try {
+      await saveValorVenda(veiculo.id, lojaId, valorVendaNum, financeiro?.id)
+      setVendaOk(true)
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Erro ao salvar')
+    } finally {
+      setSalvandoVenda(false)
     }
   }
 
@@ -334,6 +358,36 @@ export default function CustosVeiculoClient({
         </form>
       </div>
 
+      {/* Valor de venda final */}
+      <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-sm">
+        <h3 className="text-[#111827] font-semibold text-sm mb-4">Valor de venda final</h3>
+        <form onSubmit={handleSalvarVenda} className="flex items-end gap-4 flex-wrap">
+          <div className="flex-1 min-w-[180px]">
+            <label className={labelCls}>Valor de venda (R$)</label>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={valorVenda}
+              onChange={e => { setValorVenda(formatarInput(e.target.value)); setVendaOk(false) }}
+              className={inputCls}
+              placeholder="0,00"
+            />
+          </div>
+          <div>
+            <button
+              type="submit"
+              disabled={salvandoVenda}
+              className="px-5 py-2.5 rounded-xl text-sm font-semibold text-[#111827] bg-[#F5C842] hover:brightness-90 transition-all disabled:opacity-50"
+            >
+              {salvandoVenda ? 'Salvando...' : 'Salvar'}
+            </button>
+          </div>
+          {vendaOk && (
+            <span className="text-green-600 text-sm font-medium">✓ Salvo</span>
+          )}
+        </form>
+      </div>
+
       {/* Custos adicionais */}
       {secaoLista}
 
@@ -346,7 +400,7 @@ export default function CustosVeiculoClient({
             { label: 'Custos adicionais', valor: formatarPreco(totalAdicionais), cor: 'text-[#111827]' },
             { label: 'Custo total', valor: formatarPreco(custoTotal), cor: 'text-[#111827] font-bold' },
             {
-              label: financeiro?.preco_venda ? 'Preço de venda' : 'Preço anunciado',
+              label: usandoValorVenda ? 'Valor de venda' : 'Preço anunciado',
               valor: formatarPreco(precoVenda),
               cor: 'text-[#111827]',
             },

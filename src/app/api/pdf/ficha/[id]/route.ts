@@ -118,8 +118,9 @@ export async function GET(
   const enderecoLoja = [loja.endereco, loja.cidade, loja.estado].filter(Boolean).join(' — ')
 
   // ── Logo ou placa de texto ──────────────────────────────────────────────────
+  console.log('logo_url:', loja.logo_url)
   const logoHtml = loja.logo_url
-    ? `<img src="${loja.logo_url}" alt="${loja.nome}" style="max-height:80px;max-width:280px;display:block;margin:0 auto;object-fit:contain"/>`
+    ? `<img src="${loja.logo_url}" alt="${loja.nome}" crossorigin="anonymous" style="max-height:80px;max-width:280px;display:block;margin:0 auto;object-fit:contain"/>`
     : `<div style="display:inline-block;border:3px solid #000;padding:4px">
          <div style="border:1px solid #000;padding:10px 32px;font-size:24px;font-weight:900;text-transform:uppercase;letter-spacing:0.08em">
            ${loja.nome.toUpperCase()}

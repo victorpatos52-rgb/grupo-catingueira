@@ -358,6 +358,47 @@ export async function deleteCustoManutencao(id: string, veiculoId: string) {
   revalidatePath('/admin/veiculos/' + veiculoId)
 }
 
+export async function saveValorVenda(
+  veiculoId: string,
+  lojaId: string,
+  valor: number,
+  financeiroId?: string
+) {
+  const supabase = adminSupabase()
+  const hoje = new Date().toISOString().split('T')[0]
+  if (financeiroId) {
+    const { error } = await supabase
+      .from('financeiro_veiculos')
+      .update({ preco_venda: valor, data_venda: hoje })
+      .eq('id', financeiroId)
+    if (error) throw new Error(error.message)
+  } else {
+    const { data: existing } = await supabase
+      .from('financeiro_veiculos')
+      .select('id')
+      .eq('veiculo_id', veiculoId)
+      .maybeSingle()
+    if (existing) {
+      const { error } = await supabase
+        .from('financeiro_veiculos')
+        .update({ preco_venda: valor, data_venda: hoje })
+        .eq('id', existing.id)
+      if (error) throw new Error(error.message)
+    } else {
+      const { error } = await supabase.from('financeiro_veiculos').insert({
+        veiculo_id: veiculoId,
+        loja_id: lojaId,
+        custo_aquisicao: 0,
+        custos_adicionais: [],
+        preco_venda: valor,
+        data_venda: hoje,
+      })
+      if (error) throw new Error(error.message)
+    }
+  }
+  revalidatePath('/admin/veiculos/' + veiculoId)
+}
+
 // ─── CONTATO PÚBLICO ─────────────────────────────────────────────────────────
 
 export async function submitContatoLead(
