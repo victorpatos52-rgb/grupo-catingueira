@@ -3,6 +3,7 @@
 import { useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { finalizarVenda, salvarVenda } from '@/app/actions'
+import { createClient } from '@/lib/supabase'
 import type { UsuarioPerfil, Venda, Loja } from '@/types'
 
 interface Props {
@@ -68,11 +69,7 @@ export default function VendaDetalheClient({ venda: initial, perfil }: Props) {
     if (!files.length) return
     setUploading(true)
     try {
-      const { createClient } = await import('@supabase/supabase-js')
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
+      const supabase = createClient()
       const novasUrls: string[] = []
       for (const file of Array.from(files)) {
         const ext = file.name.split('.').pop()
