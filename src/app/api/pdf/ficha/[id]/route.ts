@@ -126,7 +126,7 @@ export async function GET(
     : null
 
   const logoHtml = logoUrl
-    ? `<img src="${logoUrl}" style="width:100%;max-height:120px;object-fit:contain;display:block;margin:0 auto 8px;" />`
+    ? `<img src="${logoUrl}" style="width:100%;height:auto;max-height:150px;object-fit:contain;object-position:center;display:block;margin:0 0 8px 0;" />`
     : `<div style="border:3px double #000;padding:10px 20px;display:inline-block;"><strong style="font-size:22px;text-transform:uppercase;letter-spacing:2px;">${loja.nome}</strong></div>`
 
   // ── Grid de dados ───────────────────────────────────────────────────────────
@@ -174,16 +174,16 @@ export async function GET(
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
   font-family: Arial, Helvetica, sans-serif;
-  color: #000;
+  color: #111;
   background: #fff;
   font-size: 12px;
+  padding: 0 12mm;
+  margin: 0;
 }
 .pagina {
-  max-width: 190mm;
-  margin: 0 auto;
   padding: 10mm 0;
 }
-.topo { text-align: center; margin-bottom: 6px; }
+.topo { margin-bottom: 6px; }
 .slogan {
   font-style: italic;
   font-size: 10px;
