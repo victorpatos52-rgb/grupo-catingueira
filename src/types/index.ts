@@ -96,6 +96,11 @@ export interface Lead {
   tags: string[]
   data_contato: string | null
   veiculo_interesse: string | null
+  proximo_atendimento: string | null
+  cpf: string | null
+  data_nascimento: string | null
+  profissao: string | null
+  endereco: string | null
   created_at: string
 }
 

@@ -2,59 +2,72 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useForm } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
-import { createClient } from '@/lib/supabase'
+import { criarLead } from '@/app/actions'
 
-const schema = z.object({
-  nome: z.string().min(1, 'Obrigatório'),
-  telefone: z.string().min(8, 'Telefone inválido'),
-  origem: z.enum(['site', 'whatsapp', 'instagram', 'indicacao', 'outros']),
-  observacoes: z.string().optional(),
-})
+interface Props {
+  lojaId: string
+  vendedores: { id: string; nome: string }[]
+}
 
-type FormData = z.infer<typeof schema>
+const inputCls = 'w-full bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl px-3 py-2 text-[#111] text-sm focus:outline-none focus:border-[#F5C842] focus:ring-2 focus:ring-[#FEF9C3] transition-all placeholder-[#D1D5DB]'
+const labelCls = 'block text-[#6B7280] text-xs font-semibold uppercase tracking-wider mb-1.5'
 
-export default function NovoLeadForm({ lojaId }: { lojaId: string }) {
+const ORIGENS = ['site', 'whatsapp', 'instagram', 'indicacao', 'passagem', 'outros']
+
+export default function NovoLeadForm({ lojaId, vendedores }: Props) {
   const router = useRouter()
   const [aberto, setAberto] = useState(false)
   const [salvando, setSalvando] = useState(false)
+  const [erro, setErro] = useState<string | null>(null)
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm<FormData>({
-    resolver: zodResolver(schema),
-    defaultValues: { origem: 'outros' },
-  })
+  const [nome, setNome] = useState('')
+  const [telefone, setTelefone] = useState('')
+  const [email, setEmail] = useState('')
+  const [origem, setOrigem] = useState('outros')
+  const [veiculoInteresse, setVeiculoInteresse] = useState('')
+  const [responsavelId, setResponsavelId] = useState('')
+  const [proximoAtendimento, setProximoAtendimento] = useState('')
+  const [observacoes, setObservacoes] = useState('')
 
-  async function onSubmit(data: FormData) {
-    setSalvando(true)
-    const supabase = createClient()
-    await supabase.from('leads').insert({
-      loja_id: lojaId,
-      ...data,
-      observacoes: data.observacoes || null,
-      status: 'novo',
-      veiculo_id: null,
-    })
-    reset()
-    setAberto(false)
-    setSalvando(false)
-    router.refresh()
+  function resetar() {
+    setNome(''); setTelefone(''); setEmail(''); setOrigem('outros')
+    setVeiculoInteresse(''); setResponsavelId(''); setProximoAtendimento('')
+    setObservacoes(''); setErro(null)
   }
 
-  const inputClass =
-    'w-full bg-[#F8F8F8] border border-[#E5E5E5] rounded-lg px-3 py-2 text-[#111] text-sm focus:outline-none focus:border-[var(--cor-primaria)] transition-colors placeholder-[#D0D0D0]'
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (!nome.trim() || !telefone.trim()) { setErro('Nome e telefone são obrigatórios'); return }
+    setSalvando(true); setErro(null)
+    try {
+      await criarLead({
+        loja_id: lojaId,
+        nome: nome.trim(),
+        telefone: telefone.trim(),
+        email: email.trim() || null,
+        origem,
+        observacoes: observacoes.trim() || null,
+        veiculo_interesse: veiculoInteresse.trim() || null,
+        responsavel_id: responsavelId || null,
+        proximo_atendimento: proximoAtendimento || null,
+        status: 'novo',
+        tags: [],
+      })
+      resetar()
+      setAberto(false)
+      router.refresh()
+    } catch (err: unknown) {
+      setErro(err instanceof Error ? err.message : 'Erro ao salvar lead')
+    } finally {
+      setSalvando(false)
+    }
+  }
 
   if (!aberto) {
     return (
       <button
         onClick={() => setAberto(true)}
-        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-[#E5E5E5] text-sm text-[#6B7280] hover:text-[#111] hover:border-[#D0D0D0] transition-colors bg-white"
+        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-[#E5E7EB] text-sm text-[#6B7280] hover:text-[#111] hover:border-[#D1D5DB] transition-colors bg-white"
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -65,49 +78,71 @@ export default function NovoLeadForm({ lojaId }: { lojaId: string }) {
   }
 
   return (
-    <div className="bg-white border border-[#E5E5E5] rounded-xl p-5 shadow-sm">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-[#111] font-semibold text-sm uppercase tracking-wider">Novo Lead</h2>
-        <button onClick={() => setAberto(false)} className="text-[#9CA3AF] hover:text-[#111] transition-colors">
+    <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-sm">
+      <div className="flex items-center justify-between mb-5">
+        <h2 className="text-[#111] font-bold text-sm">Novo Lead</h2>
+        <button onClick={() => { setAberto(false); resetar() }} className="text-[#9CA3AF] hover:text-[#111] transition-colors">
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
       </div>
-      <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-        <div>
-          <input {...register('nome')} className={inputClass} placeholder="Nome *" />
-          {errors.nome && <p className="text-red-600 text-xs mt-1">{errors.nome.message}</p>}
+
+      <form onSubmit={onSubmit} className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div>
+            <label className={labelCls}>Nome *</label>
+            <input required value={nome} onChange={e => setNome(e.target.value)} className={inputCls} placeholder="Nome completo" />
+          </div>
+          <div>
+            <label className={labelCls}>Telefone *</label>
+            <input required value={telefone} onChange={e => setTelefone(e.target.value)} className={inputCls} placeholder="(83) 99999-9999" />
+          </div>
+          <div>
+            <label className={labelCls}>E-mail</label>
+            <input type="email" value={email} onChange={e => setEmail(e.target.value)} className={inputCls} placeholder="opcional" />
+          </div>
+          <div>
+            <label className={labelCls}>Origem</label>
+            <select value={origem} onChange={e => setOrigem(e.target.value)} className={`${inputCls} cursor-pointer`}>
+              {ORIGENS.map(o => <option key={o} value={o} className="capitalize">{o}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Veículo de interesse</label>
+            <input value={veiculoInteresse} onChange={e => setVeiculoInteresse(e.target.value)} className={inputCls} placeholder="Ex: Honda Civic 2022" />
+          </div>
+          <div>
+            <label className={labelCls}>Responsável</label>
+            <select value={responsavelId} onChange={e => setResponsavelId(e.target.value)} className={`${inputCls} cursor-pointer`}>
+              <option value="">— Nenhum —</option>
+              {vendedores.map(v => <option key={v.id} value={v.id}>{v.nome}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className={labelCls}>Próximo atendimento</label>
+            <input type="datetime-local" value={proximoAtendimento} onChange={e => setProximoAtendimento(e.target.value)} className={inputCls} />
+          </div>
+          <div className="lg:col-span-2">
+            <label className={labelCls}>Observações</label>
+            <input value={observacoes} onChange={e => setObservacoes(e.target.value)} className={inputCls} placeholder="Observações iniciais" />
+          </div>
         </div>
-        <div>
-          <input {...register('telefone')} className={inputClass} placeholder="Telefone *" />
-          {errors.telefone && <p className="text-red-600 text-xs mt-1">{errors.telefone.message}</p>}
-        </div>
-        <div>
-          <select {...register('origem')} className={inputClass}>
-            <option value="site">Site</option>
-            <option value="whatsapp">WhatsApp</option>
-            <option value="instagram">Instagram</option>
-            <option value="indicacao">Indicação</option>
-            <option value="outros">Outros</option>
-          </select>
-        </div>
-        <div>
-          <input {...register('observacoes')} className={inputClass} placeholder="Observações" />
-        </div>
-        <div className="sm:col-span-2 lg:col-span-4 flex justify-end gap-2">
+
+        {erro && <p className="text-red-600 text-sm">{erro}</p>}
+
+        <div className="flex justify-end gap-2 pt-1">
           <button
             type="button"
-            onClick={() => setAberto(false)}
-            className="px-4 py-2 text-sm text-[#6B7280] border border-[#E5E5E5] rounded-lg hover:text-[#111] hover:border-[#D0D0D0] transition-colors bg-white"
+            onClick={() => { setAberto(false); resetar() }}
+            className="px-4 py-2 text-sm text-[#6B7280] border border-[#E5E7EB] rounded-xl hover:text-[#111] hover:border-[#D1D5DB] transition-colors"
           >
             Cancelar
           </button>
           <button
             type="submit"
             disabled={salvando}
-            className="px-6 py-2 text-sm font-bold text-[#111] rounded-lg transition-all hover:brightness-90 disabled:opacity-50"
-            style={{ backgroundColor: 'var(--cor-primaria)' }}
+            className="px-6 py-2 text-sm font-semibold text-[#92400E] bg-[#FEF9C3] border border-[#F5C842] rounded-xl hover:bg-[#FEF08A] transition-colors disabled:opacity-50"
           >
             {salvando ? 'Salvando...' : 'Salvar lead'}
           </button>

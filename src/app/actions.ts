@@ -186,12 +186,36 @@ export async function updateLead(
     telefone?: string
     email?: string | null
     veiculo_interesse?: string | null
+    proximo_atendimento?: string | null
+    cpf?: string | null
+    data_nascimento?: string | null
+    profissao?: string | null
+    endereco?: string | null
   }
 ) {
-  const supabase = await userSupabase()
+  const supabase = adminSupabase()
   const { error } = await supabase.from('leads').update(updates).eq('id', leadId)
   if (error) throw new Error(error.message)
   revalidatePath('/admin/leads/' + leadId)
+  revalidatePath('/admin/crm')
+}
+
+export async function criarLead(data: {
+  loja_id: string
+  nome: string
+  telefone: string
+  email?: string | null
+  origem: string
+  observacoes?: string | null
+  veiculo_interesse?: string | null
+  responsavel_id?: string | null
+  proximo_atendimento?: string | null
+  status: string
+  tags: string[]
+}): Promise<void> {
+  const supabase = adminSupabase()
+  const { error } = await supabase.from('leads').insert(data)
+  if (error) throw new Error(error.message)
   revalidatePath('/admin/crm')
 }
 
@@ -199,14 +223,14 @@ export async function addLeadInteracao(
   leadId: string,
   lojaId: string,
   tipo: TipoInteracao,
-  descricao: string
+  descricao: string,
+  userId?: string | null
 ) {
-  const supabase = await userSupabase()
-  const { data: { session } } = await supabase.auth.getSession()
+  const supabase = adminSupabase()
   const { error } = await supabase.from('lead_interacoes').insert({
     lead_id: leadId,
     loja_id: lojaId,
-    usuario_id: session?.user.id ?? null,
+    usuario_id: userId ?? null,
     tipo,
     descricao,
   })
