@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { createServerSupabase } from '@/lib/supabase-server'
+import { createServerSupabase, adminSupabase } from '@/lib/supabase-server'
 import { getLojaIdAtiva } from '@/lib/getLojaIdAtiva'
 import { formatarPreco, formatarKm } from '@/lib/utils'
 import type { Veiculo, UsuarioPerfil } from '@/types'
@@ -28,7 +28,8 @@ export default async function VeiculosAdminPage({
 
   const lojaId = await getLojaIdAtiva(perfil)
 
-  let query = supabase.from('veiculos').select('*').eq('loja_id', lojaId).order('created_at', { ascending: false })
+  const admin = adminSupabase()
+  let query = admin.from('veiculos').select('*').eq('loja_id', lojaId).order('created_at', { ascending: false })
   if (params.status) {
     query = query.eq('status', params.status as 'disponivel' | 'reservado' | 'vendido' | 'manutencao')
   }

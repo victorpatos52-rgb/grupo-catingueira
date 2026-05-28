@@ -95,18 +95,22 @@ export default async function FinanceiroPage({
     .map((v: Record<string, unknown>) => v.veiculo_id as string)
     .filter(Boolean)
 
-  const [{ data: financeiroData }, { data: custosData }] = await Promise.all([
+  const [{ data: financeiroDataRaw }, { data: custosDataRaw }] = await Promise.all([
     veiculoIds.length > 0
       ? admin.from('financeiro_veiculos')
           .select('veiculo_id, custo_aquisicao')
+          .eq('loja_id', lojaId)
           .in('veiculo_id', veiculoIds)
       : Promise.resolve({ data: [] as { veiculo_id: string; custo_aquisicao: number }[] }),
     veiculoIds.length > 0
       ? admin.from('custos_manutencao')
           .select('veiculo_id, valor')
+          .eq('loja_id', lojaId)
           .in('veiculo_id', veiculoIds)
       : Promise.resolve({ data: [] as { veiculo_id: string; valor: number }[] }),
   ])
+  const financeiroData = financeiroDataRaw ?? []
+  const custosData = custosDataRaw ?? []
 
   const dadosAnuais: DadosMensais[] = Array.from({ length: 12 }, (_, i) => {
     const m = i + 1
@@ -128,8 +132,8 @@ export default async function FinanceiroPage({
       lojaId={lojaId}
       vendas={(vendasData ?? []) as unknown as VendaResumo[]}
       despesas={(despesasData ?? []) as unknown as DespesaLoja[]}
-      financeiroVeiculos={(financeiroData ?? []) as unknown as FinVeiculoSimples[]}
-      custosManut={(custosData ?? []) as unknown as CustoManutSimples[]}
+      financeiroVeiculos={financeiroData as unknown as FinVeiculoSimples[]}
+      custosManut={custosData as unknown as CustoManutSimples[]}
       dadosAnuais={dadosAnuais}
       ano={ano}
       mes={mes}
