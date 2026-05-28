@@ -62,11 +62,11 @@ export default function HomeFelizardo({ loja, destaques, waHref, waDisplay, sobr
         style={{ minHeight: 'calc(100svh - 70px)' }}
       >
         <div
-          className="grid h-full"
-          style={{ gridTemplateColumns: '55fr 45fr', minHeight: 'inherit' }}
+          className="grid grid-cols-1 lg:grid-cols-[55fr_45fr] h-full"
+          style={{ minHeight: 'inherit' }}
         >
           {/* Esquerda — conteúdo */}
-          <div className="flex flex-col justify-center px-10 lg:px-16 xl:px-24 py-16">
+          <div className="flex flex-col justify-center px-6 sm:px-10 lg:px-16 xl:px-24 py-16">
             <AnimatedSection>
               <p
                 className="text-xs font-bold uppercase mb-6"
@@ -349,7 +349,7 @@ export default function HomeFelizardo({ loja, destaques, waHref, waDisplay, sobr
             href={waHref}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-3 px-8 py-4 rounded-full bg-white font-bold text-sm uppercase tracking-wider hover:bg-white/90 transition-colors"
+            className="inline-flex items-center justify-center gap-3 w-full sm:w-auto px-8 py-4 rounded-full bg-white font-bold text-sm uppercase tracking-wider hover:bg-white/90 transition-colors"
             style={{ color: '#1B3A6B' }}
           >
             <WaIcon size={18} />

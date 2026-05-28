@@ -1,5 +1,14 @@
+import type { Metadata } from 'next'
 import { getLoja } from '@/lib/getLoja'
 import ContatoForm from './ContatoForm'
+
+export async function generateMetadata(): Promise<Metadata> {
+  const loja = await getLoja()
+  return {
+    title: `${loja?.nome ?? 'Contato'} | Contato`,
+    description: `Entre em contato com a ${loja?.nome ?? 'nossa equipe'}. Atendimento rápido e sem enrolação.`,
+  }
+}
 
 export default async function ContatoPage() {
   const loja = await getLoja()

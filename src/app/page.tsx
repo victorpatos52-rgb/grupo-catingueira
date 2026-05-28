@@ -4,6 +4,14 @@ import HomeCatingueira from '@/components/home/HomeCatingueira'
 import HomeFelizardo from '@/components/home/HomeFelizardo'
 import type { Veiculo } from '@/types'
 
+export async function generateMetadata() {
+  const loja = await getLoja()
+  return {
+    title: `${loja?.nome ?? 'Catingueira Multimarcas'} | Veículos Seminovos`,
+    description: loja?.sobre ?? `Veículos seminovos em ${loja?.cidade ?? 'Patos'}, ${loja?.estado ?? 'PB'}.`,
+  }
+}
+
 function buildWaHref(num: string, text: string): string {
   const d = num.replace(/\D/g, '')
   const full = d.startsWith('55') ? d : `55${d}`

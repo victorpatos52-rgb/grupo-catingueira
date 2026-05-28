@@ -8,6 +8,22 @@ import GaleriaClient from './GaleriaClient'
 import { formatarPreco, formatarKm } from '@/lib/utils'
 import type { Veiculo } from '@/types'
 
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
+  const loja = await getLoja()
+  const supabase = await createServerSupabase()
+  const { data } = await supabase.from('veiculos').select('marca, modelo, ano').eq('id', id).single()
+  if (!data) return { title: loja?.nome ?? 'Veículo' }
+  return {
+    title: `${data.marca} ${data.modelo} ${data.ano} | ${loja?.nome ?? ''}`,
+    description: `${data.marca} ${data.modelo} ${data.ano} disponível na ${loja?.nome ?? 'nossa loja'}. Confira fotos, especificações e preço.`,
+  }
+}
+
 export default async function VeiculoPage({
   params,
 }: {
@@ -132,7 +148,7 @@ export default async function VeiculoPage({
             <h2 className="font-semibold text-[#111] mb-4 text-sm uppercase tracking-wider">
               Especificações
             </h2>
-            <div className="grid grid-cols-3 gap-x-4 gap-y-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-4">
               {specs.map(s => (
                 <div key={s.label}>
                   <p className="text-gray-400 text-xs uppercase tracking-wide">{s.label}</p>

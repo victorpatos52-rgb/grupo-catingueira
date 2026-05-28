@@ -92,7 +92,7 @@ export default function HomeCatingueira({ loja, destaques, waHref, waDisplay }: 
         />
 
         {/* Conteúdo principal */}
-        <div className="relative z-10 max-w-7xl mx-auto px-8 lg:px-12 w-full py-20">
+        <div className="relative z-10 max-w-7xl mx-auto px-5 sm:px-8 lg:px-12 w-full py-12 sm:py-20">
           <AnimatedSection className="max-w-2xl">
             <p
               className="font-[family-name:var(--font-barlow-condensed)] text-xs font-bold uppercase mb-6"
@@ -135,8 +135,8 @@ export default function HomeCatingueira({ loja, destaques, waHref, waDisplay }: 
           </AnimatedSection>
         </div>
 
-        {/* Card de stats — canto inferior direito */}
-        <div className="absolute bottom-8 right-6 lg:right-10 z-10">
+        {/* Card de stats — canto inferior direito (oculto no mobile para não sobrepor conteúdo) */}
+        <div className="hidden sm:block absolute bottom-8 right-6 lg:right-10 z-10">
           <AnimatedSection delay={0.3}>
             <div
               className="backdrop-blur-md border border-white/10 p-6 min-w-[220px]"

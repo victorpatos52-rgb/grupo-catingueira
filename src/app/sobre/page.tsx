@@ -43,14 +43,9 @@ const DIFERENCIAIS = [
 
 export async function generateMetadata(): Promise<Metadata> {
   const loja = await getLoja()
-  const isFelizardo = (loja?.nome ?? '').toLowerCase().includes('felizardo')
   return {
-    title: isFelizardo
-      ? 'Sobre a Felizardo Veículos — Quem Somos'
-      : 'Sobre a Catingueira Multimarcas — Quem Somos',
-    description: isFelizardo
-      ? 'Conheça a história da Felizardo Veículos, fundada por Felipe Catingueira em homenagem ao seu pai Felizardo.'
-      : 'Mais de 30 anos realizando sonhos no sertão da Paraíba. Conheça a história, missão e valores da Catingueira Multimarcas.',
+    title: `${loja?.nome ?? 'Sobre Nós'} | Sobre Nós`,
+    description: loja?.sobre ?? `Conheça a história e os valores da ${loja?.nome ?? 'nossa loja'}.`,
   }
 }
 

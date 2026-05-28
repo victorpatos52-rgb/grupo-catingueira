@@ -25,12 +25,9 @@ function formatWA(num: string): string {
 
 export async function generateMetadata(): Promise<Metadata> {
   const loja = await getLoja()
-  const nome = loja?.nome ?? 'Catingueira Multimarcas'
-  const cidade = loja?.cidade ?? 'Patos'
-  const estado = loja?.estado ?? 'PB'
   return {
-    title: `Localização — ${nome} | ${cidade}, ${estado}`,
-    description: `Encontre a ${nome} em ${cidade}, ${estado}. Venha nos visitar!`,
+    title: `${loja?.nome ?? 'Localização'} | Localização`,
+    description: `Encontre a ${loja?.nome ?? 'nossa loja'} em ${loja?.cidade ?? 'Patos'}, ${loja?.estado ?? 'PB'}. Venha nos visitar!`,
   }
 }
 

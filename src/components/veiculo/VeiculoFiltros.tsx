@@ -66,7 +66,7 @@ export default function VeiculoFiltros() {
 
       {/* Sidebar panel */}
       <div
-        className={`${aberto ? 'block' : 'hidden'} md:block bg-white rounded-xl shadow-md p-5 flex flex-col gap-5`}
+        className={`${aberto ? 'flex' : 'hidden'} md:flex flex-col gap-5 bg-white rounded-xl shadow-md p-5`}
         style={{ borderTop: '3px solid var(--cor-primaria)' }}
       >
         <p className="font-[family-name:var(--font-barlow-condensed)] text-sm font-bold uppercase tracking-[0.15em] text-[#1A1A1A] flex items-center gap-2">

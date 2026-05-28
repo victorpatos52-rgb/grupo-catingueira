@@ -6,6 +6,14 @@ import VeiculoFiltros from '@/components/veiculo/VeiculoFiltros'
 import { Car } from 'lucide-react'
 import type { Veiculo } from '@/types'
 
+export async function generateMetadata() {
+  const loja = await getLoja()
+  return {
+    title: `${loja?.nome ?? 'Estoque'} | Nosso Estoque`,
+    description: `Confira os veículos seminovos disponíveis na ${loja?.nome ?? 'nossa loja'}.`,
+  }
+}
+
 interface SearchParams {
   busca?: string
   marca?: string
