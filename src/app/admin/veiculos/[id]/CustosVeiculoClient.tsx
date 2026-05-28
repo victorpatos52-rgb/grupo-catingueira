@@ -13,7 +13,7 @@ interface Props {
   financeiro: FinanceiroVeiculo | null
   custos: CustoManutencao[]
   lojaId: string
-  podeVerFinanceiro: boolean
+  secao: 'financeiro' | 'checklist'
 }
 
 interface NovoCusto {
@@ -33,22 +33,20 @@ export default function CustosVeiculoClient({
   financeiro,
   custos: initialCustos,
   lojaId,
-  podeVerFinanceiro,
+  secao,
 }: Props) {
   const router = useRouter()
 
-  const [abaAtiva, setAbaAtiva] = useState<'financeiro' | 'checklist'>(
-    podeVerFinanceiro ? 'financeiro' : 'checklist'
-  )
-
-  // ── Aquisição ─────────────────────────────────────────────────────────────
+  // ── Aquisição ──────────────────────────────────────────────────────────────
   const [custoAquisicao, setCustoAquisicao] = useState(
-    String(financeiro?.custo_aquisicao ?? '')
+    financeiro?.custo_aquisicao != null
+      ? financeiro.custo_aquisicao.toFixed(2)
+      : ''
   )
   const [salvandoAquisicao, setSalvandoAquisicao] = useState(false)
   const [aquisicaoOk, setAquisicaoOk] = useState(false)
 
-  // ── Custos / Serviços (mesma tabela, estado compartilhado) ────────────────
+  // ── Custos / Serviços ──────────────────────────────────────────────────────
   const [custos, setCustos] = useState(initialCustos)
   const [adicionando, setAdicionando] = useState(false)
   const [novoCusto, setNovoCusto] = useState<NovoCusto>({
@@ -60,7 +58,7 @@ export default function CustosVeiculoClient({
   const [salvandoCusto, setSalvandoCusto] = useState(false)
   const [deletandoCusto, setDeletandoCusto] = useState<string | null>(null)
 
-  // ── Cálculos financeiros ──────────────────────────────────────────────────
+  // ── Cálculos financeiros ───────────────────────────────────────────────────
   const custoAqNum = parseFloat(custoAquisicao.replace(',', '.')) || 0
   const totalAdicionais = custos.reduce((a, c) => a + c.valor, 0)
   const custoTotal = custoAqNum + totalAdicionais
@@ -70,7 +68,7 @@ export default function CustosVeiculoClient({
   const margem = precoVenda > 0 ? (lucroLiquido / precoVenda) * 100 : 0
   const diasEstoque = calcularDiasEstoque(veiculo.data_aquisicao, financeiro?.data_venda)
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
+  // ── Handlers ───────────────────────────────────────────────────────────────
   async function handleSalvarAquisicao(e: React.FormEvent) {
     e.preventDefault()
     setSalvandoAquisicao(true)
@@ -142,13 +140,8 @@ export default function CustosVeiculoClient({
     }
   }
 
-  function trocarAba(aba: 'financeiro' | 'checklist') {
-    setAbaAtiva(aba)
-    setAdicionando(false)
-  }
-
-  // ── Seção de lista (shared entre as duas abas) ────────────────────────────
-  const isChecklist = abaAtiva === 'checklist'
+  // ── Labels dinâmicos por seção ─────────────────────────────────────────────
+  const isChecklist = secao === 'checklist'
   const tituloLista = isChecklist ? 'Serviços realizados' : 'Custos adicionais'
   const textoBotaoAdicionar = isChecklist ? 'Adicionar serviço' : 'Adicionar custo'
   const textoVazio = isChecklist
@@ -156,9 +149,9 @@ export default function CustosVeiculoClient({
     : 'Nenhum custo adicional registrado.'
   const totalLabel = isChecklist ? 'Total serviços' : 'Total adicionais'
 
+  // ── Lista compartilhada ────────────────────────────────────────────────────
   const secaoLista = (
     <div className="bg-white border border-[#E5E7EB] rounded-xl overflow-hidden shadow-sm">
-      {/* Header da lista */}
       <div className="px-5 py-4 border-b border-[#E5E7EB] flex items-center justify-between">
         <h3 className="text-[#111827] font-semibold text-sm">{tituloLista}</h3>
         <button
@@ -172,7 +165,6 @@ export default function CustosVeiculoClient({
         </button>
       </div>
 
-      {/* Formulário inline */}
       {adicionando && (
         <form onSubmit={handleAdicionarCusto} className="px-5 py-4 bg-[#FFFBEB] border-b border-[#E5E7EB]">
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
@@ -238,7 +230,6 @@ export default function CustosVeiculoClient({
         </form>
       )}
 
-      {/* Tabela */}
       {custos.length === 0 ? (
         <p className="px-5 py-8 text-center text-[#9CA3AF] text-sm">{textoVazio}</p>
       ) : (
@@ -298,127 +289,87 @@ export default function CustosVeiculoClient({
     </div>
   )
 
-  // ── Sem acesso financeiro: só checklist, sem abas ─────────────────────────
-  if (!podeVerFinanceiro) {
-    return (
-      <div className="mt-10 space-y-4">
-        <h2 className="font-[family-name:var(--font-barlow-condensed)] text-xl font-black uppercase text-[#111827] tracking-wide">
-          Checklist de Serviços
-        </h2>
-        {secaoLista}
-      </div>
-    )
+  // ── Aba Checklist ──────────────────────────────────────────────────────────
+  if (secao === 'checklist') {
+    return <div className="space-y-4">{secaoLista}</div>
   }
 
-  // ── Com acesso financeiro: exibe abas ─────────────────────────────────────
+  // ── Aba Financeiro ─────────────────────────────────────────────────────────
   return (
-    <div className="mt-10">
-      <h2 className="font-[family-name:var(--font-barlow-condensed)] text-xl font-black uppercase text-[#111827] tracking-wide mb-5">
-        Controle do Veículo
-      </h2>
-
-      {/* Abas */}
-      <div className="flex border-b border-[#E5E7EB] mb-6 gap-1">
-        {(['financeiro', 'checklist'] as const).map(aba => (
-          <button
-            key={aba}
-            onClick={() => trocarAba(aba)}
-            className={`px-5 py-2.5 text-sm font-semibold rounded-t-lg transition-all -mb-px border-b-2 ${
-              abaAtiva === aba
-                ? 'text-[#111827] border-[#F5C842] bg-[#FEF9C3]'
-                : 'text-[#6B7280] border-transparent hover:text-[#111827] hover:bg-[#F9FAFB]'
-            }`}
-          >
-            {aba === 'financeiro' ? 'Financeiro' : 'Checklist de Serviços'}
-          </button>
-        ))}
+    <div className="space-y-6">
+      {/* Custo de aquisição */}
+      <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-sm">
+        <h3 className="text-[#111827] font-semibold text-sm mb-4">Custo de aquisição</h3>
+        <form onSubmit={handleSalvarAquisicao} className="flex items-end gap-4 flex-wrap">
+          <div className="flex-1 min-w-[180px]">
+            <label className={labelCls}>Valor de aquisição (R$)</label>
+            <input
+              type="number"
+              min={0}
+              step={0.01}
+              value={custoAquisicao}
+              onChange={e => { setCustoAquisicao(e.target.value); setAquisicaoOk(false) }}
+              className={inputCls}
+              placeholder="0,00"
+            />
+          </div>
+          <div>
+            <button
+              type="submit"
+              disabled={salvandoAquisicao}
+              className="px-5 py-2.5 rounded-xl text-sm font-semibold text-[#111827] bg-[#F5C842] hover:brightness-90 transition-all disabled:opacity-50"
+            >
+              {salvandoAquisicao ? 'Salvando...' : 'Salvar'}
+            </button>
+          </div>
+          {aquisicaoOk && (
+            <span className="text-green-600 text-sm font-medium">✓ Salvo</span>
+          )}
+        </form>
       </div>
 
-      {/* Conteúdo da aba Financeiro */}
-      {abaAtiva === 'financeiro' && (
-        <div className="space-y-6">
-          {/* Custo de aquisição */}
-          <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-sm">
-            <h3 className="text-[#111827] font-semibold text-sm mb-4">Custo de aquisição</h3>
-            <form onSubmit={handleSalvarAquisicao} className="flex items-end gap-4 flex-wrap">
-              <div className="flex-1 min-w-[180px]">
-                <label className={labelCls}>Valor de aquisição (R$)</label>
-                <input
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  value={custoAquisicao}
-                  onChange={e => setCustoAquisicao(e.target.value)}
-                  className={inputCls}
-                  placeholder="0,00"
-                />
-              </div>
-              <div>
-                <button
-                  type="submit"
-                  disabled={salvandoAquisicao}
-                  className="px-5 py-2.5 rounded-xl text-sm font-semibold text-[#111827] bg-[#F5C842] hover:brightness-90 transition-all disabled:opacity-50"
-                >
-                  {salvandoAquisicao ? 'Salvando...' : 'Salvar'}
-                </button>
-              </div>
-              {aquisicaoOk && (
-                <span className="text-green-600 text-sm font-medium">✓ Salvo</span>
-              )}
-            </form>
-          </div>
+      {/* Custos adicionais */}
+      {secaoLista}
 
-          {/* Custos adicionais */}
-          {secaoLista}
-
-          {/* Resultado */}
-          <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-sm">
-            <h3 className="text-[#111827] font-semibold text-sm mb-4">Resultado</h3>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {[
-                { label: 'Custo de aquisição', valor: formatarPreco(custoAqNum), cor: 'text-[#111827]' },
-                { label: 'Custos adicionais', valor: formatarPreco(totalAdicionais), cor: 'text-[#111827]' },
-                { label: 'Custo total', valor: formatarPreco(custoTotal), cor: 'text-[#111827] font-bold' },
-                {
-                  label: financeiro?.preco_venda ? 'Preço de venda' : 'Preço anunciado',
-                  valor: formatarPreco(precoVenda),
-                  cor: 'text-[#111827]',
-                },
-                {
-                  label: 'Lucro bruto',
-                  valor: formatarPreco(lucroBruto),
-                  cor: lucroBruto >= 0 ? 'text-green-700 font-bold' : 'text-red-600 font-bold',
-                },
-                {
-                  label: 'Lucro líquido',
-                  valor: formatarPreco(lucroLiquido),
-                  cor: lucroLiquido >= 0 ? 'text-green-700 font-bold' : 'text-red-600 font-bold',
-                },
-                {
-                  label: 'Margem %',
-                  valor: `${margem.toFixed(1)}%`,
-                  cor: margem >= 0 ? 'text-green-700 font-bold' : 'text-red-600 font-bold',
-                },
-                { label: 'Dias em estoque', valor: `${diasEstoque}d`, cor: 'text-[#6B7280]' },
-              ].map(item => (
-                <div key={item.label} className="bg-[#F9FAFB] rounded-xl p-3 border border-[#E5E7EB]">
-                  <p className="text-[#9CA3AF] text-xs uppercase tracking-wider mb-1">{item.label}</p>
-                  <p className={`text-lg font-[family-name:var(--font-barlow-condensed)] font-black ${item.cor}`}>
-                    {item.valor}
-                  </p>
-                </div>
-              ))}
+      {/* Resultado */}
+      <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-sm">
+        <h3 className="text-[#111827] font-semibold text-sm mb-4">Resultado</h3>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: 'Custo de aquisição', valor: formatarPreco(custoAqNum), cor: 'text-[#111827]' },
+            { label: 'Custos adicionais', valor: formatarPreco(totalAdicionais), cor: 'text-[#111827]' },
+            { label: 'Custo total', valor: formatarPreco(custoTotal), cor: 'text-[#111827] font-bold' },
+            {
+              label: financeiro?.preco_venda ? 'Preço de venda' : 'Preço anunciado',
+              valor: formatarPreco(precoVenda),
+              cor: 'text-[#111827]',
+            },
+            {
+              label: 'Lucro bruto',
+              valor: formatarPreco(lucroBruto),
+              cor: lucroBruto >= 0 ? 'text-green-700 font-bold' : 'text-red-600 font-bold',
+            },
+            {
+              label: 'Lucro líquido',
+              valor: formatarPreco(lucroLiquido),
+              cor: lucroLiquido >= 0 ? 'text-green-700 font-bold' : 'text-red-600 font-bold',
+            },
+            {
+              label: 'Margem %',
+              valor: `${margem.toFixed(1)}%`,
+              cor: margem >= 0 ? 'text-green-700 font-bold' : 'text-red-600 font-bold',
+            },
+            { label: 'Dias em estoque', valor: `${diasEstoque}d`, cor: 'text-[#6B7280]' },
+          ].map(item => (
+            <div key={item.label} className="bg-[#F9FAFB] rounded-xl p-3 border border-[#E5E7EB]">
+              <p className="text-[#9CA3AF] text-xs uppercase tracking-wider mb-1">{item.label}</p>
+              <p className={`text-base font-[family-name:var(--font-barlow-condensed)] font-black ${item.cor}`}>
+                {item.valor}
+              </p>
             </div>
-          </div>
+          ))}
         </div>
-      )}
-
-      {/* Conteúdo da aba Checklist */}
-      {abaAtiva === 'checklist' && (
-        <div className="space-y-4">
-          {secaoLista}
-        </div>
-      )}
+      </div>
     </div>
   )
 }

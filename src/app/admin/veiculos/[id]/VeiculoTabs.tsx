@@ -6,7 +6,7 @@ import FotosVeiculoClient from './FotosVeiculoClient'
 import CustosVeiculoClient from './CustosVeiculoClient'
 import type { Veiculo, FinanceiroVeiculo, CustoManutencao } from '@/types'
 
-type Aba = 'dados' | 'fotos' | 'controle'
+type Aba = 'dados' | 'fotos' | 'financeiro' | 'checklist'
 
 interface Props {
   veiculo: Veiculo
@@ -16,19 +16,20 @@ interface Props {
   podeVerFinanceiro: boolean
 }
 
-const ABAS: { id: Aba; label: string }[] = [
-  { id: 'dados', label: 'Dados' },
-  { id: 'fotos', label: 'Fotos' },
-  { id: 'controle', label: 'Controle' },
-]
-
 export default function VeiculoTabs({ veiculo, financeiro, custos, lojaId, podeVerFinanceiro }: Props) {
   const [aba, setAba] = useState<Aba>('dados')
 
+  const abas: { id: Aba; label: string }[] = [
+    { id: 'dados', label: 'Dados' },
+    { id: 'fotos', label: 'Fotos' },
+    ...(podeVerFinanceiro ? [{ id: 'financeiro' as Aba, label: 'Financeiro' }] : []),
+    { id: 'checklist', label: 'Checklist de Serviços' },
+  ]
+
   return (
     <div>
-      <div className="flex border-b border-[#E5E7EB] mb-6 gap-1">
-        {ABAS.map(a => (
+      <div className="flex border-b border-[#E5E7EB] mb-6 gap-1 flex-wrap">
+        {abas.map(a => (
           <button
             key={a.id}
             onClick={() => setAba(a.id)}
@@ -55,13 +56,23 @@ export default function VeiculoTabs({ veiculo, financeiro, custos, lojaId, podeV
         />
       )}
 
-      {aba === 'controle' && (
+      {aba === 'financeiro' && (
         <CustosVeiculoClient
           veiculo={veiculo}
           financeiro={financeiro}
           custos={custos}
           lojaId={lojaId}
-          podeVerFinanceiro={podeVerFinanceiro}
+          secao="financeiro"
+        />
+      )}
+
+      {aba === 'checklist' && (
+        <CustosVeiculoClient
+          veiculo={veiculo}
+          financeiro={financeiro}
+          custos={custos}
+          lojaId={lojaId}
+          secao="checklist"
         />
       )}
     </div>
