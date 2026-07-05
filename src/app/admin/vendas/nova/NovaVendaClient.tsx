@@ -34,7 +34,6 @@ const labelCls = 'block text-[#6B7280] text-xs font-semibold uppercase tracking-
 
 type FormData = {
   veiculo_id: string
-  numero_negociacao: string
   valor_venda: number
   comprador_nome: string
   comprador_cpf: string
@@ -85,7 +84,6 @@ const hoje = new Date().toISOString().split('T')[0]
 function initialForm(veiculoIdInicial: string | null, vendedorId: string): FormData {
   return {
     veiculo_id: veiculoIdInicial ?? '',
-    numero_negociacao: '',
     valor_venda: 0,
     comprador_nome: '',
     comprador_cpf: '',
@@ -258,7 +256,6 @@ export default function NovaVendaClient({ veiculos, usuarios, lojaId, vendedorId
       loja_id: lojaId,
       veiculo_id: form.veiculo_id,
       vendedor_id: form.vendedor_id || null,
-      numero_negociacao: form.numero_negociacao || null,
       data_venda: form.data_venda,
       hora_venda: form.hora_venda || null,
       comprador_nome: form.comprador_nome || 'Rascunho',
@@ -465,27 +462,15 @@ export default function NovaVendaClient({ veiculos, usuarios, lojaId, vendedorId
             )
           })()}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4 max-w-2xl">
-            <div>
-              <label className={labelCls}>Número da negociação</label>
-              <input
-                type="text"
-                value={form.numero_negociacao}
-                onChange={e => set('numero_negociacao', e.target.value)}
-                className={inputCls}
-                placeholder="Ex: 001/2026"
-              />
-            </div>
-            <div>
-              <label className={labelCls}>Valor de venda</label>
-              <MoedaInput
-                value={form.valor_venda}
-                onChange={v => {
-                  set('valor_venda', v)
-                  set('valor_liquido', calcularLiquido(v, form.desconto))
-                }}
-              />
-            </div>
+          <div className="mt-4 max-w-xs">
+            <label className={labelCls}>Valor de venda</label>
+            <MoedaInput
+              value={form.valor_venda}
+              onChange={v => {
+                set('valor_venda', v)
+                set('valor_liquido', calcularLiquido(v, form.desconto))
+              }}
+            />
           </div>
         </div>
       )}
@@ -828,9 +813,6 @@ export default function NovaVendaClient({ veiculos, usuarios, lojaId, vendedorId
                 </div>
               </div>
             ) : <p className="text-[#9CA3AF] text-sm">Nenhum veículo selecionado</p>}
-            {form.numero_negociacao && (
-              <p className="text-[#6B7280] text-xs mt-2">Neg. {form.numero_negociacao}</p>
-            )}
           </div>
 
           {/* Card comprador */}

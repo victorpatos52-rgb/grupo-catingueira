@@ -104,9 +104,6 @@ export default function VendaDetalheClient({ venda: initial, perfil, anexos, pod
                 {venda.numero_venda}
               </span>
             )}
-            {venda.numero_negociacao && (
-              <span className="text-[#6B7280] text-lg font-medium">#{venda.numero_negociacao}</span>
-            )}
             {venda.status === 'finalizada' ? (
               <span className="text-xs px-2.5 py-1 rounded-full font-semibold bg-green-50 text-green-700 border border-green-200">
                 Finalizada

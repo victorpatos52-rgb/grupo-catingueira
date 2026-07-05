@@ -95,7 +95,7 @@ export default function VendasClient({ vendas }: Props) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[#E5E7EB] bg-[#F9FAFB]">
-                  {['Veículo', 'Comprador', 'Valor', 'Vendedor', 'Data', 'Status', 'Ações'].map(h => (
+                  {['Nº', 'Veículo', 'Comprador', 'Valor', 'Vendedor', 'Data', 'Status', 'Ações'].map(h => (
                     <th key={h} className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap">
                       {h}
                     </th>
@@ -105,6 +105,11 @@ export default function VendasClient({ vendas }: Props) {
               <tbody className="divide-y divide-[#F3F4F6]">
                 {filtradas.map(venda => (
                   <tr key={venda.id} className="hover:bg-[#FAFAFA] transition-colors">
+
+                    {/* Número */}
+                    <td className="px-4 py-3 text-[#6B7280] text-xs font-medium whitespace-nowrap">
+                      {venda.numero_venda ?? '—'}
+                    </td>
 
                     {/* Veículo */}
                     <td className="px-4 py-3">

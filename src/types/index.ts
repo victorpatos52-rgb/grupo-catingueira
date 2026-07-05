@@ -209,6 +209,7 @@ export interface Venda {
   loja_id: string
   veiculo_id: string
   vendedor_id: string | null
+  /** @deprecated substituído por numero_venda (autogerado) — coluna preservada só por histórico, não usada no código */
   numero_negociacao: string | null
   numero_venda?: string | null
   data_venda: string
