@@ -37,7 +37,7 @@ export default async function HomePage() {
   if (loja) {
     const { data } = await supabase
       .from('veiculos')
-      .select('*')
+      .select('id, loja_id, marca, modelo, versao, ano, cor, km, combustivel, cambio, preco, valor_oferta, placa, chassi, renavam, tipo, portas, hodometro_venda, descricao, opcionais, status, destaque, fotos, data_aquisicao, created_at')
       .eq('loja_id', loja.id)
       .eq('status', 'disponivel')
       .eq('destaque', true)

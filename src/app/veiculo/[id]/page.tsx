@@ -33,7 +33,9 @@ export default async function VeiculoPage({
   const loja = await getLoja()
   const supabase = await createServerSupabase()
 
-  const { data } = await supabase.from('veiculos').select('*').eq('id', id).single()
+  const veiculoColunas = 'id, loja_id, marca, modelo, versao, ano, cor, km, combustivel, cambio, preco, valor_oferta, placa, chassi, renavam, tipo, portas, hodometro_venda, descricao, opcionais, status, destaque, fotos, data_aquisicao, created_at'
+
+  const { data } = await supabase.from('veiculos').select(veiculoColunas).eq('id', id).single()
   if (!data) notFound()
 
   const veiculo = data as Veiculo
@@ -41,7 +43,7 @@ export default async function VeiculoPage({
 
   const { data: similares } = await supabase
     .from('veiculos')
-    .select('*')
+    .select(veiculoColunas)
     .eq('loja_id', veiculo.loja_id)
     .eq('status', 'disponivel')
     .neq('id', veiculo.id)

@@ -37,6 +37,7 @@ export interface Veiculo {
   combustivel: string
   cambio: string
   preco: number
+  valor_oferta?: number | null
   placa: string | null
   chassi: string | null
   renavam: string | null
