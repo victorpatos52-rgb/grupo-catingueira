@@ -32,6 +32,7 @@ export default async function NovaVendaPage({ searchParams }: Props) {
       .from('veiculos')
       .select('id,marca,modelo,versao,ano,cor,km,cambio,combustivel,preco,placa,fotos,status')
       .eq('loja_id', lojaId)
+      .eq('excluido', false)
       .in('status', ['disponivel', 'reservado'])
       .order('created_at', { ascending: false }),
     admin

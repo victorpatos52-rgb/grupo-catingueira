@@ -160,7 +160,9 @@ export default function AdminSidebar({ perfil, loja, lojas }: AdminSidebarProps)
     router.refresh()
   }
 
-  const gestaoVisivel = GESTAO_ITEMS.filter(i => canSee(i.modulo, perfil))
+  const gestaoVisivel = GESTAO_ITEMS.filter(i =>
+    i.modulo === 'dashboard' ? perfil?.perfil === 'admin' : canSee(i.modulo, perfil)
+  )
   const adminVisivel  = ADMIN_ITEMS.filter(i => canSee(i.modulo, perfil))
 
   const sidebar = (

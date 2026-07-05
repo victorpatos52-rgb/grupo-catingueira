@@ -33,6 +33,20 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  if (request.nextUrl.pathname.startsWith('/admin/dashboard')) {
+    const { data: perfil } = await supabase
+      .from('usuarios_perfil')
+      .select('perfil')
+      .eq('id', user.id)
+      .single()
+
+    if (perfil?.perfil !== 'admin') {
+      const url = request.nextUrl.clone()
+      url.pathname = '/admin/crm'
+      return NextResponse.redirect(url)
+    }
+  }
+
   return supabaseResponse
 }
 

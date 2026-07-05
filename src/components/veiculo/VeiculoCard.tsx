@@ -4,7 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { motion } from 'framer-motion'
 import BotaoWhatsApp from '@/components/ui/BotaoWhatsApp'
-import { formatarPreco, formatarKm } from '@/lib/utils'
+import { formatarPreco } from '@/lib/utils'
 import type { Veiculo, Loja } from '@/types'
 import { Eye } from 'lucide-react'
 
@@ -90,7 +90,7 @@ export default function VeiculoCard({ veiculo, loja, delay = 0 }: VeiculoCardPro
             <p className="text-[#888] text-xs uppercase tracking-wider mt-0.5">{veiculo.versao}</p>
           )}
           <p className="text-[#888] text-sm mt-1">
-            {veiculo.ano} · {formatarKm(veiculo.km)} · {veiculo.cambio}
+            {veiculo.ano} · {veiculo.cambio}
           </p>
         </div>
 

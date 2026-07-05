@@ -31,7 +31,7 @@ export default async function VeiculosAdminPage({
   const lojaId = await getLojaIdAtiva(perfil)
 
   const admin = adminSupabase()
-  let query = admin.from('veiculos').select('*').eq('loja_id', lojaId).order('created_at', { ascending: false })
+  let query = admin.from('veiculos').select('*').eq('loja_id', lojaId).eq('excluido', false).order('created_at', { ascending: false })
   if (params.status) {
     query = query.eq('status', params.status as 'disponivel' | 'reservado' | 'vendido' | 'manutencao')
   }

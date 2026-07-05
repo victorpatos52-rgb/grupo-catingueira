@@ -51,6 +51,7 @@ export interface Veiculo {
   fotos: string[]
   data_aquisicao: string
   created_at: string
+  excluido?: boolean
 }
 
 export interface CustoAdicional {

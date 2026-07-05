@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation'
 import { createServerSupabase, adminSupabase } from '@/lib/supabase-server'
 import { getLojaIdAtiva } from '@/lib/getLojaIdAtiva'
 import MarcaVendidoButton from '@/components/admin/MarcaVendidoButton'
+import ExcluirVeiculoButton from '@/components/admin/ExcluirVeiculoButton'
 import VeiculoTabs from './VeiculoTabs'
 import type { Veiculo, UsuarioPerfil, FinanceiroVeiculo, CustoManutencao } from '@/types'
 
@@ -78,8 +79,16 @@ export default async function EditarVeiculoPage({
             {veiculo.status !== 'vendido' && (
               <MarcaVendidoButton veiculoId={id} />
             )}
+            {!veiculo.excluido && <ExcluirVeiculoButton veiculoId={id} />}
           </div>
         </div>
+        {veiculo.excluido && (
+          <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl px-4 py-2.5">
+            <p className="text-amber-700 text-sm">
+              Este veículo foi excluído (soft delete) — o registro foi mantido para preservar histórico financeiro/vendas.
+            </p>
+          </div>
+        )}
       </div>
 
       <VeiculoTabs

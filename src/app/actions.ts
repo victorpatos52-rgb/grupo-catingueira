@@ -602,6 +602,51 @@ export async function deletarVenda(vendaId: string): Promise<void> {
   revalidatePath('/admin/vendas')
 }
 
+// ─── EXCLUSÃO DE VEÍCULO ───────────────────────────────────────────────────────
+
+export async function excluirVeiculo(veiculoId: string): Promise<{ tipo: 'soft' | 'hard' }> {
+  const supabase = adminSupabase()
+
+  const [
+    { count: vendasCount },
+    { count: financeiroCount },
+    { count: custosCount },
+    { count: vistoriaCount },
+    anexosResult,
+  ] = await Promise.all([
+    supabase.from('vendas').select('id', { count: 'exact', head: true }).eq('veiculo_id', veiculoId),
+    supabase.from('financeiro_veiculos').select('id', { count: 'exact', head: true }).eq('veiculo_id', veiculoId),
+    supabase.from('custos_manutencao').select('id', { count: 'exact', head: true }).eq('veiculo_id', veiculoId),
+    supabase.from('vistoria_veiculo').select('id', { count: 'exact', head: true }).eq('veiculo_id', veiculoId),
+    // tabela `anexos` só existe após a migration 001 — tolera erro caso ainda não tenha rodado
+    supabase.from('anexos').select('id', { count: 'exact', head: true }).eq('entidade_tipo', 'veiculo').eq('entidade_id', veiculoId),
+  ])
+
+  const anexosCount = anexosResult.error ? 0 : (anexosResult.count ?? 0)
+
+  const temHistorico =
+    (vendasCount ?? 0) > 0 ||
+    (financeiroCount ?? 0) > 0 ||
+    (custosCount ?? 0) > 0 ||
+    (vistoriaCount ?? 0) > 0 ||
+    anexosCount > 0
+
+  if (temHistorico) {
+    const { error } = await supabase.from('veiculos').update({ excluido: true }).eq('id', veiculoId)
+    if (error) throw new Error(error.message)
+    revalidatePath('/admin/veiculos')
+    revalidatePath('/admin/veiculos/' + veiculoId)
+    revalidatePath('/admin/dashboard')
+    return { tipo: 'soft' }
+  }
+
+  const { error } = await supabase.from('veiculos').delete().eq('id', veiculoId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/veiculos')
+  revalidatePath('/admin/dashboard')
+  return { tipo: 'hard' }
+}
+
 // ─── VISTORIA ─────────────────────────────────────────────────────────────────
 
 export async function saveVistoria(

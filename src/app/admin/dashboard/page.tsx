@@ -35,19 +35,20 @@ export default async function DashboardPage() {
   ] = await Promise.all([
     admin.from('veiculos')
       .select('*', { count: 'exact', head: true })
-      .eq('loja_id', lojaId).eq('status', 'disponivel'),
+      .eq('loja_id', lojaId).eq('status', 'disponivel').eq('excluido', false),
     admin.from('veiculos')
       .select('*', { count: 'exact', head: true })
-      .eq('loja_id', lojaId).eq('status', 'reservado'),
+      .eq('loja_id', lojaId).eq('status', 'reservado').eq('excluido', false),
     admin.from('veiculos')
       .select('preco')
-      .eq('loja_id', lojaId).eq('status', 'disponivel'),
+      .eq('loja_id', lojaId).eq('status', 'disponivel').eq('excluido', false),
     admin.from('leads')
       .select('status')
       .eq('loja_id', lojaId),
     admin.from('veiculos')
       .select('*')
       .eq('loja_id', lojaId)
+      .eq('excluido', false)
       .order('created_at', { ascending: false }).limit(5),
     admin.from('leads')
       .select('*')
