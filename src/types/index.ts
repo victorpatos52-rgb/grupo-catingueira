@@ -260,3 +260,19 @@ export interface Venda {
   veiculo?: Pick<Veiculo, 'id' | 'marca' | 'modelo' | 'ano' | 'fotos' | 'preco' | 'placa' | 'cor' | 'km' | 'cambio' | 'combustivel' | 'versao'> | null
   vendedor?: Pick<UsuarioPerfil, 'nome'> | null
 }
+
+export type TipoLancamento = 'entrada' | 'saida'
+
+export interface LancamentoFinanceiro {
+  id: string
+  loja_id: string
+  tipo: TipoLancamento
+  categoria: string
+  descricao: string | null
+  valor: number
+  data: string
+  venda_id: string | null
+  criado_por: string | null
+  criado_em: string
+  venda?: Pick<Venda, 'id' | 'numero_venda' | 'comprador_nome'> | null
+}

@@ -1,12 +1,13 @@
 import { redirect } from 'next/navigation'
 import { createServerSupabase, adminSupabase } from '@/lib/supabase-server'
 import { getLojaIdAtiva } from '@/lib/getLojaIdAtiva'
-import type { DespesaLoja, UsuarioPerfil } from '@/types'
+import type { DespesaLoja, LancamentoFinanceiro, UsuarioPerfil } from '@/types'
 import FinanceiroClient, {
   type VendaResumo,
   type FinVeiculoSimples,
   type CustoManutSimples,
   type DadosMensais,
+  type VendaFinanciadaSimples,
 } from './FinanceiroClient'
 
 interface SearchParams {
@@ -63,6 +64,8 @@ export default async function FinanceiroPage({
     { data: despesasData },
     { data: vendasAnuaisData },
     { data: despesasAnuaisData },
+    { data: lancamentosData },
+    { data: vendasFinanciadasData },
   ] = await Promise.all([
     admin.from('vendas')
       .select('id, valor_venda, desconto, valor_liquido, data_venda, veiculo_id, veiculo:veiculos(marca,modelo,ano)')
@@ -88,6 +91,21 @@ export default async function FinanceiroPage({
       .eq('loja_id', lojaId)
       .gte('data', `${ano}-01-01`)
       .lte('data', `${ano}-12-31`),
+    // Lançamentos financeiros manuais (entradas/saídas fora das vendas/despesas) do período filtrado
+    admin.from('lancamentos_financeiros')
+      .select('*, venda:vendas(id, numero_venda, comprador_nome)')
+      .eq('loja_id', lojaId)
+      .gte('data', periodoInicio)
+      .lte('data', periodoFim)
+      .order('data', { ascending: false }),
+    // Vendas financiadas (para a tela de "Retorno financeira/banco") — não é limitado
+    // ao período filtrado, já que o banco pode confirmar o retorno bem depois da venda
+    admin.from('vendas')
+      .select('id, numero_venda, comprador_nome, data_venda, pagamento_financeira_nome, pagamento_financeira_valor')
+      .eq('loja_id', lojaId)
+      .eq('status', 'finalizada')
+      .gt('pagamento_financeira_valor', 0)
+      .order('data_venda', { ascending: false }),
   ])
 
   // Passo 2 — custos filtrados pelos veiculo_ids das vendas do período
@@ -135,6 +153,8 @@ export default async function FinanceiroPage({
       financeiroVeiculos={financeiroData as unknown as FinVeiculoSimples[]}
       custosManut={custosData as unknown as CustoManutSimples[]}
       dadosAnuais={dadosAnuais}
+      lancamentos={(lancamentosData ?? []) as unknown as LancamentoFinanceiro[]}
+      vendasFinanciadas={(vendasFinanciadasData ?? []) as unknown as VendaFinanciadaSimples[]}
       ano={ano}
       mes={mes}
       periodoInicio={periodoInicio}

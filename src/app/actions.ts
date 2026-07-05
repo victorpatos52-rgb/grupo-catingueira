@@ -4,7 +4,7 @@ import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
-import type { DespesaLoja, Perfil, TipoInteracao, Venda, Veiculo } from '@/types'
+import type { DespesaLoja, Perfil, TipoInteracao, TipoLancamento, Venda, Veiculo } from '@/types'
 
 function adminSupabase() {
   return createClient(
@@ -562,6 +562,46 @@ export async function deletarDespesa(id: string): Promise<void> {
   revalidatePath('/admin/financeiro')
 }
 
+// ─── LANÇAMENTOS FINANCEIROS MANUAIS ────────────────────────────────────────────
+
+export async function salvarLancamentoFinanceiro(
+  data: {
+    loja_id: string
+    tipo: TipoLancamento
+    categoria: string
+    descricao: string | null
+    valor: number
+    data: string
+    venda_id?: string | null
+  },
+  lancamentoId?: string
+): Promise<void> {
+  const { userId } = await exigirPerfilFinanceiro()
+  const supabase = adminSupabase()
+
+  if (lancamentoId) {
+    const { error } = await supabase
+      .from('lancamentos_financeiros')
+      .update(data)
+      .eq('id', lancamentoId)
+    if (error) throw new Error(error.message)
+  } else {
+    const { error } = await supabase
+      .from('lancamentos_financeiros')
+      .insert({ ...data, criado_por: userId })
+    if (error) throw new Error(error.message)
+  }
+  revalidatePath('/admin/financeiro')
+}
+
+export async function deletarLancamentoFinanceiro(id: string): Promise<void> {
+  await exigirPerfilFinanceiro()
+  const supabase = adminSupabase()
+  const { error } = await supabase.from('lancamentos_financeiros').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/financeiro')
+}
+
 // ─── VENDAS ───────────────────────────────────────────────────────────────────
 
 export async function salvarVenda(
@@ -612,13 +652,13 @@ export async function deletarVenda(vendaId: string): Promise<void> {
   revalidatePath('/admin/vendas')
 }
 
-// ─── DOCUMENTAÇÃO DO VEÍCULO (AQUISIÇÃO + ANEXOS) ──────────────────────────────
+// ─── CONTROLE DE ACESSO POR PERFIL ─────────────────────────────────────────────
 
-const PERFIS_DOCUMENTACAO: Perfil[] = ['gerente', 'diretor', 'admin']
+const PERFIS_GERENCIA: Perfil[] = ['gerente', 'diretor', 'admin']
 
-// Mesma restrição de acesso da aba "Financeiro". Checa o perfil do usuário logado
-// (via sessão/cookies) direto no servidor — não depende da aba estar escondida na UI.
-async function exigirPerfilDocumentacao(): Promise<{ userId: string }> {
+// Checa o perfil do usuário logado (via sessão/cookies) direto no servidor —
+// usado por Server Actions que não podem depender só da UI esconder um botão/aba.
+async function exigirPerfil(permitido: Perfil[], mensagemErro: string): Promise<{ userId: string }> {
   const userClient = await userSupabase()
   const { data: { session } } = await userClient.auth.getSession()
   if (!session) throw new Error('Não autenticado.')
@@ -630,11 +670,21 @@ async function exigirPerfilDocumentacao(): Promise<{ userId: string }> {
     .eq('id', session.user.id)
     .single()
 
-  if (!perfilData || !PERFIS_DOCUMENTACAO.includes(perfilData.perfil as Perfil)) {
-    throw new Error('Você não tem permissão para acessar a documentação deste veículo.')
+  if (!perfilData || !permitido.includes(perfilData.perfil as Perfil)) {
+    throw new Error(mensagemErro)
   }
   return { userId: session.user.id }
 }
+
+function exigirPerfilDocumentacao() {
+  return exigirPerfil(PERFIS_GERENCIA, 'Você não tem permissão para acessar a documentação deste veículo.')
+}
+
+function exigirPerfilFinanceiro() {
+  return exigirPerfil(PERFIS_GERENCIA, 'Você não tem permissão para acessar o financeiro desta loja.')
+}
+
+// ─── DOCUMENTAÇÃO DO VEÍCULO (AQUISIÇÃO + ANEXOS) ──────────────────────────────
 
 export async function saveVeiculoAquisicao(
   veiculoId: string,

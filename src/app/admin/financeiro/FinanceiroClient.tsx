@@ -6,8 +6,8 @@ import {
   ComposedChart, Bar, Line, XAxis, YAxis, Tooltip,
   Legend, ResponsiveContainer, CartesianGrid,
 } from 'recharts'
-import { salvarDespesa, deletarDespesa } from '@/app/actions'
-import type { DespesaLoja, UsuarioPerfil } from '@/types'
+import { salvarDespesa, deletarDespesa, salvarLancamentoFinanceiro, deletarLancamentoFinanceiro } from '@/app/actions'
+import type { DespesaLoja, LancamentoFinanceiro, TipoLancamento, UsuarioPerfil } from '@/types'
 
 // ── Tipos exportados (usados em page.tsx) ─────────────────────────────────────
 
@@ -38,6 +38,15 @@ export interface DadosMensais {
   vendidos: number
 }
 
+export interface VendaFinanciadaSimples {
+  id: string
+  numero_venda: string | null
+  comprador_nome: string
+  data_venda: string
+  pagamento_financeira_nome: string | null
+  pagamento_financeira_valor: number
+}
+
 interface Props {
   perfil: UsuarioPerfil
   lojaId: string
@@ -46,6 +55,8 @@ interface Props {
   financeiroVeiculos: FinVeiculoSimples[]
   custosManut: CustoManutSimples[]
   dadosAnuais: DadosMensais[]
+  lancamentos: LancamentoFinanceiro[]
+  vendasFinanciadas: VendaFinanciadaSimples[]
   ano: number
   mes: number
   periodoInicio: string
@@ -78,6 +89,18 @@ const CATEGORIA_COR: Record<string, string> = {
 }
 
 const ANOS = [2024, 2025, 2026, 2027]
+
+const CATEGORIAS_LANCAMENTO = [
+  { value: 'comissao_financeira', label: 'Comissão financeira' },
+  { value: 'outras_receitas', label: 'Outras receitas' },
+  { value: 'despesa_manual', label: 'Despesa manual' },
+]
+
+function formatarCategoriaLancamento(categoria: string) {
+  const preset = CATEGORIAS_LANCAMENTO.find(c => c.value === categoria)
+  if (preset) return preset.label
+  return categoria.replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase())
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -129,6 +152,8 @@ export default function FinanceiroClient({
   financeiroVeiculos,
   custosManut,
   dadosAnuais,
+  lancamentos,
+  vendasFinanciadas,
   ano,
   mes,
   periodoInicio,
@@ -136,7 +161,7 @@ export default function FinanceiroClient({
   personalizado,
 }: Props) {
   const router = useRouter()
-  const [abaAtiva, setAbaAtiva] = useState<'balanco' | 'despesas' | 'receitas' | 'anual'>('balanco')
+  const [abaAtiva, setAbaAtiva] = useState<'balanco' | 'despesas' | 'receitas' | 'lancamentos' | 'anual'>('balanco')
 
   // ── Filtros ─────────────────────────────────────────────────────────────────
   const [modoPersonalizado, setModoPersonalizado] = useState(personalizado)
@@ -154,9 +179,20 @@ export default function FinanceiroClient({
   }
 
   // ── Cálculos ─────────────────────────────────────────────────────────────────
+  const totalEntradasLancamentos = useMemo(
+    () => lancamentos.filter(l => l.tipo === 'entrada').reduce((a, l) => a + l.valor, 0),
+    [lancamentos]
+  )
+  const totalSaidasLancamentos = useMemo(
+    () => lancamentos.filter(l => l.tipo === 'saida').reduce((a, l) => a + l.valor, 0),
+    [lancamentos]
+  )
+
   const stats = useMemo(() => {
-    const totalReceitas = vendas.reduce((a, v) => a + v.valor_liquido, 0)
-    const totalDespesas = despesas.reduce((a, d) => a + d.valor, 0)
+    // DRE geral da loja: soma vendas + despesas fixas + lançamentos manuais
+    // (o DRE por veículo, calculado abaixo em vendasComLucro/topVeiculos, não muda)
+    const totalReceitas = vendas.reduce((a, v) => a + v.valor_liquido, 0) + totalEntradasLancamentos
+    const totalDespesas = despesas.reduce((a, d) => a + d.valor, 0) + totalSaidasLancamentos
     const lucroLiquido = totalReceitas - totalDespesas
 
     const porCategoria = despesas.reduce((acc, d) => {
@@ -175,7 +211,7 @@ export default function FinanceiroClient({
     }).sort((a, b) => b.lucro - a.lucro).slice(0, 5)
 
     return { totalReceitas, totalDespesas, lucroLiquido, porCategoria, topVeiculos }
-  }, [vendas, despesas, financeiroVeiculos, custosManut])
+  }, [vendas, despesas, financeiroVeiculos, custosManut, totalEntradasLancamentos, totalSaidasLancamentos])
 
   const vendasComLucro = useMemo(() => vendas.map(v => {
     const fin = financeiroVeiculos.find(f => f.veiculo_id === v.veiculo_id)
@@ -281,6 +317,147 @@ export default function FinanceiroClient({
     }
   }
 
+  // ── Lançamentos financeiros manuais ──────────────────────────────────────────
+
+  const [filtroCategoriaLanc, setFiltroCategoriaLanc] = useState('todas')
+  const [filtroTipoLanc, setFiltroTipoLanc] = useState<'todos' | TipoLancamento>('todos')
+
+  const categoriasDisponiveis = useMemo(() => {
+    const set = new Set<string>(CATEGORIAS_LANCAMENTO.map(c => c.value))
+    lancamentos.forEach(l => set.add(l.categoria))
+    return Array.from(set)
+  }, [lancamentos])
+
+  const lancamentosFiltrados = useMemo(() => lancamentos.filter(l =>
+    (filtroCategoriaLanc === 'todas' || l.categoria === filtroCategoriaLanc) &&
+    (filtroTipoLanc === 'todos' || l.tipo === filtroTipoLanc)
+  ), [lancamentos, filtroCategoriaLanc, filtroTipoLanc])
+
+  const totalEntradasFiltradas = useMemo(
+    () => lancamentosFiltrados.filter(l => l.tipo === 'entrada').reduce((a, l) => a + l.valor, 0),
+    [lancamentosFiltrados]
+  )
+  const totalSaidasFiltradas = useMemo(
+    () => lancamentosFiltrados.filter(l => l.tipo === 'saida').reduce((a, l) => a + l.valor, 0),
+    [lancamentosFiltrados]
+  )
+  const saldoFiltrado = totalEntradasFiltradas - totalSaidasFiltradas
+
+  // Formulário genérico (também usado pelo atalho "Outras receitas")
+  const [lancFormAberto, setLancFormAberto] = useState(false)
+  const [lTipo, setLTipo] = useState<TipoLancamento>('entrada')
+  const [lCategoria, setLCategoria] = useState('outras_receitas')
+  const [lCategoriaLivre, setLCategoriaLivre] = useState('')
+  const [lDescricao, setLDescricao] = useState('')
+  const [lValor, setLValor] = useState('')
+  const [lData, setLData] = useState(new Date().toISOString().split('T')[0])
+  const [salvandoLanc, setSalvandoLanc] = useState(false)
+  const [erroLanc, setErroLanc] = useState<string | null>(null)
+  const [deletandoLancId, setDeletandoLancId] = useState<string | null>(null)
+
+  function resetLancForm() {
+    setLTipo('entrada'); setLCategoria('outras_receitas'); setLCategoriaLivre('')
+    setLDescricao(''); setLValor(''); setLData(new Date().toISOString().split('T')[0])
+    setErroLanc(null)
+  }
+
+  function abrirNovoLancamento() {
+    resetLancForm()
+    setLancFormAberto(true)
+  }
+
+  function fecharLancForm() { setLancFormAberto(false) }
+
+  async function handleSalvarLancamento(e: React.FormEvent) {
+    e.preventDefault()
+    const valorNum = parseFloat(lValor.replace(',', '.'))
+    const categoriaFinal = lCategoria === '__outra__' ? lCategoriaLivre.trim() : lCategoria
+    if (!categoriaFinal) { setErroLanc('Categoria obrigatória'); return }
+    if (isNaN(valorNum) || valorNum <= 0) { setErroLanc('Valor inválido'); return }
+    setSalvandoLanc(true); setErroLanc(null)
+    try {
+      await salvarLancamentoFinanceiro({
+        loja_id: lojaId,
+        tipo: lTipo,
+        categoria: categoriaFinal,
+        descricao: lDescricao.trim() || null,
+        valor: valorNum,
+        data: lData,
+      })
+      fecharLancForm()
+      router.refresh()
+    } catch (err: unknown) {
+      setErroLanc(err instanceof Error ? err.message : 'Erro ao salvar lançamento')
+    } finally {
+      setSalvandoLanc(false)
+    }
+  }
+
+  async function handleDeletarLancamento(id: string) {
+    if (!confirm('Excluir este lançamento?')) return
+    setDeletandoLancId(id)
+    try {
+      await deletarLancamentoFinanceiro(id)
+      router.refresh()
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Erro ao excluir')
+    } finally {
+      setDeletandoLancId(null)
+    }
+  }
+
+  // Retorno financeira/banco
+  const [retornoAberto, setRetornoAberto] = useState(false)
+  const [rVendaId, setRVendaId] = useState('')
+  const [rValorBanco, setRValorBanco] = useState('')
+  const [rValorComissao, setRValorComissao] = useState('')
+  const [rData, setRData] = useState(new Date().toISOString().split('T')[0])
+  const [salvandoRetorno, setSalvandoRetorno] = useState(false)
+  const [erroRetorno, setErroRetorno] = useState<string | null>(null)
+
+  const vendaSelecionadaRetorno = vendasFinanciadas.find(v => v.id === rVendaId) ?? null
+
+  function abrirRetorno() {
+    setRVendaId(''); setRValorBanco(''); setRValorComissao('')
+    setRData(new Date().toISOString().split('T')[0])
+    setErroRetorno(null)
+    setRetornoAberto(true)
+  }
+
+  function fecharRetorno() { setRetornoAberto(false) }
+
+  async function handleSalvarRetorno(e: React.FormEvent) {
+    e.preventDefault()
+    const comissaoNum = parseFloat(rValorComissao.replace(',', '.'))
+    const bancoNum = parseFloat(rValorBanco.replace(',', '.'))
+    if (!rVendaId) { setErroRetorno('Selecione a venda'); return }
+    if (isNaN(comissaoNum) || comissaoNum <= 0) { setErroRetorno('Valor da comissão inválido'); return }
+    setSalvandoRetorno(true); setErroRetorno(null)
+    try {
+      const descricaoPartes = [
+        vendaSelecionadaRetorno
+          ? `Venda ${vendaSelecionadaRetorno.numero_venda ?? vendaSelecionadaRetorno.id}`
+          : null,
+        !isNaN(bancoNum) && bancoNum > 0 ? `Valor retornado pelo banco: ${fmt(bancoNum)}` : null,
+      ].filter(Boolean)
+      await salvarLancamentoFinanceiro({
+        loja_id: lojaId,
+        tipo: 'entrada',
+        categoria: 'comissao_financeira',
+        descricao: descricaoPartes.join(' — ') || null,
+        valor: comissaoNum,
+        data: rData,
+        venda_id: rVendaId,
+      })
+      fecharRetorno()
+      router.refresh()
+    } catch (err: unknown) {
+      setErroRetorno(err instanceof Error ? err.message : 'Erro ao salvar retorno')
+    } finally {
+      setSalvandoRetorno(false)
+    }
+  }
+
   // ── Render ────────────────────────────────────────────────────────────────────
   return (
     <div className="p-6 md:p-8">
@@ -371,6 +548,7 @@ export default function FinanceiroClient({
             { key: 'balanco', label: 'Balanço do Período' },
             { key: 'despesas', label: 'Despesas' },
             { key: 'receitas', label: 'Receitas' },
+            { key: 'lancamentos', label: 'Lançamentos' },
             { key: 'anual', label: 'Balanço Anual' },
           ] as const
         ).map(({ key, label }) => (
@@ -393,6 +571,12 @@ export default function FinanceiroClient({
       {/* ════════════════════════════════════════════════════════════════════ */}
       {abaAtiva === 'balanco' && (
         <div className="space-y-6">
+          {(totalEntradasLancamentos > 0 || totalSaidasLancamentos > 0) && (
+            <p className="text-[#9CA3AF] text-xs">
+              * Totais incluem os lançamentos financeiros manuais do período ({fmt(totalEntradasLancamentos)} em entradas, {fmt(totalSaidasLancamentos)} em saídas). Veja a aba{' '}
+              <button onClick={() => setAbaAtiva('lancamentos')} className="underline hover:text-[#6B7280]">Lançamentos</button>.
+            </p>
+          )}
           {/* Cards 2x2 / 4 cols */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <CardResumo
@@ -704,6 +888,343 @@ export default function FinanceiroClient({
                       </tr>
                     ))}
                   </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {/* ABA — LANÇAMENTOS FINANCEIROS MANUAIS                              */}
+      {/* ════════════════════════════════════════════════════════════════════ */}
+      {abaAtiva === 'lancamentos' && (
+        <div className="space-y-5">
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <h2 className="text-base font-bold text-[#111]">Lançamentos financeiros manuais</h2>
+            <div className="flex gap-2 flex-wrap">
+              <button
+                onClick={() => { abrirNovoLancamento(); setRetornoAberto(false) }}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-[#92400E] bg-[#FEF9C3] border border-[#F5C842] hover:bg-[#FEF08A] transition-colors"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Novo Lançamento
+              </button>
+              <button
+                onClick={() => {
+                  setLTipo('entrada'); setLCategoria('outras_receitas'); setLCategoriaLivre('')
+                  setLDescricao(''); setLValor(''); setLData(new Date().toISOString().split('T')[0])
+                  setErroLanc(null); setLancFormAberto(true); setRetornoAberto(false)
+                }}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-[#111] bg-white border border-[#E5E7EB] hover:border-[#D1D5DB] transition-colors"
+              >
+                Outras Receitas
+              </button>
+              <button
+                onClick={() => { abrirRetorno(); setLancFormAberto(false) }}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 transition-colors"
+              >
+                Retorno Financeira/Banco
+              </button>
+            </div>
+          </div>
+
+          {/* Cards resumo do filtro atual */}
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+            <CardResumo
+              label="Total Entradas"
+              valor={fmt(totalEntradasFiltradas)}
+              cor="bg-green-50"
+              icone={<svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v12m6-6H6"/></svg>}
+            />
+            <CardResumo
+              label="Total Saídas"
+              valor={fmt(totalSaidasFiltradas)}
+              cor="bg-red-50"
+              icone={<svg className="w-4 h-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18 12H6"/></svg>}
+            />
+            <CardResumo
+              label="Saldo do período"
+              valor={fmt(saldoFiltrado)}
+              cor={saldoFiltrado >= 0 ? 'bg-green-50' : 'bg-red-50'}
+              icone={<svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2z"/></svg>}
+            />
+          </div>
+
+          {/* Filtros locais (categoria e tipo — o período usa o filtro do topo da página) */}
+          <div className="flex flex-wrap gap-3 items-end bg-white border border-[#E5E7EB] rounded-xl p-3 shadow-sm">
+            <div>
+              <p className="text-[#9CA3AF] text-[10px] mb-0.5">Tipo</p>
+              <select
+                value={filtroTipoLanc}
+                onChange={e => setFiltroTipoLanc(e.target.value as 'todos' | TipoLancamento)}
+                className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg px-2 py-1.5 text-sm text-[#111] focus:outline-none focus:border-[#F5C842] cursor-pointer"
+              >
+                <option value="todos">Todos</option>
+                <option value="entrada">Entrada</option>
+                <option value="saida">Saída</option>
+              </select>
+            </div>
+            <div>
+              <p className="text-[#9CA3AF] text-[10px] mb-0.5">Categoria</p>
+              <select
+                value={filtroCategoriaLanc}
+                onChange={e => setFiltroCategoriaLanc(e.target.value)}
+                className="bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg px-2 py-1.5 text-sm text-[#111] focus:outline-none focus:border-[#F5C842] cursor-pointer"
+              >
+                <option value="todas">Todas</option>
+                {categoriasDisponiveis.map(c => (
+                  <option key={c} value={c}>{formatarCategoriaLancamento(c)}</option>
+                ))}
+              </select>
+            </div>
+            <p className="text-[#9CA3AF] text-xs pb-1.5">
+              O período usa o mesmo filtro de {personalizado ? 'datas' : 'mês/ano'} lá em cima.
+            </p>
+          </div>
+
+          {/* Formulário genérico de lançamento */}
+          {lancFormAberto && (
+            <div className="bg-[#FFFBEB] border border-[#F5C842] rounded-xl p-5 shadow-sm">
+              <h3 className="text-sm font-bold text-[#111] mb-4">Novo lançamento</h3>
+              <form onSubmit={handleSalvarLancamento}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+                  <div>
+                    <label className={labelCls}>Tipo *</label>
+                    <select
+                      value={lTipo}
+                      onChange={e => setLTipo(e.target.value as TipoLancamento)}
+                      className={`${inputCls} cursor-pointer`}
+                    >
+                      <option value="entrada">Entrada</option>
+                      <option value="saida">Saída</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className={labelCls}>Categoria *</label>
+                    <select
+                      value={lCategoria}
+                      onChange={e => setLCategoria(e.target.value)}
+                      className={`${inputCls} cursor-pointer`}
+                    >
+                      {CATEGORIAS_LANCAMENTO.map(c => (
+                        <option key={c.value} value={c.value}>{c.label}</option>
+                      ))}
+                      <option value="__outra__">Outra (digitar)</option>
+                    </select>
+                  </div>
+                  {lCategoria === '__outra__' && (
+                    <div>
+                      <label className={labelCls}>Categoria personalizada *</label>
+                      <input
+                        type="text"
+                        value={lCategoriaLivre}
+                        onChange={e => setLCategoriaLivre(e.target.value)}
+                        className={inputCls}
+                        placeholder="Ex: aluguel_galpao"
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <label className={labelCls}>Descrição</label>
+                    <input
+                      type="text"
+                      value={lDescricao}
+                      onChange={e => setLDescricao(e.target.value)}
+                      className={inputCls}
+                      placeholder="Opcional"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Valor (R$) *</label>
+                    <input
+                      required
+                      type="text"
+                      inputMode="decimal"
+                      value={lValor}
+                      onChange={e => setLValor(e.target.value)}
+                      className={inputCls}
+                      placeholder="0,00"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Data *</label>
+                    <input type="date" value={lData} onChange={e => setLData(e.target.value)} className={inputCls} />
+                  </div>
+                </div>
+
+                {erroLanc && <p className="text-red-600 text-sm mb-3">{erroLanc}</p>}
+
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={salvandoLanc}
+                    className="px-5 py-2 rounded-xl text-sm font-semibold text-[#92400E] bg-[#FEF9C3] border border-[#F5C842] hover:bg-[#FEF08A] transition-colors disabled:opacity-50"
+                  >
+                    {salvandoLanc ? 'Salvando...' : 'Salvar'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={fecharLancForm}
+                    className="px-5 py-2 rounded-xl text-sm text-[#6B7280] border border-[#E5E7EB] hover:border-[#D1D5DB] transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Retorno financeira/banco */}
+          {retornoAberto && (
+            <div className="bg-[#EFF6FF] border border-blue-300 rounded-xl p-5 shadow-sm">
+              <h3 className="text-sm font-bold text-[#111] mb-4">Retorno financeira/banco</h3>
+              <form onSubmit={handleSalvarRetorno}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                  <div className="sm:col-span-2">
+                    <label className={labelCls}>Venda financiada *</label>
+                    <select
+                      value={rVendaId}
+                      onChange={e => setRVendaId(e.target.value)}
+                      className={`${inputCls} cursor-pointer`}
+                    >
+                      <option value="">Selecione a venda...</option>
+                      {vendasFinanciadas.map(v => (
+                        <option key={v.id} value={v.id}>
+                          {v.numero_venda ?? v.id} — {v.comprador_nome} — {fmtData(v.data_venda)}
+                          {' '}({v.pagamento_financeira_nome || 'financeira'}: {fmt(v.pagamento_financeira_valor)})
+                        </option>
+                      ))}
+                    </select>
+                    {vendasFinanciadas.length === 0 && (
+                      <p className="text-[#9CA3AF] text-xs mt-1">Nenhuma venda finalizada com pagamento por financeira encontrada.</p>
+                    )}
+                  </div>
+                  <div>
+                    <label className={labelCls}>Valor retornado pelo banco (R$)</label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={rValorBanco}
+                      onChange={e => setRValorBanco(e.target.value)}
+                      className={inputCls}
+                      placeholder="0,00"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Valor da comissão (R$) *</label>
+                    <input
+                      required
+                      type="text"
+                      inputMode="decimal"
+                      value={rValorComissao}
+                      onChange={e => setRValorComissao(e.target.value)}
+                      className={inputCls}
+                      placeholder="0,00"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Data *</label>
+                    <input type="date" value={rData} onChange={e => setRData(e.target.value)} className={inputCls} />
+                  </div>
+                </div>
+
+                <p className="text-[#9CA3AF] text-xs mb-3">
+                  Só o valor da comissão é registrado como receita — o valor retornado pelo banco fica guardado na descrição, só para referência.
+                </p>
+
+                {erroRetorno && <p className="text-red-600 text-sm mb-3">{erroRetorno}</p>}
+
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={salvandoRetorno}
+                    className="px-5 py-2 rounded-xl text-sm font-semibold text-blue-700 bg-blue-100 border border-blue-300 hover:bg-blue-200 transition-colors disabled:opacity-50"
+                  >
+                    {salvandoRetorno ? 'Salvando...' : 'Registrar comissão'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={fecharRetorno}
+                    className="px-5 py-2 rounded-xl text-sm text-[#6B7280] border border-[#E5E7EB] hover:border-[#D1D5DB] transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Tabela */}
+          <div className="bg-white border border-[#E5E7EB] rounded-xl overflow-hidden shadow-sm">
+            {lancamentosFiltrados.length === 0 ? (
+              <p className="px-5 py-12 text-center text-[#9CA3AF] text-sm">Nenhum lançamento encontrado para esse filtro.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-[#E5E7EB] bg-[#F9FAFB]">
+                      {['Data', 'Tipo', 'Categoria', 'Descrição', 'Valor', 'Venda', 'Ações'].map(h => (
+                        <th key={h} className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap">
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#F3F4F6]">
+                    {lancamentosFiltrados.map(l => (
+                      <tr key={l.id} className="hover:bg-[#FAFAFA] transition-colors">
+                        <td className="px-4 py-3 text-[#6B7280] whitespace-nowrap">{fmtData(l.data)}</td>
+                        <td className="px-4 py-3">
+                          <span className={`text-xs px-2 py-0.5 rounded-md font-medium ${
+                            l.tipo === 'entrada'
+                              ? 'bg-green-50 text-green-700 border border-green-200'
+                              : 'bg-red-50 text-red-600 border border-red-200'
+                          }`}>
+                            {l.tipo === 'entrada' ? 'Entrada' : 'Saída'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <span className="text-xs px-2 py-0.5 rounded-md font-medium bg-gray-50 text-gray-600 border border-gray-200">
+                            {formatarCategoriaLancamento(l.categoria)}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-[#111]">{l.descricao || '—'}</td>
+                        <td className={`px-4 py-3 font-semibold whitespace-nowrap ${l.tipo === 'entrada' ? 'text-green-600' : 'text-red-500'}`}>
+                          {l.tipo === 'saida' ? '- ' : ''}{fmt(l.valor)}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {l.venda ? (
+                            <a href={`/admin/vendas/${l.venda.id}`} className="text-xs text-[#F59E0B] hover:underline">
+                              {l.venda.numero_venda ?? 'Ver venda'}
+                            </a>
+                          ) : '—'}
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            onClick={() => handleDeletarLancamento(l.id)}
+                            disabled={deletandoLancId === l.id}
+                            className="text-xs text-[#6B7280] hover:text-red-600 px-2.5 py-1 rounded-lg border border-[#E5E7EB] hover:border-red-200 hover:bg-red-50 transition-colors disabled:opacity-50"
+                          >
+                            {deletandoLancId === l.id ? '...' : 'Excluir'}
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t-2 border-[#E5E7EB] bg-[#F9FAFB]">
+                      <td colSpan={4} className="px-4 py-3 text-[#6B7280] text-xs font-semibold uppercase tracking-wider">
+                        Saldo do filtro
+                      </td>
+                      <td className={`px-4 py-3 font-bold whitespace-nowrap ${saldoFiltrado >= 0 ? 'text-green-600' : 'text-red-500'}`}>
+                        {fmt(saldoFiltrado)}
+                      </td>
+                      <td colSpan={2} />
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             )}
