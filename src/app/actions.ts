@@ -544,6 +544,7 @@ export async function atualizarFotosVeiculo(veiculoId: string, fotos: string[]) 
 export async function salvarDespesa(
   data: Omit<DespesaLoja, 'id' | 'created_at'> & { id?: string }
 ): Promise<void> {
+  await exigirPerfilFinanceiro()
   const supabase = adminSupabase()
   if (data.id) {
     const { error } = await supabase.from('despesas_loja').update(data).eq('id', data.id)
@@ -556,6 +557,7 @@ export async function salvarDespesa(
 }
 
 export async function deletarDespesa(id: string): Promise<void> {
+  await exigirPerfilFinanceiro()
   const supabase = adminSupabase()
   const { error } = await supabase.from('despesas_loja').delete().eq('id', id)
   if (error) throw new Error(error.message)
@@ -571,6 +573,7 @@ export async function salvarLancamentoFinanceiro(
     categoria: string
     descricao: string | null
     valor: number
+    valor_retornado_banco?: number | null
     data: string
     venda_id?: string | null
   },

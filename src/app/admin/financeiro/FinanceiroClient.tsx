@@ -434,18 +434,15 @@ export default function FinanceiroClient({
     if (isNaN(comissaoNum) || comissaoNum <= 0) { setErroRetorno('Valor da comissão inválido'); return }
     setSalvandoRetorno(true); setErroRetorno(null)
     try {
-      const descricaoPartes = [
-        vendaSelecionadaRetorno
-          ? `Venda ${vendaSelecionadaRetorno.numero_venda ?? vendaSelecionadaRetorno.id}`
-          : null,
-        !isNaN(bancoNum) && bancoNum > 0 ? `Valor retornado pelo banco: ${fmt(bancoNum)}` : null,
-      ].filter(Boolean)
       await salvarLancamentoFinanceiro({
         loja_id: lojaId,
         tipo: 'entrada',
         categoria: 'comissao_financeira',
-        descricao: descricaoPartes.join(' — ') || null,
+        descricao: vendaSelecionadaRetorno
+          ? `Venda ${vendaSelecionadaRetorno.numero_venda ?? vendaSelecionadaRetorno.id}`
+          : null,
         valor: comissaoNum,
+        valor_retornado_banco: !isNaN(bancoNum) && bancoNum > 0 ? bancoNum : null,
         data: rData,
         venda_id: rVendaId,
       })
@@ -1132,7 +1129,7 @@ export default function FinanceiroClient({
                 </div>
 
                 <p className="text-[#9CA3AF] text-xs mb-3">
-                  Só o valor da comissão é registrado como receita — o valor retornado pelo banco fica guardado na descrição, só para referência.
+                  O valor retornado pelo banco fica registrado só para referência (não entra no total de receitas) — apenas o valor da comissão conta como receita no DRE.
                 </p>
 
                 {erroRetorno && <p className="text-red-600 text-sm mb-3">{erroRetorno}</p>}
@@ -1191,7 +1188,14 @@ export default function FinanceiroClient({
                             {formatarCategoriaLancamento(l.categoria)}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-[#111]">{l.descricao || '—'}</td>
+                        <td className="px-4 py-3 text-[#111]">
+                          {l.descricao || '—'}
+                          {l.valor_retornado_banco != null && (
+                            <p className="text-[#9CA3AF] text-xs mt-0.5">
+                              Retorno banco: {fmt(l.valor_retornado_banco)}
+                            </p>
+                          )}
+                        </td>
                         <td className={`px-4 py-3 font-semibold whitespace-nowrap ${l.tipo === 'entrada' ? 'text-green-600' : 'text-red-500'}`}>
                           {l.tipo === 'saida' ? '- ' : ''}{fmt(l.valor)}
                         </td>

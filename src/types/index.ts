@@ -270,6 +270,7 @@ export interface LancamentoFinanceiro {
   categoria: string
   descricao: string | null
   valor: number
+  valor_retornado_banco: number | null
   data: string
   venda_id: string | null
   criado_por: string | null
