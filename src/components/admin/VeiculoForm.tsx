@@ -8,6 +8,7 @@ import { z } from 'zod'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase'
 import { criarVeiculo, atualizarVeiculo, atualizarDadosVeiculo } from '@/app/actions'
+import { useAdmin } from '@/contexts/AdminContext'
 import type { Veiculo } from '@/types'
 
 const OPCIONAIS_LISTA = [
@@ -29,6 +30,8 @@ const schema = z.object({
   cambio: z.string().min(1, 'Obrigatório'),
   preco: z.number().min(1, 'Obrigatório'),
   valor_oferta: z.number().nullable().optional(),
+  proprietario_tipo: z.enum(['felipe', 'dividido']),
+  percentual_socio: z.number().nullable().optional(),
   placa: z.string().optional(),
   chassi: z.string().optional(),
   renavam: z.string().optional(),
@@ -45,6 +48,14 @@ const schema = z.object({
     message: 'O valor de oferta deve ser menor que o preço normal',
     path: ['valor_oferta'],
   }
+).refine(
+  data =>
+    data.proprietario_tipo !== 'dividido' ||
+    (data.percentual_socio != null && data.percentual_socio >= 0 && data.percentual_socio <= 100),
+  {
+    message: 'Percentual do sócio é obrigatório (entre 0 e 100) quando o veículo é dividido',
+    path: ['percentual_socio'],
+  }
 )
 
 type FormData = z.infer<typeof schema>
@@ -60,6 +71,9 @@ interface VeiculoFormProps {
 export default function VeiculoForm({ veiculo, lojaId, hideFotos, fotos: fotosExterna, noRedirect }: VeiculoFormProps) {
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const { loja, perfil } = useAdmin()
+  const isFelizardo = (loja?.dominio ?? '').toLowerCase().includes('felizardo')
+  const isSocio = perfil?.perfil === 'socio'
 
   const [fotos, setFotos] = useState<string[]>(hideFotos ? (fotosExterna ?? veiculo?.fotos ?? []) : (veiculo?.fotos ?? []))
   const [opcionais, setOpcionais] = useState<string[]>(veiculo?.opcionais ?? [])
@@ -72,6 +86,7 @@ export default function VeiculoForm({ veiculo, lojaId, hideFotos, fotos: fotosEx
   const {
     register,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -86,6 +101,8 @@ export default function VeiculoForm({ veiculo, lojaId, hideFotos, fotos: fotosEx
       cambio: veiculo?.cambio ?? '',
       preco: veiculo?.preco ?? 0,
       valor_oferta: veiculo?.valor_oferta ?? null,
+      proprietario_tipo: veiculo?.proprietario_tipo ?? (isSocio ? 'dividido' : 'felipe'),
+      percentual_socio: veiculo?.percentual_socio ?? null,
       placa: veiculo?.placa ?? '',
       chassi: veiculo?.chassi ?? '',
       renavam: veiculo?.renavam ?? '',
@@ -98,6 +115,8 @@ export default function VeiculoForm({ veiculo, lojaId, hideFotos, fotos: fotosEx
       data_aquisicao: veiculo?.data_aquisicao ?? new Date().toISOString().split('T')[0],
     },
   })
+
+  const proprietarioTipoAtual = watch('proprietario_tipo')
 
   async function uploadFotos(files: FileList) {
     setUploading(true)
@@ -163,6 +182,12 @@ export default function VeiculoForm({ veiculo, lojaId, hideFotos, fotos: fotosEx
       cambio: data.cambio,
       preco: data.preco,
       valor_oferta: data.valor_oferta ?? null,
+      // Fora da Felizardo, os campos nem aparecem na tela — forço os valores
+      // seguros aqui também, pra nunca depender só da UI escondida. Sócio
+      // sempre grava 'dividido' (nunca pode voltar pra 'felipe' pela UI).
+      proprietario_tipo: isSocio ? 'dividido' : isFelizardo ? data.proprietario_tipo : 'felipe',
+      percentual_socio:
+        isSocio || (isFelizardo && data.proprietario_tipo === 'dividido') ? data.percentual_socio : null,
       placa: data.placa || null,
       chassi: data.chassi || null,
       renavam: data.renavam || null,
@@ -381,6 +406,41 @@ export default function VeiculoForm({ veiculo, lojaId, hideFotos, fotos: fotosEx
             />
             {errors.valor_oferta && <p className={errorClass}>{errors.valor_oferta.message}</p>}
           </div>
+          {isFelizardo && (
+            <>
+              <div>
+                <label className={labelClass}>Proprietário</label>
+                {isSocio ? (
+                  <input
+                    type="text"
+                    value="Dividido com sócio"
+                    disabled
+                    className={`${inputClass} bg-gray-100 text-gray-500 cursor-not-allowed`}
+                  />
+                ) : (
+                  <select {...register('proprietario_tipo')} className={inputClass}>
+                    <option value="felipe">Só Felipe</option>
+                    <option value="dividido">Dividido com sócio</option>
+                  </select>
+                )}
+              </div>
+              {(isSocio || proprietarioTipoAtual === 'dividido') && (
+                <div>
+                  <label className={labelClass}>Percentual do sócio (%) *</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    step="0.01"
+                    {...register('percentual_socio', { setValueAs: v => (v === '' ? null : Number(v)) })}
+                    className={inputClass}
+                    placeholder="Ex: 50"
+                  />
+                  {errors.percentual_socio && <p className={errorClass}>{errors.percentual_socio.message}</p>}
+                </div>
+              )}
+            </>
+          )}
           <div>
             <label className={labelClass}>Data de aquisição *</label>
             <input type="date" {...register('data_aquisicao')} className={inputClass} />

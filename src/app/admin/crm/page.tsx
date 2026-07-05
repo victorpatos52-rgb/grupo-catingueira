@@ -42,7 +42,9 @@ export default async function CrmPage({
     supabase
       .from('usuarios_perfil')
       .select('id, nome')
-      .eq('loja_id', lojaId),
+      .eq('loja_id', lojaId)
+      // Sócio não é vendedor — não deve aparecer como opção de responsável pelo lead
+      .neq('perfil', 'socio'),
   ])
 
   const leads = (leadsData ?? []) as Lead[]

@@ -1,5 +1,6 @@
 export type StatusVeiculo = 'disponivel' | 'reservado' | 'vendido' | 'manutencao'
-export type Perfil = 'vendedor' | 'gerente' | 'diretor' | 'admin'
+export type Perfil = 'vendedor' | 'gerente' | 'diretor' | 'admin' | 'socio'
+export type ProprietarioTipo = 'felipe' | 'dividido'
 export type StatusLead = 'novo' | 'contato_feito' | 'negociando' | 'fechado' | 'perdido'
 export type OrigemLead = 'site' | 'whatsapp' | 'instagram' | 'indicacao' | 'outros'
 export type TipoInteracao = 'nota' | 'whatsapp' | 'ligacao' | 'visita' | 'proposta' | 'site'
@@ -38,6 +39,8 @@ export interface Veiculo {
   cambio: string
   preco: number
   valor_oferta?: number | null
+  proprietario_tipo?: ProprietarioTipo
+  percentual_socio?: number | null
   placa: string | null
   chassi: string | null
   renavam: string | null

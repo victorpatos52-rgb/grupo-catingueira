@@ -39,7 +39,9 @@ export default async function NovaVendaPage({ searchParams }: Props) {
       .from('usuarios_perfil')
       .select('id,nome,perfil')
       .eq('loja_id', lojaId)
-      .eq('ativo', true),
+      .eq('ativo', true)
+      // Sócio não é vendedor — não deve aparecer como opção de "vendedor responsável"
+      .neq('perfil', 'socio'),
   ])
 
   const veiculos = (veiculosData ?? []) as Veiculo[]

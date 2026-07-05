@@ -33,16 +33,34 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  if (request.nextUrl.pathname.startsWith('/admin/dashboard')) {
-    const { data: perfil } = await supabase
+  const pathname = request.nextUrl.pathname
+  const rotaSoDashboard = pathname.startsWith('/admin/dashboard')
+  const rotaBloqueadaParaSocio =
+    pathname.startsWith('/admin/crm') ||
+    pathname.startsWith('/admin/vendas') ||
+    pathname.startsWith('/admin/usuarios')
+
+  if (rotaSoDashboard || rotaBloqueadaParaSocio) {
+    const { data: perfilRow } = await supabase
       .from('usuarios_perfil')
       .select('perfil')
       .eq('id', user.id)
       .single()
 
-    if (perfil?.perfil !== 'admin') {
+    const perfilAtual = perfilRow?.perfil
+
+    // Dashboard: só admin — comportamento já existente, inalterado para
+    // vendedor/gerente/diretor (continuam indo para /admin/crm).
+    if (rotaSoDashboard && perfilAtual !== 'admin') {
       const url = request.nextUrl.clone()
-      url.pathname = '/admin/crm'
+      url.pathname = perfilAtual === 'socio' ? '/admin/veiculos' : '/admin/crm'
+      return NextResponse.redirect(url)
+    }
+
+    // Sócio: sem acesso a CRM, Vendas e Usuários (Dashboard já coberto acima).
+    if (perfilAtual === 'socio' && rotaBloqueadaParaSocio) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/admin/veiculos'
       return NextResponse.redirect(url)
     }
   }

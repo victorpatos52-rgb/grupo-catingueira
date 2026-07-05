@@ -41,6 +41,7 @@ const MODULOS_POR_PERFIL: Record<Perfil, Modulo[]> = {
   gerente:  ['veiculos', 'crm', 'vendas', 'financeiro'],
   diretor:  [...TODOS_MODULOS],
   admin:    [...TODOS_MODULOS],
+  socio:    ['veiculos', 'financeiro'],
 }
 
 // ── Tipos ─────────────────────────────────────────────────────────────────────
@@ -59,13 +60,20 @@ interface Props {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-const PERFIS: Perfil[] = ['vendedor', 'gerente', 'diretor', 'admin']
+const PERFIS: Perfil[] = ['vendedor', 'gerente', 'diretor', 'admin', 'socio']
 
 const perfilBadge: Record<Perfil, string> = {
   vendedor: 'bg-blue-50 text-blue-700 border-blue-200',
   gerente:  'bg-orange-50 text-orange-700 border-orange-200',
   diretor:  'bg-purple-50 text-purple-700 border-purple-200',
   admin:    'bg-red-50 text-red-700 border-red-200',
+  socio:    'bg-teal-50 text-teal-700 border-teal-200',
+}
+
+// 'socio' só pode ser vinculado à loja Felizardo — mesmo critério (ilike
+// '%felizardo%') já usado em outros pontos do projeto (ex: gerar_numero_venda).
+function ehLojaFelizardo(loja: Loja): boolean {
+  return loja.dominio.toLowerCase().includes('felizardo')
 }
 
 function getIniciais(nome: string) {
@@ -192,11 +200,19 @@ export default function UsuariosClient({ perfil, usuarios, lojas }: Props) {
   function handlePerfilCriarChange(p: Perfil) {
     setPerfilNovo(p)
     setModulosNovos(MODULOS_POR_PERFIL[p])
+    if (p === 'socio') {
+      const felizardo = lojas.find(ehLojaFelizardo)
+      if (felizardo) setLojaIdNova(felizardo.id)
+    }
   }
 
   function handlePerfilEditarChange(p: Perfil) {
     setPerfilEdit(p)
     setModulosEdit(MODULOS_POR_PERFIL[p])
+    if (p === 'socio') {
+      const felizardo = lojas.find(ehLojaFelizardo)
+      if (felizardo) setLojaIdEdit(felizardo.id)
+    }
   }
 
   async function handleCriar(e: React.FormEvent) {
@@ -535,8 +551,13 @@ export default function UsuariosClient({ perfil, usuarios, lojas }: Props) {
                 <div>
                   <label className={labelCls}>Loja</label>
                   <select value={lojaIdNova} onChange={e => setLojaIdNova(e.target.value)} className={selectCls}>
-                    {lojas.map(l => <option key={l.id} value={l.id}>{l.nome}</option>)}
+                    {(perfilNovo === 'socio' ? lojas.filter(ehLojaFelizardo) : lojas).map(l => (
+                      <option key={l.id} value={l.id}>{l.nome}</option>
+                    ))}
                   </select>
+                  {perfilNovo === 'socio' && (
+                    <p className="text-[#9CA3AF] text-xs mt-1">Sócio só pode ser vinculado à loja Felizardo.</p>
+                  )}
                 </div>
               </div>
               <div>
@@ -602,8 +623,13 @@ export default function UsuariosClient({ perfil, usuarios, lojas }: Props) {
                 <div>
                   <label className={labelCls}>Loja</label>
                   <select value={lojaIdEdit} onChange={e => setLojaIdEdit(e.target.value)} className={selectCls}>
-                    {lojas.map(l => <option key={l.id} value={l.id}>{l.nome}</option>)}
+                    {(perfilEdit === 'socio' ? lojas.filter(ehLojaFelizardo) : lojas).map(l => (
+                      <option key={l.id} value={l.id}>{l.nome}</option>
+                    ))}
                   </select>
+                  {perfilEdit === 'socio' && (
+                    <p className="text-[#9CA3AF] text-xs mt-1">Sócio só pode ser vinculado à loja Felizardo.</p>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-3 p-3 rounded-xl bg-[#F9FAFB] border border-[#E5E7EB]">

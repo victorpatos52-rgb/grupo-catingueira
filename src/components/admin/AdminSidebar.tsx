@@ -89,6 +89,7 @@ const perfilBadge: Record<string, string> = {
   gerente:  'bg-orange-50 text-orange-700 border border-orange-200',
   diretor:  'bg-purple-50 text-purple-700 border border-purple-200',
   admin:    'bg-red-50 text-red-700 border border-red-200',
+  socio:    'bg-teal-50 text-teal-700 border border-teal-200',
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -99,6 +100,9 @@ function initials(str: string) {
 
 function canSee(modulo: string, perfil: UsuarioPerfil | null): boolean {
   if (!perfil) return false
+  // Sócio tem acesso restrito por regra fixa (não por modulos_permitidos) —
+  // só Veículos e Financeiro, nunca Dashboard/CRM/Vendas/Usuários.
+  if (perfil.perfil === 'socio') return modulo === 'veiculos' || modulo === 'financeiro'
   if (perfil.perfil === 'admin' || perfil.perfil === 'diretor') return true
   return (perfil.modulos_permitidos ?? []).includes(modulo)
 }

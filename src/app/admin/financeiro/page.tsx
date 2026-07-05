@@ -33,10 +33,31 @@ export default async function FinanceiroPage({
   if (!perfilData) redirect('/login')
   const perfil = perfilData as UsuarioPerfil
 
-  if (!['gerente', 'diretor', 'admin'].includes(perfil.perfil)) redirect('/admin/dashboard')
+  // 'socio' vê uma versão restrita do Financeiro (só DRE dos veículos
+  // divididos, escalado pelo percentual) — os demais perfis, comportamento
+  // idêntico ao de antes.
+  if (!['gerente', 'diretor', 'admin', 'socio'].includes(perfil.perfil)) redirect('/admin/dashboard')
 
   const lojaId = await getLojaIdAtiva(perfil)
   const admin = adminSupabase()
+  const isSocio = perfil.perfil === 'socio'
+
+  // Sócio: resolve primeiro quais veículos são divididos e o percentual de
+  // cada um — as queries de vendas do próximo passo dependem disso.
+  let dividedVeiculoIds: string[] = []
+  let percentualPorVeiculo: Record<string, number> = {}
+  if (isSocio) {
+    const { data: divididos } = await admin
+      .from('veiculos')
+      .select('id, percentual_socio')
+      .eq('loja_id', lojaId)
+      .eq('proprietario_tipo', 'dividido')
+    for (const v of (divididos ?? []) as { id: string; percentual_socio: number | null }[]) {
+      dividedVeiculoIds.push(v.id)
+      percentualPorVeiculo[v.id] = (v.percentual_socio ?? 0) / 100
+    }
+  }
+  const socioSemVeiculos = isSocio && dividedVeiculoIds.length === 0
 
   const agora = new Date()
   const anoAtual = agora.getFullYear()
@@ -58,54 +79,88 @@ export default async function FinanceiroPage({
     periodoFim = `${ano}-${String(mes).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`
   }
 
+  const vendasPeriodoQuery = admin.from('vendas')
+    .select('id, valor_venda, desconto, valor_liquido, data_venda, veiculo_id, veiculo:veiculos(marca,modelo,ano)')
+    .eq('loja_id', lojaId)
+    .eq('status', 'finalizada')
+    .gte('data_venda', periodoInicio)
+    .lte('data_venda', periodoFim)
+    .order('data_venda', { ascending: false })
+
+  const vendasAnuaisQuery = admin.from('vendas')
+    .select('valor_liquido, data_venda, veiculo_id')
+    .eq('loja_id', lojaId)
+    .eq('status', 'finalizada')
+    .gte('data_venda', `${ano}-01-01`)
+    .lte('data_venda', `${ano}-12-31`)
+
   // Passo 1 — dados que não dependem dos veiculo_ids
   // despesas_loja não é mais lida aqui — desde a migration 007, seus dados
   // (histórico) vivem migrados em lancamentos_financeiros (tipo='saida').
+  // Sócio nunca vê lancamentos_financeiros (Movimentações/despesas gerais) —
+  // fica restrito a gerente/diretor/admin, como já era antes desta mudança.
   const [
-    { data: vendasData },
-    { data: vendasAnuaisData },
+    { data: vendasDataRaw },
+    { data: vendasAnuaisDataRaw },
     { data: lancamentosData },
     { data: lancamentosAnuaisData },
     { data: vendasFinanciadasData },
   ] = await Promise.all([
-    admin.from('vendas')
-      .select('id, valor_venda, desconto, valor_liquido, data_venda, veiculo_id, veiculo:veiculos(marca,modelo,ano)')
-      .eq('loja_id', lojaId)
-      .eq('status', 'finalizada')
-      .gte('data_venda', periodoInicio)
-      .lte('data_venda', periodoFim)
-      .order('data_venda', { ascending: false }),
-    admin.from('vendas')
-      .select('valor_liquido, data_venda')
-      .eq('loja_id', lojaId)
-      .eq('status', 'finalizada')
-      .gte('data_venda', `${ano}-01-01`)
-      .lte('data_venda', `${ano}-12-31`),
-    // Movimentações financeiras manuais (entradas/saídas, incluindo o que antes
-    // era despesa) do período filtrado
-    admin.from('lancamentos_financeiros')
-      .select('*, venda:vendas(id, numero_venda, comprador_nome)')
-      .eq('loja_id', lojaId)
-      .gte('data', periodoInicio)
-      .lte('data', periodoFim)
-      .order('data', { ascending: false }),
-    // Mesma tabela, só que no ano inteiro — para o gráfico do Balanço Anual
-    admin.from('lancamentos_financeiros')
-      .select('tipo, valor, data')
-      .eq('loja_id', lojaId)
-      .gte('data', `${ano}-01-01`)
-      .lte('data', `${ano}-12-31`),
-    // Vendas financiadas (para a tela de "Retorno financeira/banco") — não é limitado
-    // ao período filtrado, já que o banco pode confirmar o retorno bem depois da venda
-    admin.from('vendas')
-      .select('id, numero_venda, comprador_nome, data_venda, pagamento_financeira_nome, pagamento_financeira_valor')
-      .eq('loja_id', lojaId)
-      .eq('status', 'finalizada')
-      .gt('pagamento_financeira_valor', 0)
-      .order('data_venda', { ascending: false }),
+    socioSemVeiculos
+      ? Promise.resolve({ data: [] as unknown[] })
+      : isSocio
+        ? vendasPeriodoQuery.in('veiculo_id', dividedVeiculoIds)
+        : vendasPeriodoQuery,
+    socioSemVeiculos
+      ? Promise.resolve({ data: [] as unknown[] })
+      : isSocio
+        ? vendasAnuaisQuery.in('veiculo_id', dividedVeiculoIds)
+        : vendasAnuaisQuery,
+    isSocio
+      ? Promise.resolve({ data: [] as unknown[] })
+      : admin.from('lancamentos_financeiros')
+          .select('*, venda:vendas(id, numero_venda, comprador_nome)')
+          .eq('loja_id', lojaId)
+          .gte('data', periodoInicio)
+          .lte('data', periodoFim)
+          .order('data', { ascending: false }),
+    isSocio
+      ? Promise.resolve({ data: [] as unknown[] })
+      : admin.from('lancamentos_financeiros')
+          .select('tipo, valor, data')
+          .eq('loja_id', lojaId)
+          .gte('data', `${ano}-01-01`)
+          .lte('data', `${ano}-12-31`),
+    isSocio
+      ? Promise.resolve({ data: [] as unknown[] })
+      : admin.from('vendas')
+          .select('id, numero_venda, comprador_nome, data_venda, pagamento_financeira_nome, pagamento_financeira_valor')
+          .eq('loja_id', lojaId)
+          .eq('status', 'finalizada')
+          .gt('pagamento_financeira_valor', 0)
+          .order('data_venda', { ascending: false }),
   ])
 
+  // Sócio vê receita já multiplicada pelo percentual do veículo dividido.
+  type VendaPeriodoRow = { id: string; valor_venda: number; desconto: number; valor_liquido: number; data_venda: string; veiculo_id: string; veiculo: unknown }
+  const vendasData = isSocio
+    ? ((vendasDataRaw ?? []) as VendaPeriodoRow[]).map(v => {
+        const pct = percentualPorVeiculo[v.veiculo_id] ?? 0
+        return { ...v, valor_venda: v.valor_venda * pct, desconto: v.desconto * pct, valor_liquido: v.valor_liquido * pct }
+      })
+    : ((vendasDataRaw ?? []) as VendaPeriodoRow[])
+
+  type VendaAnualRow = { valor_liquido: number; data_venda: string; veiculo_id: string }
+  const vendasAnuaisData = isSocio
+    ? ((vendasAnuaisDataRaw ?? []) as VendaAnualRow[]).map(v => ({
+        ...v,
+        valor_liquido: v.valor_liquido * (percentualPorVeiculo[v.veiculo_id] ?? 0),
+      }))
+    : ((vendasAnuaisDataRaw ?? []) as VendaAnualRow[])
+
   // Passo 2 — custos filtrados pelos veiculo_ids das vendas do período
+  // (para sócio, vendasData já só contém os veículos divididos — o filtro
+  // se propaga automaticamente pra cá)
   const veiculoIds = (vendasData ?? [])
     .map((v: Record<string, unknown>) => v.veiculo_id as string)
     .filter(Boolean)
@@ -124,15 +179,30 @@ export default async function FinanceiroPage({
           .in('veiculo_id', veiculoIds)
       : Promise.resolve({ data: [] as { veiculo_id: string; valor: number }[] }),
   ])
-  const financeiroData = financeiroDataRaw ?? []
-  const custosData = custosDataRaw ?? []
+
+  // Sócio: custos também escalados pelo percentual — receita e custo usam o
+  // mesmo fator, então o lucro por veículo (receita - custo) já sai correto.
+  const financeiroData = isSocio
+    ? (financeiroDataRaw ?? []).map(f => ({
+        ...f,
+        custo_aquisicao: f.custo_aquisicao * (percentualPorVeiculo[f.veiculo_id] ?? 0),
+      }))
+    : (financeiroDataRaw ?? [])
+
+  const custosData = isSocio
+    ? (custosDataRaw ?? []).map(c => ({
+        ...c,
+        valor: c.valor * (percentualPorVeiculo[c.veiculo_id] ?? 0),
+      }))
+    : (custosDataRaw ?? [])
 
   const dadosAnuais: DadosMensais[] = Array.from({ length: 12 }, (_, i) => {
     const m = i + 1
     const mStr = String(m).padStart(2, '0')
     const prefix = `${ano}-${mStr}`
     const vendasMes = (vendasAnuaisData ?? []).filter(v => v.data_venda?.startsWith(prefix))
-    const lancMes = (lancamentosAnuaisData ?? []).filter(l => l.data?.startsWith(prefix))
+    const lancMes = ((lancamentosAnuaisData ?? []) as { tipo: string; valor: number; data: string }[])
+      .filter(l => l.data?.startsWith(prefix))
     const entradasLancMes = lancMes.filter(l => l.tipo === 'entrada').reduce((a, l) => a + (l.valor ?? 0), 0)
     const saidasLancMes = lancMes.filter(l => l.tipo === 'saida').reduce((a, l) => a + (l.valor ?? 0), 0)
     return {

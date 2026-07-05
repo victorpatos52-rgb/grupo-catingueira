@@ -53,6 +53,18 @@ export async function setLojaAtiva(lojaId: string) {
   })
 }
 
+// O perfil 'socio' só existe para a loja Felizardo. Validado aqui (server-side)
+// além do filtro já feito na UI, porque a Server Action é o limite de segurança
+// real — a UI só existe para dar feedback melhor antes de chegar até aqui.
+async function validarPerfilLoja(perfil: Perfil, lojaId: string) {
+  if (perfil !== 'socio') return
+  const supabase = adminSupabase()
+  const { data: loja } = await supabase.from('lojas').select('dominio').eq('id', lojaId).single()
+  if (!loja?.dominio?.toLowerCase().includes('felizardo')) {
+    throw new Error('O perfil "sócio" só pode ser atribuído a usuários da loja Felizardo.')
+  }
+}
+
 export async function criarUsuario(data: {
   email: string
   senha: string
@@ -61,6 +73,7 @@ export async function criarUsuario(data: {
   loja_id: string
   modulos_permitidos: string[]
 }) {
+  await validarPerfilLoja(data.perfil, data.loja_id)
   const supabase = adminSupabase()
 
   const { data: authData, error: authError } = await supabase.auth.admin.createUser({
@@ -101,6 +114,7 @@ export async function atualizarUsuario(
   id: string,
   data: { nome: string; perfil: Perfil; loja_id: string; ativo: boolean; modulos_permitidos: string[] }
 ) {
+  await validarPerfilLoja(data.perfil, data.loja_id)
   const supabase = adminSupabase()
   const { error } = await supabase.from('usuarios_perfil').update(data).eq('id', id)
   if (error) throw new Error(error.message)
@@ -109,6 +123,8 @@ export async function atualizarUsuario(
 
 export async function updateUserRole(perfilId: string, novoPerfil: Perfil) {
   const supabase = adminSupabase()
+  const { data: atual } = await supabase.from('usuarios_perfil').select('loja_id').eq('id', perfilId).single()
+  if (atual) await validarPerfilLoja(novoPerfil, atual.loja_id)
   const { error } = await supabase
     .from('usuarios_perfil')
     .update({ perfil: novoPerfil })
@@ -123,6 +139,7 @@ export async function inviteUser(
   perfil: Perfil,
   nome: string
 ) {
+  await validarPerfilLoja(perfil, lojaId)
   const supabase = adminSupabase()
   const { data: inviteData, error: inviteError } =
     await supabase.auth.admin.inviteUserByEmail(email)
@@ -489,7 +506,42 @@ export async function submitContatoLead(
 
 // ─── VEÍCULO CRUD (bypassa RLS via service role) ──────────────────────────────
 
+// Perfil de quem está chamando a action (via sessão/cookies) — usado só para
+// a restrição extra de sócio abaixo, não substitui exigirPerfil/exigirPerfilFinanceiro.
+async function obterPerfilAtual(): Promise<Perfil | null> {
+  const userClient = await userSupabase()
+  const { data: { session } } = await userClient.auth.getSession()
+  if (!session) return null
+  const supabase = adminSupabase()
+  const { data } = await supabase.from('usuarios_perfil').select('perfil').eq('id', session.user.id).single()
+  return (data?.perfil as Perfil | undefined) ?? null
+}
+
+// Sócio só pode criar/editar veículos com proprietario_tipo='dividido' da loja
+// Felizardo — valida o payload que está sendo gravado (não confia só na UI).
+async function validarVeiculoParaSocio(lojaId: string, proprietarioTipo: string | null | undefined) {
+  const supabase = adminSupabase()
+  const { data: loja } = await supabase.from('lojas').select('dominio').eq('id', lojaId).single()
+  const ehFelizardo = (loja?.dominio ?? '').toLowerCase().includes('felizardo')
+  if (!ehFelizardo || proprietarioTipo !== 'dividido') {
+    throw new Error('Sócio só pode criar ou editar veículos com propriedade dividida da loja Felizardo.')
+  }
+}
+
+// Sócio só pode mexer em veículos que já são (no banco, agora) dividido+Felizardo
+// — impede editar/excluir um veículo que não devia nem estar vendo.
+async function exigirAcessoVeiculoExistenteSocio(veiculoId: string) {
+  const supabase = adminSupabase()
+  const { data: veiculo } = await supabase.from('veiculos').select('proprietario_tipo, loja_id').eq('id', veiculoId).single()
+  if (!veiculo) throw new Error('Veículo não encontrado.')
+  await validarVeiculoParaSocio(veiculo.loja_id, veiculo.proprietario_tipo)
+}
+
 export async function criarVeiculo(payload: Omit<Veiculo, 'id' | 'created_at'>) {
+  const perfilAtual = await obterPerfilAtual()
+  if (perfilAtual === 'socio') {
+    await validarVeiculoParaSocio(payload.loja_id, payload.proprietario_tipo)
+  }
   const supabase = adminSupabase()
   const { data, error } = await supabase
     .from('veiculos')
@@ -505,6 +557,11 @@ export async function atualizarVeiculo(
   veiculoId: string,
   payload: Omit<Veiculo, 'id' | 'created_at'>
 ) {
+  const perfilAtual = await obterPerfilAtual()
+  if (perfilAtual === 'socio') {
+    await exigirAcessoVeiculoExistenteSocio(veiculoId)
+    await validarVeiculoParaSocio(payload.loja_id, payload.proprietario_tipo)
+  }
   const supabase = adminSupabase()
   const { error } = await supabase
     .from('veiculos')
@@ -519,6 +576,11 @@ export async function atualizarDadosVeiculo(
   veiculoId: string,
   payload: Omit<Veiculo, 'id' | 'created_at' | 'fotos'>
 ) {
+  const perfilAtual = await obterPerfilAtual()
+  if (perfilAtual === 'socio') {
+    await exigirAcessoVeiculoExistenteSocio(veiculoId)
+    await validarVeiculoParaSocio(payload.loja_id, payload.proprietario_tipo)
+  }
   const supabase = adminSupabase()
   const { error } = await supabase
     .from('veiculos')
@@ -751,6 +813,10 @@ export async function deletarAnexo(anexoId: string, path: string, entidadeId: st
 // ─── EXCLUSÃO DE VEÍCULO ───────────────────────────────────────────────────────
 
 export async function excluirVeiculo(veiculoId: string): Promise<{ tipo: 'soft' | 'hard' }> {
+  const perfilAtual = await obterPerfilAtual()
+  if (perfilAtual === 'socio') {
+    await exigirAcessoVeiculoExistenteSocio(veiculoId)
+  }
   const supabase = adminSupabase()
 
   const [

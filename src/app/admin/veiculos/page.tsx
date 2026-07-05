@@ -29,9 +29,14 @@ export default async function VeiculosAdminPage({
   if (!perfil) redirect('/login')
 
   const lojaId = await getLojaIdAtiva(perfil)
+  const ehSocio = perfil.perfil === 'socio'
 
   const admin = adminSupabase()
   let query = admin.from('veiculos').select('*').eq('loja_id', lojaId).eq('excluido', false).order('created_at', { ascending: false })
+  // Sócio só vê veículos de propriedade dividida (Felizardo) — filtro na query, não só na UI.
+  if (ehSocio) {
+    query = query.eq('proprietario_tipo', 'dividido')
+  }
   if (params.status) {
     query = query.eq('status', params.status as 'disponivel' | 'reservado' | 'vendido' | 'manutencao')
   }
@@ -171,7 +176,8 @@ export default async function VeiculosAdminPage({
                         >
                           Ver
                         </a>
-                        {v.status !== 'vendido' && (
+                        {/* Sócio não acessa /admin/vendas (bloqueado no proxy) — esconde o atalho */}
+                        {v.status !== 'vendido' && !ehSocio && (
                           <MarcaVendidoButton veiculoId={v.id} />
                         )}
                       </div>

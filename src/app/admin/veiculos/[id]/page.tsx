@@ -64,6 +64,17 @@ export default async function EditarVeiculoPage({
 
   if (!data) notFound()
   const veiculo = data as Veiculo
+
+  // Sócio só pode ver/editar veículos de propriedade dividida da loja Felizardo —
+  // mesma regra já aplicada na listagem, aqui bloqueando acesso direto por URL.
+  if (perfil.perfil === 'socio') {
+    const { data: lojaRow } = await admin.from('lojas').select('dominio').eq('id', veiculo.loja_id).single()
+    const ehFelizardo = (lojaRow?.dominio ?? '').toLowerCase().includes('felizardo')
+    if (!ehFelizardo || veiculo.proprietario_tipo !== 'dividido') {
+      redirect('/admin/veiculos')
+    }
+  }
+
   const financeiro = finData as FinanceiroVeiculo | null
   const custos = (custosData ?? []) as CustoManutencao[]
   const aquisicao = aquisicaoData as VeiculoAquisicao | null

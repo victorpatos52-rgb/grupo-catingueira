@@ -145,6 +145,7 @@ const labelCls = 'block text-[#6B7280] text-xs font-semibold uppercase tracking-
 // ── Componente principal ──────────────────────────────────────────────────────
 
 export default function FinanceiroClient({
+  perfil,
   lojaId,
   vendas,
   financeiroVeiculos,
@@ -159,6 +160,7 @@ export default function FinanceiroClient({
   personalizado,
 }: Props) {
   const router = useRouter()
+  const ehSocio = perfil.perfil === 'socio'
   const [abaAtiva, setAbaAtiva] = useState<'balanco' | 'receitas' | 'movimentacoes' | 'anual'>('balanco')
 
   // ── Filtros ─────────────────────────────────────────────────────────────────
@@ -276,8 +278,9 @@ export default function FinanceiroClient({
   )
   const saldoFiltrado = totalEntradasFiltradas - totalSaidasFiltradas
 
-  // Formulário genérico (também usado pelo atalho "Outras receitas")
+  // Formulário genérico (também usado pelo atalho "Outras receitas" e pela edição)
   const [lancFormAberto, setLancFormAberto] = useState(false)
+  const [editandoLancamento, setEditandoLancamento] = useState<LancamentoFinanceiro | null>(null)
   const [lTipo, setLTipo] = useState<TipoLancamento>('entrada')
   const [lCategoria, setLCategoria] = useState('outras_receitas')
   const [lCategoriaLivre, setLCategoriaLivre] = useState('')
@@ -296,11 +299,29 @@ export default function FinanceiroClient({
   }
 
   function abrirNovoLancamento() {
+    setEditandoLancamento(null)
     resetLancForm()
     setLancFormAberto(true)
   }
 
-  function fecharLancForm() { setLancFormAberto(false) }
+  function abrirEditarLancamento(l: LancamentoFinanceiro) {
+    setEditandoLancamento(l)
+    setLTipo(l.tipo)
+    const presetExiste = CATEGORIAS_LANCAMENTO.some(c => c.value === l.categoria)
+    setLCategoria(presetExiste ? l.categoria : '__outra__')
+    setLCategoriaLivre(presetExiste ? '' : l.categoria)
+    setLDescricao(l.descricao ?? '')
+    // String(número) — não usar formatação pt-BR aqui, senão o separador de milhar
+    // ("1.234,56") quebra o parseFloat(lValor.replace(',', '.')) do submit.
+    setLValor(String(l.valor))
+    setLData(l.data)
+    setLRecorrente(l.recorrente)
+    setErroLanc(null)
+    setLancFormAberto(true)
+    setRetornoAberto(false)
+  }
+
+  function fecharLancForm() { setLancFormAberto(false); setEditandoLancamento(null) }
 
   async function handleSalvarLancamento(e: React.FormEvent) {
     e.preventDefault()
@@ -318,7 +339,7 @@ export default function FinanceiroClient({
         valor: valorNum,
         data: lData,
         recorrente: lTipo === 'saida' && lRecorrente,
-      })
+      }, editandoLancamento?.id)
       fecharLancForm()
       router.refresh()
     } catch (err: unknown) {
@@ -483,7 +504,10 @@ export default function FinanceiroClient({
             { key: 'movimentacoes', label: 'Movimentações' },
             { key: 'anual', label: 'Balanço Anual' },
           ] as const
-        ).map(({ key, label }) => (
+        )
+          // Sócio não vê lançamentos manuais/despesas gerais — só gerente/diretor/admin
+          .filter(t => !(ehSocio && t.key === 'movimentacoes'))
+          .map(({ key, label }) => (
           <button
             key={key}
             onClick={() => setAbaAtiva(key)}
@@ -650,12 +674,15 @@ export default function FinanceiroClient({
                           {fmt(v.lucro)}
                         </td>
                         <td className="px-4 py-3">
-                          <a
-                            href={`/admin/vendas/${v.id}`}
-                            className="text-xs text-[#F59E0B] hover:underline whitespace-nowrap"
-                          >
-                            Ver venda
-                          </a>
+                          {/* Sócio não acessa /admin/vendas (bloqueado no proxy) — esconde o link */}
+                          {!ehSocio && (
+                            <a
+                              href={`/admin/vendas/${v.id}`}
+                              className="text-xs text-[#F59E0B] hover:underline whitespace-nowrap"
+                            >
+                              Ver venda
+                            </a>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -686,6 +713,7 @@ export default function FinanceiroClient({
               </button>
               <button
                 onClick={() => {
+                  setEditandoLancamento(null)
                   setLTipo('entrada'); setLCategoria('outras_receitas'); setLCategoriaLivre('')
                   setLDescricao(''); setLValor(''); setLData(new Date().toISOString().split('T')[0])
                   setLRecorrente(false); setErroLanc(null); setLancFormAberto(true); setRetornoAberto(false)
@@ -760,7 +788,28 @@ export default function FinanceiroClient({
           {/* Formulário genérico de lançamento */}
           {lancFormAberto && (
             <div className="bg-[#FFFBEB] border border-[#F5C842] rounded-xl p-5 shadow-sm">
-              <h3 className="text-sm font-bold text-[#111] mb-4">Novo lançamento</h3>
+              <h3 className="text-sm font-bold text-[#111] mb-4">
+                {editandoLancamento ? 'Editar lançamento' : 'Novo lançamento'}
+              </h3>
+
+              {editandoLancamento && (editandoLancamento.venda_id || editandoLancamento.despesa_origem_id) && (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-2.5 mb-4">
+                  {editandoLancamento.venda_id && (
+                    <p className="text-blue-700 text-xs">
+                      Vinculado à venda {editandoLancamento.venda?.numero_venda ?? editandoLancamento.venda_id}
+                      {editandoLancamento.valor_retornado_banco != null &&
+                        ` — retorno do banco: ${fmt(editandoLancamento.valor_retornado_banco)}`}
+                      . Esse vínculo não é alterado por este formulário.
+                    </p>
+                  )}
+                  {editandoLancamento.despesa_origem_id && (
+                    <p className="text-blue-700 text-xs">
+                      Esta movimentação veio de uma despesa migrada — o histórico original é preservado.
+                    </p>
+                  )}
+                </div>
+              )}
+
               <form onSubmit={handleSalvarLancamento}>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
                   <div>
@@ -1000,13 +1049,21 @@ export default function FinanceiroClient({
                           ) : '—'}
                         </td>
                         <td className="px-4 py-3">
-                          <button
-                            onClick={() => handleDeletarLancamento(l.id)}
-                            disabled={deletandoLancId === l.id}
-                            className="text-xs text-[#6B7280] hover:text-red-600 px-2.5 py-1 rounded-lg border border-[#E5E7EB] hover:border-red-200 hover:bg-red-50 transition-colors disabled:opacity-50"
-                          >
-                            {deletandoLancId === l.id ? '...' : 'Excluir'}
-                          </button>
+                          <div className="flex gap-1.5">
+                            <button
+                              onClick={() => abrirEditarLancamento(l)}
+                              className="text-xs text-[#6B7280] hover:text-[#111] px-2.5 py-1 rounded-lg border border-[#E5E7EB] hover:border-[#D1D5DB] transition-colors"
+                            >
+                              Editar
+                            </button>
+                            <button
+                              onClick={() => handleDeletarLancamento(l.id)}
+                              disabled={deletandoLancId === l.id}
+                              className="text-xs text-[#6B7280] hover:text-red-600 px-2.5 py-1 rounded-lg border border-[#E5E7EB] hover:border-red-200 hover:bg-red-50 transition-colors disabled:opacity-50"
+                            >
+                              {deletandoLancId === l.id ? '...' : 'Excluir'}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
