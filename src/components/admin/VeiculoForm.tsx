@@ -28,6 +28,7 @@ const schema = z.object({
   combustivel: z.string().min(1, 'Obrigatório'),
   cambio: z.string().min(1, 'Obrigatório'),
   preco: z.number().min(1, 'Obrigatório'),
+  valor_oferta: z.number().nullable().optional(),
   placa: z.string().optional(),
   chassi: z.string().optional(),
   renavam: z.string().optional(),
@@ -38,7 +39,13 @@ const schema = z.object({
   status: z.enum(['disponivel', 'reservado', 'vendido', 'manutencao']),
   destaque: z.boolean(),
   data_aquisicao: z.string().min(1, 'Obrigatório'),
-})
+}).refine(
+  data => data.valor_oferta == null || data.valor_oferta < data.preco,
+  {
+    message: 'O valor de oferta deve ser menor que o preço normal',
+    path: ['valor_oferta'],
+  }
+)
 
 type FormData = z.infer<typeof schema>
 
@@ -78,6 +85,7 @@ export default function VeiculoForm({ veiculo, lojaId, hideFotos, fotos: fotosEx
       combustivel: veiculo?.combustivel ?? '',
       cambio: veiculo?.cambio ?? '',
       preco: veiculo?.preco ?? 0,
+      valor_oferta: veiculo?.valor_oferta ?? null,
       placa: veiculo?.placa ?? '',
       chassi: veiculo?.chassi ?? '',
       renavam: veiculo?.renavam ?? '',
@@ -154,6 +162,7 @@ export default function VeiculoForm({ veiculo, lojaId, hideFotos, fotos: fotosEx
       combustivel: data.combustivel,
       cambio: data.cambio,
       preco: data.preco,
+      valor_oferta: data.valor_oferta ?? null,
       placa: data.placa || null,
       chassi: data.chassi || null,
       renavam: data.renavam || null,
@@ -361,6 +370,16 @@ export default function VeiculoForm({ veiculo, lojaId, hideFotos, fotos: fotosEx
             <label className={labelClass}>Preço (R$) *</label>
             <input type="number" {...register('preco', { valueAsNumber: true })} className={inputClass} placeholder="0" />
             {errors.preco && <p className={errorClass}>{errors.preco.message}</p>}
+          </div>
+          <div>
+            <label className={labelClass}>Valor de oferta (R$)</label>
+            <input
+              type="number"
+              {...register('valor_oferta', { setValueAs: v => (v === '' ? null : Number(v)) })}
+              className={inputClass}
+              placeholder="Deixe em branco se não houver oferta"
+            />
+            {errors.valor_oferta && <p className={errorClass}>{errors.valor_oferta.message}</p>}
           </div>
           <div>
             <label className={labelClass}>Data de aquisição *</label>

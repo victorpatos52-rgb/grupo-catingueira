@@ -16,6 +16,7 @@ interface VeiculoCardProps {
 
 export default function VeiculoCard({ veiculo, loja, delay = 0 }: VeiculoCardProps) {
   const capa = veiculo.fotos[0] ?? null
+  const temOferta = !!veiculo.valor_oferta && veiculo.valor_oferta < veiculo.preco
 
   return (
     <motion.div
@@ -65,6 +66,12 @@ export default function VeiculoCard({ veiculo, loja, delay = 0 }: VeiculoCardPro
           </span>
         )}
 
+        {temOferta && (
+          <span className="absolute top-3 right-3 text-[10px] font-bold uppercase px-2.5 py-1 rounded tracking-widest text-white bg-red-600">
+            OFERTA
+          </span>
+        )}
+
         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
           <span
             className="inline-flex items-center gap-2 px-4 py-2.5 text-[#1A1A1A] text-xs font-bold uppercase tracking-wider rounded-md translate-y-3 group-hover:translate-y-0 transition-transform duration-300"
@@ -95,12 +102,21 @@ export default function VeiculoCard({ veiculo, loja, delay = 0 }: VeiculoCardPro
         </div>
 
         <div className="mt-auto">
-          <p
-            className="font-[family-name:var(--font-barlow-condensed)] text-2xl font-extrabold"
-            style={{ color: 'var(--cor-primaria)' }}
-          >
-            {formatarPreco(veiculo.preco)}
-          </p>
+          {temOferta ? (
+            <>
+              <p className="text-[#AAA] text-sm line-through">{formatarPreco(veiculo.preco)}</p>
+              <p className="font-[family-name:var(--font-barlow-condensed)] text-2xl font-extrabold text-red-600">
+                {formatarPreco(veiculo.valor_oferta!)}
+              </p>
+            </>
+          ) : (
+            <p
+              className="font-[family-name:var(--font-barlow-condensed)] text-2xl font-extrabold"
+              style={{ color: 'var(--cor-primaria)' }}
+            >
+              {formatarPreco(veiculo.preco)}
+            </p>
+          )}
         </div>
 
         <div className="flex gap-2 mt-1">

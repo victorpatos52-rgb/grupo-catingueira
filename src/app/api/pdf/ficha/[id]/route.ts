@@ -111,6 +111,7 @@ export async function GET(
   }
 
   const opcionaisVeiculo: string[] = veiculo.opcionais ?? []
+  const temOferta = !!veiculo.valor_oferta && veiculo.valor_oferta < veiculo.preco
   const slogan =
     loja.descricao?.trim() ||
     'SUA REVENDA MULTIMARCAS EM PATOS E REGIÃO.'
@@ -229,6 +230,20 @@ body {
   line-height: 1;
   margin: 16px 0 8px;
 }
+.preco-de {
+  font-size: 22px;
+  font-weight: 700;
+  text-decoration: line-through;
+  color: #555;
+  margin: 16px 0 0;
+}
+.preco-por {
+  font-size: 60px;
+  font-weight: 900;
+  letter-spacing: -1px;
+  line-height: 1;
+  margin: 2px 0 8px;
+}
 .motor-linha {
   display: flex;
   gap: 40px;
@@ -306,7 +321,11 @@ body {
   <div class="preco-bloco">
     <div class="sep" style="margin-top:14px"></div>
     <div class="sep2"></div>
-    <div class="preco">${formatarPreco(veiculo.preco)}</div>
+    ${temOferta
+      ? `<div class="preco-de">DE ${formatarPreco(veiculo.preco)}</div>
+         <div class="preco-por">POR ${formatarPreco(veiculo.valor_oferta)}</div>`
+      : `<div class="preco">${formatarPreco(veiculo.preco)}</div>`
+    }
     <div class="motor-linha">
       <div>
         <span style="font-weight:700">MOTOR:</span>

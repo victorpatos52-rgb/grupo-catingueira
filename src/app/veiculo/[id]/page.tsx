@@ -61,6 +61,8 @@ export default async function VeiculoPage({
   }
 
   const badge = statusLabel[veiculo.status] ?? statusLabel.disponivel
+  const temOferta = !!veiculo.valor_oferta && veiculo.valor_oferta < veiculo.preco
+  const precoEfetivo = temOferta ? veiculo.valor_oferta! : veiculo.preco
   const specs = [
     { label: 'Ano', value: String(veiculo.ano) },
     { label: 'Câmbio', value: veiculo.cambio },
@@ -69,7 +71,7 @@ export default async function VeiculoPage({
     ...(veiculo.versao ? [{ label: 'Versão', value: veiculo.versao }] : []),
   ]
 
-  const waMsg = `Olá! Tenho interesse no ${veiculo.marca} ${veiculo.modelo} ${veiculo.ano} — ${formatarPreco(veiculo.preco)}`
+  const waMsg = `Olá! Tenho interesse no ${veiculo.marca} ${veiculo.modelo} ${veiculo.ano} — ${formatarPreco(precoEfetivo)}`
   const waNum = loja?.whatsapp ?? ''
   const waHref = waNum ? `https://wa.me/55${waNum.replace(/\D/g, '')}?text=${encodeURIComponent(waMsg)}` : '#'
 
@@ -110,9 +112,16 @@ export default async function VeiculoPage({
 
           {/* Título */}
           <div>
-            <h1 className="font-[family-name:var(--font-barlow-condensed)] text-4xl md:text-5xl font-black uppercase leading-tight text-[#0D0D0D]">
-              {veiculo.marca} {veiculo.modelo}
-            </h1>
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="font-[family-name:var(--font-barlow-condensed)] text-4xl md:text-5xl font-black uppercase leading-tight text-[#0D0D0D]">
+                {veiculo.marca} {veiculo.modelo}
+              </h1>
+              {temOferta && (
+                <span className="text-xs font-bold uppercase px-2.5 py-1 rounded tracking-widest text-white bg-red-600">
+                  OFERTA
+                </span>
+              )}
+            </div>
             {veiculo.versao && (
               <p className="text-lg text-gray-500 mt-1">{veiculo.versao} · {veiculo.ano}</p>
             )}
@@ -122,11 +131,16 @@ export default async function VeiculoPage({
           </div>
 
           {/* Preço */}
-          <div
-            className="font-[family-name:var(--font-barlow-condensed)] text-5xl font-black"
-            style={{ color: 'var(--cor-primaria)' }}
-          >
-            {formatarPreco(veiculo.preco)}
+          <div>
+            {temOferta && (
+              <p className="text-gray-400 text-xl line-through">{formatarPreco(veiculo.preco)}</p>
+            )}
+            <div
+              className="font-[family-name:var(--font-barlow-condensed)] text-5xl font-black"
+              style={{ color: temOferta ? '#DC2626' : 'var(--cor-primaria)' }}
+            >
+              {formatarPreco(precoEfetivo)}
+            </div>
           </div>
 
           {/* CTA buttons */}
