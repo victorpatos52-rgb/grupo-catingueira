@@ -1,7 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createServerSupabase, adminSupabase } from '@/lib/supabase-server'
 import { getLojaIdAtiva } from '@/lib/getLojaIdAtiva'
-import type { DespesaLoja, LancamentoFinanceiro, UsuarioPerfil } from '@/types'
+import type { LancamentoFinanceiro, UsuarioPerfil } from '@/types'
 import FinanceiroClient, {
   type VendaResumo,
   type FinVeiculoSimples,
@@ -59,12 +59,13 @@ export default async function FinanceiroPage({
   }
 
   // Passo 1 — dados que não dependem dos veiculo_ids
+  // despesas_loja não é mais lida aqui — desde a migration 007, seus dados
+  // (histórico) vivem migrados em lancamentos_financeiros (tipo='saida').
   const [
     { data: vendasData },
-    { data: despesasData },
     { data: vendasAnuaisData },
-    { data: despesasAnuaisData },
     { data: lancamentosData },
+    { data: lancamentosAnuaisData },
     { data: vendasFinanciadasData },
   ] = await Promise.all([
     admin.from('vendas')
@@ -74,30 +75,26 @@ export default async function FinanceiroPage({
       .gte('data_venda', periodoInicio)
       .lte('data_venda', periodoFim)
       .order('data_venda', { ascending: false }),
-    admin.from('despesas_loja')
-      .select('*')
-      .eq('loja_id', lojaId)
-      .gte('data', periodoInicio)
-      .lte('data', periodoFim)
-      .order('data', { ascending: false }),
     admin.from('vendas')
       .select('valor_liquido, data_venda')
       .eq('loja_id', lojaId)
       .eq('status', 'finalizada')
       .gte('data_venda', `${ano}-01-01`)
       .lte('data_venda', `${ano}-12-31`),
-    admin.from('despesas_loja')
-      .select('valor, data')
-      .eq('loja_id', lojaId)
-      .gte('data', `${ano}-01-01`)
-      .lte('data', `${ano}-12-31`),
-    // Lançamentos financeiros manuais (entradas/saídas fora das vendas/despesas) do período filtrado
+    // Movimentações financeiras manuais (entradas/saídas, incluindo o que antes
+    // era despesa) do período filtrado
     admin.from('lancamentos_financeiros')
       .select('*, venda:vendas(id, numero_venda, comprador_nome)')
       .eq('loja_id', lojaId)
       .gte('data', periodoInicio)
       .lte('data', periodoFim)
       .order('data', { ascending: false }),
+    // Mesma tabela, só que no ano inteiro — para o gráfico do Balanço Anual
+    admin.from('lancamentos_financeiros')
+      .select('tipo, valor, data')
+      .eq('loja_id', lojaId)
+      .gte('data', `${ano}-01-01`)
+      .lte('data', `${ano}-12-31`),
     // Vendas financiadas (para a tela de "Retorno financeira/banco") — não é limitado
     // ao período filtrado, já que o banco pode confirmar o retorno bem depois da venda
     admin.from('vendas')
@@ -135,11 +132,13 @@ export default async function FinanceiroPage({
     const mStr = String(m).padStart(2, '0')
     const prefix = `${ano}-${mStr}`
     const vendasMes = (vendasAnuaisData ?? []).filter(v => v.data_venda?.startsWith(prefix))
-    const despMes = (despesasAnuaisData ?? []).filter(d => d.data?.startsWith(prefix))
+    const lancMes = (lancamentosAnuaisData ?? []).filter(l => l.data?.startsWith(prefix))
+    const entradasLancMes = lancMes.filter(l => l.tipo === 'entrada').reduce((a, l) => a + (l.valor ?? 0), 0)
+    const saidasLancMes = lancMes.filter(l => l.tipo === 'saida').reduce((a, l) => a + (l.valor ?? 0), 0)
     return {
       mes: m,
-      receitas: vendasMes.reduce((a, v) => a + (v.valor_liquido ?? 0), 0),
-      despesas: despMes.reduce((a, d) => a + (d.valor ?? 0), 0),
+      receitas: vendasMes.reduce((a, v) => a + (v.valor_liquido ?? 0), 0) + entradasLancMes,
+      despesas: saidasLancMes,
       vendidos: vendasMes.length,
     }
   })
@@ -149,7 +148,6 @@ export default async function FinanceiroPage({
       perfil={perfil}
       lojaId={lojaId}
       vendas={(vendasData ?? []) as unknown as VendaResumo[]}
-      despesas={(despesasData ?? []) as unknown as DespesaLoja[]}
       financeiroVeiculos={financeiroData as unknown as FinVeiculoSimples[]}
       custosManut={custosData as unknown as CustoManutSimples[]}
       dadosAnuais={dadosAnuais}

@@ -272,8 +272,10 @@ export interface LancamentoFinanceiro {
   valor: number
   valor_retornado_banco: number | null
   data: string
+  recorrente: boolean
   venda_id: string | null
   criado_por: string | null
   criado_em: string
+  despesa_origem_id?: string | null
   venda?: Pick<Venda, 'id' | 'numero_venda' | 'comprador_nome'> | null
 }

@@ -6,8 +6,8 @@ import {
   ComposedChart, Bar, Line, XAxis, YAxis, Tooltip,
   Legend, ResponsiveContainer, CartesianGrid,
 } from 'recharts'
-import { salvarDespesa, deletarDespesa, salvarLancamentoFinanceiro, deletarLancamentoFinanceiro } from '@/app/actions'
-import type { DespesaLoja, LancamentoFinanceiro, TipoLancamento, UsuarioPerfil } from '@/types'
+import { salvarLancamentoFinanceiro, deletarLancamentoFinanceiro } from '@/app/actions'
+import type { LancamentoFinanceiro, TipoLancamento, UsuarioPerfil } from '@/types'
 
 // ── Tipos exportados (usados em page.tsx) ─────────────────────────────────────
 
@@ -51,7 +51,6 @@ interface Props {
   perfil: UsuarioPerfil
   lojaId: string
   vendas: VendaResumo[]
-  despesas: DespesaLoja[]
   financeiroVeiculos: FinVeiculoSimples[]
   custosManut: CustoManutSimples[]
   dadosAnuais: DadosMensais[]
@@ -148,7 +147,6 @@ const labelCls = 'block text-[#6B7280] text-xs font-semibold uppercase tracking-
 export default function FinanceiroClient({
   lojaId,
   vendas,
-  despesas,
   financeiroVeiculos,
   custosManut,
   dadosAnuais,
@@ -161,7 +159,7 @@ export default function FinanceiroClient({
   personalizado,
 }: Props) {
   const router = useRouter()
-  const [abaAtiva, setAbaAtiva] = useState<'balanco' | 'despesas' | 'receitas' | 'lancamentos' | 'anual'>('balanco')
+  const [abaAtiva, setAbaAtiva] = useState<'balanco' | 'receitas' | 'movimentacoes' | 'anual'>('balanco')
 
   // ── Filtros ─────────────────────────────────────────────────────────────────
   const [modoPersonalizado, setModoPersonalizado] = useState(personalizado)
@@ -189,16 +187,19 @@ export default function FinanceiroClient({
   )
 
   const stats = useMemo(() => {
-    // DRE geral da loja: soma vendas + despesas fixas + lançamentos manuais
-    // (o DRE por veículo, calculado abaixo em vendasComLucro/topVeiculos, não muda)
+    // DRE geral da loja: soma vendas + lançamentos manuais (que agora também
+    // incluem o que antes era despesa — uma única fonte, sem duplicidade).
+    // O DRE por veículo, calculado abaixo em vendasComLucro/topVeiculos, não muda.
     const totalReceitas = vendas.reduce((a, v) => a + v.valor_liquido, 0) + totalEntradasLancamentos
-    const totalDespesas = despesas.reduce((a, d) => a + d.valor, 0) + totalSaidasLancamentos
+    const totalDespesas = totalSaidasLancamentos
     const lucroLiquido = totalReceitas - totalDespesas
 
-    const porCategoria = despesas.reduce((acc, d) => {
-      acc[d.categoria] = (acc[d.categoria] ?? 0) + d.valor
-      return acc
-    }, {} as Record<string, number>)
+    const porCategoria = lancamentos
+      .filter(l => l.tipo === 'saida')
+      .reduce((acc, l) => {
+        acc[l.categoria] = (acc[l.categoria] ?? 0) + l.valor
+        return acc
+      }, {} as Record<string, number>)
 
     const topVeiculos = vendas.map(v => {
       const fin = financeiroVeiculos.find(f => f.veiculo_id === v.veiculo_id)
@@ -211,7 +212,7 @@ export default function FinanceiroClient({
     }).sort((a, b) => b.lucro - a.lucro).slice(0, 5)
 
     return { totalReceitas, totalDespesas, lucroLiquido, porCategoria, topVeiculos }
-  }, [vendas, despesas, financeiroVeiculos, custosManut, totalEntradasLancamentos, totalSaidasLancamentos])
+  }, [vendas, lancamentos, financeiroVeiculos, custosManut, totalEntradasLancamentos, totalSaidasLancamentos])
 
   const vendasComLucro = useMemo(() => vendas.map(v => {
     const fin = financeiroVeiculos.find(f => f.veiculo_id === v.veiculo_id)
@@ -249,75 +250,7 @@ export default function FinanceiroClient({
     { despesas: 0, receitas: 0, vendidos: 0 }
   )
 
-  // ── Formulário de despesa ────────────────────────────────────────────────────
-  const [formAberto, setFormAberto] = useState(false)
-  const [editando, setEditando] = useState<DespesaLoja | null>(null)
-  const [fDescricao, setFDescricao]   = useState('')
-  const [fCategoria, setFCategoria]   = useState('Outros')
-  const [fValor, setFValor]           = useState('')
-  const [fData, setFData]             = useState(new Date().toISOString().split('T')[0])
-  const [fRecorrente, setFRecorrente] = useState(false)
-  const [salvandoDesp, setSalvandoDesp] = useState(false)
-  const [deletandoId, setDeletandoId]   = useState<string | null>(null)
-  const [erroForm, setErroForm]         = useState<string | null>(null)
-
-  function abrirNovaDesp() {
-    setEditando(null)
-    setFDescricao(''); setFCategoria('Outros')
-    setFValor(''); setFData(new Date().toISOString().split('T')[0])
-    setFRecorrente(false); setErroForm(null)
-    setFormAberto(true)
-  }
-
-  function abrirEditarDesp(d: DespesaLoja) {
-    setEditando(d)
-    setFDescricao(d.descricao); setFCategoria(d.categoria)
-    setFValor(String(d.valor)); setFData(d.data)
-    setFRecorrente(d.recorrente); setErroForm(null)
-    setFormAberto(true)
-  }
-
-  function fecharForm() { setFormAberto(false); setEditando(null) }
-
-  async function handleSalvarDesp(e: React.FormEvent) {
-    e.preventDefault()
-    const valorNum = parseFloat(fValor.replace(',', '.'))
-    if (!fDescricao.trim()) { setErroForm('Descrição obrigatória'); return }
-    if (isNaN(valorNum) || valorNum <= 0) { setErroForm('Valor inválido'); return }
-    setSalvandoDesp(true); setErroForm(null)
-    try {
-      await salvarDespesa({
-        ...(editando ? { id: editando.id } : {}),
-        loja_id: lojaId,
-        descricao: fDescricao.trim(),
-        categoria: fCategoria,
-        valor: valorNum,
-        data: fData,
-        recorrente: fRecorrente,
-      })
-      fecharForm()
-      router.refresh()
-    } catch (err: unknown) {
-      setErroForm(err instanceof Error ? err.message : 'Erro ao salvar')
-    } finally {
-      setSalvandoDesp(false)
-    }
-  }
-
-  async function handleDeletarDesp(id: string) {
-    if (!confirm('Deletar esta despesa?')) return
-    setDeletandoId(id)
-    try {
-      await deletarDespesa(id)
-      router.refresh()
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Erro ao deletar')
-    } finally {
-      setDeletandoId(null)
-    }
-  }
-
-  // ── Lançamentos financeiros manuais ──────────────────────────────────────────
+  // ── Lançamentos financeiros manuais (aba "Movimentações", inclui despesas) ──
 
   const [filtroCategoriaLanc, setFiltroCategoriaLanc] = useState('todas')
   const [filtroTipoLanc, setFiltroTipoLanc] = useState<'todos' | TipoLancamento>('todos')
@@ -351,6 +284,7 @@ export default function FinanceiroClient({
   const [lDescricao, setLDescricao] = useState('')
   const [lValor, setLValor] = useState('')
   const [lData, setLData] = useState(new Date().toISOString().split('T')[0])
+  const [lRecorrente, setLRecorrente] = useState(false)
   const [salvandoLanc, setSalvandoLanc] = useState(false)
   const [erroLanc, setErroLanc] = useState<string | null>(null)
   const [deletandoLancId, setDeletandoLancId] = useState<string | null>(null)
@@ -358,7 +292,7 @@ export default function FinanceiroClient({
   function resetLancForm() {
     setLTipo('entrada'); setLCategoria('outras_receitas'); setLCategoriaLivre('')
     setLDescricao(''); setLValor(''); setLData(new Date().toISOString().split('T')[0])
-    setErroLanc(null)
+    setLRecorrente(false); setErroLanc(null)
   }
 
   function abrirNovoLancamento() {
@@ -383,6 +317,7 @@ export default function FinanceiroClient({
         descricao: lDescricao.trim() || null,
         valor: valorNum,
         data: lData,
+        recorrente: lTipo === 'saida' && lRecorrente,
       })
       fecharLancForm()
       router.refresh()
@@ -444,6 +379,7 @@ export default function FinanceiroClient({
         valor: comissaoNum,
         valor_retornado_banco: !isNaN(bancoNum) && bancoNum > 0 ? bancoNum : null,
         data: rData,
+        recorrente: false,
         venda_id: rVendaId,
       })
       fecharRetorno()
@@ -543,9 +479,8 @@ export default function FinanceiroClient({
         {(
           [
             { key: 'balanco', label: 'Balanço do Período' },
-            { key: 'despesas', label: 'Despesas' },
             { key: 'receitas', label: 'Receitas' },
-            { key: 'lancamentos', label: 'Lançamentos' },
+            { key: 'movimentacoes', label: 'Movimentações' },
             { key: 'anual', label: 'Balanço Anual' },
           ] as const
         ).map(({ key, label }) => (
@@ -570,8 +505,8 @@ export default function FinanceiroClient({
         <div className="space-y-6">
           {(totalEntradasLancamentos > 0 || totalSaidasLancamentos > 0) && (
             <p className="text-[#9CA3AF] text-xs">
-              * Totais incluem os lançamentos financeiros manuais do período ({fmt(totalEntradasLancamentos)} em entradas, {fmt(totalSaidasLancamentos)} em saídas). Veja a aba{' '}
-              <button onClick={() => setAbaAtiva('lancamentos')} className="underline hover:text-[#6B7280]">Lançamentos</button>.
+              * Totais incluem as movimentações financeiras manuais do período ({fmt(totalEntradasLancamentos)} em entradas, {fmt(totalSaidasLancamentos)} em saídas). Veja a aba{' '}
+              <button onClick={() => setAbaAtiva('movimentacoes')} className="underline hover:text-[#6B7280]">Movimentações</button>.
             </p>
           )}
           {/* Cards 2x2 / 4 cols */}
@@ -617,7 +552,9 @@ export default function FinanceiroClient({
                       return (
                         <div key={cat}>
                           <div className="flex items-center justify-between mb-1">
-                            <span className={`text-xs px-2 py-0.5 rounded-md font-medium ${CATEGORIA_COR[cat] ?? CATEGORIA_COR['Outros']}`}>{cat}</span>
+                            <span className={`text-xs px-2 py-0.5 rounded-md font-medium ${CATEGORIA_COR[cat] ?? CATEGORIA_COR['Outros']}`}>
+                              {formatarCategoriaLancamento(cat)}
+                            </span>
                             <div className="flex items-center gap-2">
                               <span className="text-[#9CA3AF] text-xs">{pct.toFixed(1)}%</span>
                               <span className="text-[#111] text-sm font-semibold">{fmt(total)}</span>
@@ -660,168 +597,6 @@ export default function FinanceiroClient({
                 </div>
               )}
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* ════════════════════════════════════════════════════════════════════ */}
-      {/* ABA 2 — DESPESAS                                                   */}
-      {/* ════════════════════════════════════════════════════════════════════ */}
-      {abaAtiva === 'despesas' && (
-        <div className="space-y-5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold text-[#111]">Despesas do período</h2>
-            <button
-              onClick={abrirNovaDesp}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-[#92400E] bg-[#FEF9C3] border border-[#F5C842] hover:bg-[#FEF08A] transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-              Nova Despesa
-            </button>
-          </div>
-
-          {/* Formulário inline */}
-          {formAberto && (
-            <div className="bg-[#FFFBEB] border border-[#F5C842] rounded-xl p-5 shadow-sm">
-              <h3 className="text-sm font-bold text-[#111] mb-4">
-                {editando ? 'Editar despesa' : 'Nova despesa'}
-              </h3>
-              <form onSubmit={handleSalvarDesp}>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-                  <div className="sm:col-span-2 lg:col-span-1">
-                    <label className={labelCls}>Descrição *</label>
-                    <input
-                      required
-                      type="text"
-                      value={fDescricao}
-                      onChange={e => setFDescricao(e.target.value)}
-                      className={inputCls}
-                      placeholder="Ex: Conta de luz"
-                    />
-                  </div>
-                  <div>
-                    <label className={labelCls}>Categoria</label>
-                    <select value={fCategoria} onChange={e => setFCategoria(e.target.value)} className={`${inputCls} cursor-pointer`}>
-                      {CATEGORIAS.map(c => <option key={c}>{c}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className={labelCls}>Valor (R$) *</label>
-                    <input
-                      required
-                      type="text"
-                      inputMode="decimal"
-                      value={fValor}
-                      onChange={e => setFValor(e.target.value)}
-                      className={inputCls}
-                      placeholder="0,00"
-                    />
-                  </div>
-                  <div>
-                    <label className={labelCls}>Data</label>
-                    <input type="date" value={fData} onChange={e => setFData(e.target.value)} className={inputCls} />
-                  </div>
-                  <div className="flex items-end pb-2">
-                    <label className="flex items-center gap-2 cursor-pointer text-sm text-[#374151]">
-                      <input
-                        type="checkbox"
-                        checked={fRecorrente}
-                        onChange={e => setFRecorrente(e.target.checked)}
-                        className="w-4 h-4 accent-[#F5C842]"
-                      />
-                      Despesa recorrente
-                    </label>
-                  </div>
-                </div>
-
-                {erroForm && <p className="text-red-600 text-sm mb-3">{erroForm}</p>}
-
-                <div className="flex gap-2">
-                  <button
-                    type="submit"
-                    disabled={salvandoDesp}
-                    className="px-5 py-2 rounded-xl text-sm font-semibold text-[#92400E] bg-[#FEF9C3] border border-[#F5C842] hover:bg-[#FEF08A] transition-colors disabled:opacity-50"
-                  >
-                    {salvandoDesp ? 'Salvando...' : 'Salvar'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={fecharForm}
-                    className="px-5 py-2 rounded-xl text-sm text-[#6B7280] border border-[#E5E7EB] hover:border-[#D1D5DB] transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
-
-          {/* Tabela */}
-          <div className="bg-white border border-[#E5E7EB] rounded-xl overflow-hidden shadow-sm">
-            {despesas.length === 0 ? (
-              <p className="px-5 py-12 text-center text-[#9CA3AF] text-sm">Nenhuma despesa no período.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-[#E5E7EB] bg-[#F9FAFB]">
-                      {['Descrição', 'Categoria', 'Valor', 'Data', 'Recorrente', 'Ações'].map(h => (
-                        <th key={h} className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap">
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#F3F4F6]">
-                    {despesas.map(d => (
-                      <tr key={d.id} className="hover:bg-[#FAFAFA] transition-colors">
-                        <td className="px-4 py-3 text-[#111] font-medium">{d.descricao}</td>
-                        <td className="px-4 py-3">
-                          <span className={`text-xs px-2 py-0.5 rounded-md font-medium ${CATEGORIA_COR[d.categoria] ?? CATEGORIA_COR['Outros']}`}>
-                            {d.categoria}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-[#111] font-semibold whitespace-nowrap">{fmt(d.valor)}</td>
-                        <td className="px-4 py-3 text-[#6B7280] whitespace-nowrap">{fmtData(d.data)}</td>
-                        <td className="px-4 py-3">
-                          {d.recorrente
-                            ? <span className="text-xs bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-md font-medium">Sim</span>
-                            : <span className="text-[#9CA3AF] text-xs">—</span>}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex gap-1.5">
-                            <button
-                              onClick={() => abrirEditarDesp(d)}
-                              className="text-xs text-[#6B7280] hover:text-[#111] px-2.5 py-1 rounded-lg border border-[#E5E7EB] hover:border-[#D1D5DB] transition-colors"
-                            >
-                              Editar
-                            </button>
-                            <button
-                              onClick={() => handleDeletarDesp(d.id)}
-                              disabled={deletandoId === d.id}
-                              className="text-xs text-[#6B7280] hover:text-red-600 px-2.5 py-1 rounded-lg border border-[#E5E7EB] hover:border-red-200 hover:bg-red-50 transition-colors disabled:opacity-50"
-                            >
-                              {deletandoId === d.id ? '...' : 'Deletar'}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                  <tfoot>
-                    <tr className="border-t-2 border-[#E5E7EB] bg-[#F9FAFB]">
-                      <td colSpan={2} className="px-4 py-3 text-[#6B7280] text-xs font-semibold uppercase tracking-wider">Total</td>
-                      <td className="px-4 py-3 text-[#111] font-bold whitespace-nowrap">
-                        {fmt(despesas.reduce((a, d) => a + d.valor, 0))}
-                      </td>
-                      <td colSpan={3} />
-                    </tr>
-                  </tfoot>
-                </table>
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -893,12 +668,12 @@ export default function FinanceiroClient({
       )}
 
       {/* ════════════════════════════════════════════════════════════════════ */}
-      {/* ABA — LANÇAMENTOS FINANCEIROS MANUAIS                              */}
+      {/* ABA — MOVIMENTAÇÕES (lançamentos manuais, inclui despesas)         */}
       {/* ════════════════════════════════════════════════════════════════════ */}
-      {abaAtiva === 'lancamentos' && (
+      {abaAtiva === 'movimentacoes' && (
         <div className="space-y-5">
           <div className="flex items-center justify-between flex-wrap gap-3">
-            <h2 className="text-base font-bold text-[#111]">Lançamentos financeiros manuais</h2>
+            <h2 className="text-base font-bold text-[#111]">Movimentações financeiras</h2>
             <div className="flex gap-2 flex-wrap">
               <button
                 onClick={() => { abrirNovoLancamento(); setRetornoAberto(false) }}
@@ -913,7 +688,7 @@ export default function FinanceiroClient({
                 onClick={() => {
                   setLTipo('entrada'); setLCategoria('outras_receitas'); setLCategoriaLivre('')
                   setLDescricao(''); setLValor(''); setLData(new Date().toISOString().split('T')[0])
-                  setErroLanc(null); setLancFormAberto(true); setRetornoAberto(false)
+                  setLRecorrente(false); setErroLanc(null); setLancFormAberto(true); setRetornoAberto(false)
                 }}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-[#111] bg-white border border-[#E5E7EB] hover:border-[#D1D5DB] transition-colors"
               >
@@ -1050,6 +825,19 @@ export default function FinanceiroClient({
                     <label className={labelCls}>Data *</label>
                     <input type="date" value={lData} onChange={e => setLData(e.target.value)} className={inputCls} />
                   </div>
+                  {lTipo === 'saida' && (
+                    <div className="flex items-end pb-2">
+                      <label className="flex items-center gap-2 cursor-pointer text-sm text-[#374151]">
+                        <input
+                          type="checkbox"
+                          checked={lRecorrente}
+                          onChange={e => setLRecorrente(e.target.checked)}
+                          className="w-4 h-4 accent-[#F5C842]"
+                        />
+                        Recorrente
+                      </label>
+                    </div>
+                  )}
                 </div>
 
                 {erroLanc && <p className="text-red-600 text-sm mb-3">{erroLanc}</p>}
@@ -1163,7 +951,7 @@ export default function FinanceiroClient({
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-[#E5E7EB] bg-[#F9FAFB]">
-                      {['Data', 'Tipo', 'Categoria', 'Descrição', 'Valor', 'Venda', 'Ações'].map(h => (
+                      {['Data', 'Tipo', 'Categoria', 'Descrição', 'Valor', 'Recorrente', 'Venda', 'Ações'].map(h => (
                         <th key={h} className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap">
                           {h}
                         </th>
@@ -1199,6 +987,11 @@ export default function FinanceiroClient({
                         <td className={`px-4 py-3 font-semibold whitespace-nowrap ${l.tipo === 'entrada' ? 'text-green-600' : 'text-red-500'}`}>
                           {l.tipo === 'saida' ? '- ' : ''}{fmt(l.valor)}
                         </td>
+                        <td className="px-4 py-3">
+                          {l.recorrente
+                            ? <span className="text-xs bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-md font-medium">Sim</span>
+                            : <span className="text-[#9CA3AF] text-xs">—</span>}
+                        </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           {l.venda ? (
                             <a href={`/admin/vendas/${l.venda.id}`} className="text-xs text-[#F59E0B] hover:underline">
@@ -1226,7 +1019,7 @@ export default function FinanceiroClient({
                       <td className={`px-4 py-3 font-bold whitespace-nowrap ${saldoFiltrado >= 0 ? 'text-green-600' : 'text-red-500'}`}>
                         {fmt(saldoFiltrado)}
                       </td>
-                      <td colSpan={2} />
+                      <td colSpan={3} />
                     </tr>
                   </tfoot>
                 </table>

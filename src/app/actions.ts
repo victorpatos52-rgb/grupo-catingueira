@@ -575,6 +575,7 @@ export async function salvarLancamentoFinanceiro(
     valor: number
     valor_retornado_banco?: number | null
     data: string
+    recorrente?: boolean
     venda_id?: string | null
   },
   lancamentoId?: string
