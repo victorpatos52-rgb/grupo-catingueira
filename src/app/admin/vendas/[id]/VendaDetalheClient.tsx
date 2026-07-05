@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { finalizarVenda, salvarVenda } from '@/app/actions'
 import AnexosClient, { type AnexoComUrl } from '@/components/admin/AnexosClient'
 import type { UsuarioPerfil, Venda, Loja } from '@/types'
@@ -163,11 +164,15 @@ export default function VendaDetalheClient({ venda: initial, perfil, anexos, pod
           {venda.veiculo ? (
             <div className="space-y-4">
               {venda.veiculo.fotos?.[0] && (
-                <img
-                  src={venda.veiculo.fotos[0]}
-                  alt=""
-                  className="w-full aspect-[16/9] object-cover rounded-lg bg-[#F3F4F6]"
-                />
+                <div className="relative w-full aspect-[16/9] rounded-lg overflow-hidden bg-[#F3F4F6]">
+                  <Image
+                    src={venda.veiculo.fotos[0]}
+                    alt=""
+                    fill
+                    className="object-cover"
+                    sizes="(max-width: 1024px) 100vw, 50vw"
+                  />
+                </div>
               )}
               <div className="grid grid-cols-2 gap-3">
                 <Campo label="Veículo" value={`${venda.veiculo.marca} ${venda.veiculo.modelo}`} />

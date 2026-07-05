@@ -23,12 +23,16 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   const admin = adminClient()
 
-  // Admin client garante que RLS não bloqueie perfil nem modulos_permitidos
-  const { data: perfilData } = await admin
-    .from('usuarios_perfil')
-    .select('id, nome, perfil, loja_id, ativo, modulos_permitidos, created_at')
-    .eq('id', user.id)
-    .single()
+  // Perfil e lojas não dependem um do outro (só de user.id já resolvido) — roda em paralelo.
+  const [{ data: perfilData }, { data: lojasData }] = await Promise.all([
+    admin
+      .from('usuarios_perfil')
+      .select('id, nome, perfil, loja_id, ativo, modulos_permitidos, created_at')
+      .eq('id', user.id)
+      .single(),
+    // Admin client garante que todas as lojas são retornadas, sem depender de RLS
+    admin.from('lojas').select('*').order('nome'),
+  ])
 
   if (!perfilData) redirect('/login')
 
@@ -36,9 +40,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     ...(perfilData as UsuarioPerfil),
     modulos_permitidos: (perfilData as UsuarioPerfil).modulos_permitidos ?? [],
   }
-
-  // Admin client garante que todas as lojas são retornadas, sem depender de RLS
-  const { data: lojasData } = await admin.from('lojas').select('*').order('nome')
   // Deduplica por id: proteção contra seeds duplicados (cada id aparece uma só vez)
   const seenIds = new Set<string>()
   const todasLojas = ((lojasData ?? []) as Loja[]).filter(l => {

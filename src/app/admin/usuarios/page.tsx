@@ -43,18 +43,24 @@ export default async function UsuariosPage() {
 
     if (!['diretor', 'admin'].includes(perfil.perfil)) redirect('/admin/dashboard')
 
-    // ── Lojas (admin vê todas) ───────────────────────────────────────────────
-    const { data: lojasData, error: lojasError } = await admin
-      .from('lojas')
-      .select('*')
-      .order('nome')
+    // ── Lojas e usuários do Auth não dependem um do outro — roda em paralelo.
+    const [
+      { data: lojasData, error: lojasError },
+      { data: authData, error: authError },
+    ] = await Promise.all([
+      admin.from('lojas').select('*').order('nome'),
+      admin.auth.admin.listUsers({ perPage: 1000 }),
+    ])
 
     if (lojasError) {
       console.error('[UsuariosPage] Erro ao buscar lojas:', lojasError.message)
     }
+    if (authError) {
+      console.error('[UsuariosPage] Erro ao listar auth users:', authError.message)
+    }
     const lojas = (lojasData ?? []) as Loja[]
 
-    // ── Usuários de todas as lojas ───────────────────────────────────────────
+    // ── Usuários de todas as lojas (depende dos lojaIds acima, sequencial mesmo) ──
     const lojaIds = lojas.map(l => l.id)
     let usuariosPerfil: (UsuarioPerfil & { loja: Loja | null })[] = []
 
@@ -75,13 +81,6 @@ export default async function UsuariosPage() {
         ...u,
         modulos_permitidos: u.modulos_permitidos ?? [],
       }))
-    }
-
-    // ── Emails do Auth ───────────────────────────────────────────────────────
-    const { data: authData, error: authError } = await admin.auth.admin.listUsers({ perPage: 1000 })
-
-    if (authError) {
-      console.error('[UsuariosPage] Erro ao listar auth users:', authError.message)
     }
 
     const emailMap: Record<string, string> = {}

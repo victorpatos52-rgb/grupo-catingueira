@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { deletarVenda } from '@/app/actions'
 import type { UsuarioPerfil, Venda } from '@/types'
@@ -109,10 +110,12 @@ export default function VendasClient({ vendas }: Props) {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         {venda.veiculo?.fotos?.[0] ? (
-                          <img
+                          <Image
                             src={venda.veiculo.fotos[0]}
                             alt=""
-                            className="w-12 h-9 object-cover rounded-lg shrink-0 bg-[#F3F4F6]"
+                            width={48}
+                            height={36}
+                            className="object-cover rounded-lg shrink-0 bg-[#F3F4F6]"
                           />
                         ) : (
                           <div className="w-12 h-9 rounded-lg bg-[#F3F4F6] shrink-0 flex items-center justify-center">

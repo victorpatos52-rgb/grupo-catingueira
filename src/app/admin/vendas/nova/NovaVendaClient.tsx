@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { salvarVenda, finalizarVenda } from '@/app/actions'
 import type { UsuarioPerfil, Veiculo, Venda } from '@/types'
 
@@ -435,9 +436,15 @@ export default function NovaVendaClient({ veiculos, usuarios, lojaId, vendedorId
                         : 'border-[#E5E7EB] bg-white hover:border-[#F5C842]/50'
                     }`}
                   >
-                    <div className="aspect-[4/3] bg-[#F3F4F6] overflow-hidden">
+                    <div className="relative aspect-[4/3] bg-[#F3F4F6] overflow-hidden">
                       {v.fotos?.[0] ? (
-                        <img src={v.fotos[0]} alt="" className="w-full h-full object-cover" />
+                        <Image
+                          src={v.fotos[0]}
+                          alt=""
+                          fill
+                          className="object-cover"
+                          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                        />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
                           <svg className="w-10 h-10 text-[#D1D5DB]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -806,7 +813,13 @@ export default function NovaVendaClient({ veiculos, usuarios, lojaId, vendedorId
             {veiculoSelecionado ? (
               <div className="flex items-center gap-4">
                 {veiculoSelecionado.fotos?.[0] && (
-                  <img src={veiculoSelecionado.fotos[0]} alt="" className="w-20 h-14 object-cover rounded-lg" />
+                  <Image
+                    src={veiculoSelecionado.fotos[0]}
+                    alt=""
+                    width={80}
+                    height={56}
+                    className="object-cover rounded-lg"
+                  />
                 )}
                 <div>
                   <p className="font-bold text-[#111]">{veiculoSelecionado.marca} {veiculoSelecionado.modelo}</p>
