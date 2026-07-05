@@ -4,9 +4,12 @@ import { useState } from 'react'
 import VeiculoForm from '@/components/admin/VeiculoForm'
 import FotosVeiculoClient from './FotosVeiculoClient'
 import CustosVeiculoClient from './CustosVeiculoClient'
-import type { Veiculo, FinanceiroVeiculo, CustoManutencao } from '@/types'
+import DocumentacaoVeiculoClient, { type AnexoComUrl } from './DocumentacaoVeiculoClient'
+import VistoriaClient from './vistoria/VistoriaClient'
+import { ITENS_VISTORIA } from '@/lib/vistoriaItens'
+import type { Veiculo, FinanceiroVeiculo, CustoManutencao, VeiculoAquisicao, VistoriaVeiculo } from '@/types'
 
-type Aba = 'dados' | 'fotos' | 'financeiro' | 'checklist'
+type Aba = 'dados' | 'fotos' | 'financeiro' | 'checklist' | 'documentacao' | 'vistoria'
 
 interface Props {
   veiculo: Veiculo
@@ -14,9 +17,12 @@ interface Props {
   custos: CustoManutencao[]
   lojaId: string
   podeVerFinanceiro: boolean
+  aquisicao: VeiculoAquisicao | null
+  anexos: AnexoComUrl[]
+  vistoria: VistoriaVeiculo | null
 }
 
-export default function VeiculoTabs({ veiculo, financeiro, custos, lojaId, podeVerFinanceiro }: Props) {
+export default function VeiculoTabs({ veiculo, financeiro, custos, lojaId, podeVerFinanceiro, aquisicao, anexos, vistoria }: Props) {
   const [aba, setAba] = useState<Aba>('dados')
 
   const abas: { id: Aba; label: string }[] = [
@@ -24,6 +30,8 @@ export default function VeiculoTabs({ veiculo, financeiro, custos, lojaId, podeV
     { id: 'fotos', label: 'Fotos' },
     ...(podeVerFinanceiro ? [{ id: 'financeiro' as Aba, label: 'Financeiro' }] : []),
     { id: 'checklist', label: 'Checklist de Serviços' },
+    { id: 'vistoria', label: 'Vistoria' },
+    ...(podeVerFinanceiro ? [{ id: 'documentacao' as Aba, label: 'Documentação' }] : []),
   ]
 
   return (
@@ -74,6 +82,19 @@ export default function VeiculoTabs({ veiculo, financeiro, custos, lojaId, podeV
           lojaId={lojaId}
           secao="checklist"
         />
+      )}
+
+      {aba === 'vistoria' && (
+        <VistoriaClient
+          veiculoId={veiculo.id}
+          lojaId={lojaId}
+          itensConfig={ITENS_VISTORIA}
+          vistoria={vistoria}
+        />
+      )}
+
+      {aba === 'documentacao' && podeVerFinanceiro && (
+        <DocumentacaoVeiculoClient veiculoId={veiculo.id} aquisicao={aquisicao} anexos={anexos} />
       )}
     </div>
   )

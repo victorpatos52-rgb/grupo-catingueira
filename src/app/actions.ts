@@ -576,7 +576,17 @@ export async function salvarVenda(
     return { id }
   } else {
     const { veiculo, vendedor, ...rest } = data as Venda & { veiculo?: unknown; vendedor?: unknown }
-    const { data: nova, error } = await supabase.from('vendas').insert(rest).select('id').single()
+
+    const { data: numeroVenda, error: numeroError } = await supabase.rpc('gerar_numero_venda', {
+      p_loja_id: data.loja_id,
+    })
+    if (numeroError) throw new Error(`Erro ao gerar número da venda: ${numeroError.message}`)
+
+    const { data: nova, error } = await supabase
+      .from('vendas')
+      .insert({ ...rest, numero_venda: numeroVenda })
+      .select('id')
+      .single()
     if (error) throw new Error(error.message)
     revalidatePath('/admin/vendas')
     return { id: (nova as { id: string }).id }
@@ -600,6 +610,88 @@ export async function deletarVenda(vendaId: string): Promise<void> {
   const { error } = await supabase.from('vendas').delete().eq('id', vendaId)
   if (error) throw new Error(error.message)
   revalidatePath('/admin/vendas')
+}
+
+// ─── DOCUMENTAÇÃO DO VEÍCULO (AQUISIÇÃO + ANEXOS) ──────────────────────────────
+
+const PERFIS_DOCUMENTACAO: Perfil[] = ['gerente', 'diretor', 'admin']
+
+// Mesma restrição de acesso da aba "Financeiro". Checa o perfil do usuário logado
+// (via sessão/cookies) direto no servidor — não depende da aba estar escondida na UI.
+async function exigirPerfilDocumentacao(): Promise<{ userId: string }> {
+  const userClient = await userSupabase()
+  const { data: { session } } = await userClient.auth.getSession()
+  if (!session) throw new Error('Não autenticado.')
+
+  const admin = adminSupabase()
+  const { data: perfilData } = await admin
+    .from('usuarios_perfil')
+    .select('perfil')
+    .eq('id', session.user.id)
+    .single()
+
+  if (!perfilData || !PERFIS_DOCUMENTACAO.includes(perfilData.perfil as Perfil)) {
+    throw new Error('Você não tem permissão para acessar a documentação deste veículo.')
+  }
+  return { userId: session.user.id }
+}
+
+export async function saveVeiculoAquisicao(
+  veiculoId: string,
+  data: {
+    nome_vendedor: string | null
+    documento_vendedor: string | null
+    telefone_vendedor: string | null
+    forma_pagamento_compra: string | null
+    data_compra: string | null
+    hora_compra: string | null
+    valor_compra: number | null
+    observacoes: string | null
+  },
+  aquisicaoId?: string
+) {
+  await exigirPerfilDocumentacao()
+  const supabase = adminSupabase()
+  if (aquisicaoId) {
+    const { error } = await supabase.from('veiculo_aquisicao').update(data).eq('id', aquisicaoId)
+    if (error) throw new Error(error.message)
+  } else {
+    const { error } = await supabase.from('veiculo_aquisicao').insert({ veiculo_id: veiculoId, ...data })
+    if (error) throw new Error(error.message)
+  }
+  revalidatePath('/admin/veiculos/' + veiculoId)
+}
+
+export async function criarAnexo(data: {
+  entidadeTipo: 'veiculo' | 'venda'
+  entidadeId: string
+  nomeArquivo: string
+  path: string
+  tipoArquivo: string | null
+}) {
+  const { userId } = await exigirPerfilDocumentacao()
+  const supabase = adminSupabase()
+
+  const { error } = await supabase.from('anexos').insert({
+    entidade_tipo: data.entidadeTipo,
+    entidade_id: data.entidadeId,
+    nome_arquivo: data.nomeArquivo,
+    url: data.path,
+    tipo_arquivo: data.tipoArquivo,
+    criado_por: userId,
+  })
+  if (error) throw new Error(error.message)
+
+  if (data.entidadeTipo === 'veiculo') revalidatePath('/admin/veiculos/' + data.entidadeId)
+}
+
+export async function deletarAnexo(anexoId: string, path: string, entidadeId: string) {
+  await exigirPerfilDocumentacao()
+  const supabase = adminSupabase()
+  await supabase.storage.from('veiculos-documentos').remove([path])
+  const { error } = await supabase.from('anexos').delete().eq('id', anexoId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/veiculos/' + entidadeId)
 }
 
 // ─── EXCLUSÃO DE VEÍCULO ───────────────────────────────────────────────────────

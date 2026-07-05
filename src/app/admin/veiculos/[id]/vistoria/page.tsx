@@ -1,24 +1,9 @@
 import { notFound, redirect } from 'next/navigation'
 import Link from 'next/link'
 import { createServerSupabase } from '@/lib/supabase-server'
+import { ITENS_VISTORIA } from '@/lib/vistoriaItens'
 import type { Veiculo, VistoriaVeiculo, UsuarioPerfil } from '@/types'
 import VistoriaClient from './VistoriaClient'
-
-const ITENS_VISTORIA = [
-  { key: 'lataria', label: 'Lataria' },
-  { key: 'pintura', label: 'Pintura' },
-  { key: 'vidros', label: 'Vidros' },
-  { key: 'pneus', label: 'Pneus' },
-  { key: 'motor', label: 'Motor' },
-  { key: 'cambio', label: 'Câmbio' },
-  { key: 'freios', label: 'Freios' },
-  { key: 'suspensao', label: 'Suspensão' },
-  { key: 'parte_eletrica', label: 'Parte elétrica' },
-  { key: 'interior', label: 'Interior' },
-  { key: 'documentacao', label: 'Documentação' },
-  { key: 'chave_reserva', label: 'Chave reserva' },
-  { key: 'manual', label: 'Manual do proprietário' },
-]
 
 export default async function VistoriaPage({
   params,

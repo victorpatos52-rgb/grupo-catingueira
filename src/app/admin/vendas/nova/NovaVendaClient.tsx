@@ -52,6 +52,7 @@ type FormData = {
   comprador_email: string
   vendedor_id: string
   data_venda: string
+  hora_venda: string
   desconto: number
   valor_liquido: number
   pagamento_dinheiro: number
@@ -102,6 +103,7 @@ function initialForm(veiculoIdInicial: string | null, vendedorId: string): FormD
     comprador_email: '',
     vendedor_id: vendedorId,
     data_venda: hoje,
+    hora_venda: '',
     desconto: 0,
     valor_liquido: 0,
     pagamento_dinheiro: 0,
@@ -257,6 +259,7 @@ export default function NovaVendaClient({ veiculos, usuarios, lojaId, vendedorId
       vendedor_id: form.vendedor_id || null,
       numero_negociacao: form.numero_negociacao || null,
       data_venda: form.data_venda,
+      hora_venda: form.hora_venda || null,
       comprador_nome: form.comprador_nome || 'Rascunho',
       comprador_cpf: form.comprador_cpf || null,
       comprador_rg: form.comprador_rg || null,
@@ -582,6 +585,10 @@ export default function NovaVendaClient({ veiculos, usuarios, lojaId, vendedorId
             <div>
               <label className={labelCls}>Data da venda</label>
               <input type="date" value={form.data_venda} onChange={e => set('data_venda', e.target.value)} className={inputCls} />
+            </div>
+            <div>
+              <label className={labelCls}>Hora da venda</label>
+              <input type="time" value={form.hora_venda} onChange={e => set('hora_venda', e.target.value)} className={inputCls} />
             </div>
             <div>
               <label className={labelCls}>Origem</label>

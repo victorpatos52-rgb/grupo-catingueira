@@ -86,6 +86,7 @@ export async function GET(
 
       <table>
         <tr>
+          <th>Nº VENDA</th><td>${venda.numero_venda ?? ''}</td>
           <th>NEG.º</th><td>${venda.numero_negociacao ?? ''}</td>
           <th>VEND.</th><td>${venda.vendedor?.nome ?? ''}</td>
           <th>Data Venda</th><td>${fmtData(venda.data_venda)}</td>

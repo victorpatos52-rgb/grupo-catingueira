@@ -1,15 +1,17 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { finalizarVenda, salvarVenda } from '@/app/actions'
-import { createClient } from '@/lib/supabase'
+import AnexosClient, { type AnexoComUrl } from '@/components/admin/AnexosClient'
 import type { UsuarioPerfil, Venda, Loja } from '@/types'
 
 interface Props {
   venda: Venda
   loja: Loja
   perfil: UsuarioPerfil
+  anexos: AnexoComUrl[]
+  podeVerDocumentacao: boolean
 }
 
 function formatarMoeda(v: number) {
@@ -35,12 +37,10 @@ function Campo({ label, value }: { label: string; value: string | number | null 
   )
 }
 
-export default function VendaDetalheClient({ venda: initial, perfil }: Props) {
+export default function VendaDetalheClient({ venda: initial, perfil, anexos, podeVerDocumentacao }: Props) {
   const router = useRouter()
   const [venda, setVenda] = useState(initial)
   const [finalizando, setFinalizando] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const fileRef = useRef<HTMLInputElement>(null)
   const [obsEditando, setObsEditando] = useState(false)
   const [novaObs, setNovaObs] = useState(initial.observacoes ?? '')
   const [salvandoObs, setSalvandoObs] = useState(false)
@@ -88,34 +88,6 @@ export default function VendaDetalheClient({ venda: initial, perfil }: Props) {
     }
   }
 
-  async function handleUpload(files: FileList) {
-    if (!files.length) return
-    setUploading(true)
-    try {
-      const supabase = createClient()
-      const novasUrls: string[] = []
-      for (const file of Array.from(files)) {
-        const ext = file.name.split('.').pop()
-        const path = `${venda.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
-        const { error } = await supabase.storage.from('vendas-docs').upload(path, file)
-        if (error) throw new Error(error.message)
-        const { data: { publicUrl } } = supabase.storage.from('vendas-docs').getPublicUrl(path)
-        novasUrls.push(publicUrl)
-      }
-      const documentos_urls = [...(venda.documentos_urls ?? []), ...novasUrls]
-      await salvarVenda({
-        ...venda,
-        documentos_urls,
-      })
-      setVenda(v => ({ ...v, documentos_urls }))
-      router.refresh()
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Erro ao fazer upload')
-    } finally {
-      setUploading(false)
-    }
-  }
-
   return (
     <div className="p-6 md:p-8 max-w-5xl mx-auto">
 
@@ -126,6 +98,11 @@ export default function VendaDetalheClient({ venda: initial, perfil }: Props) {
             <h1 className="font-[family-name:var(--font-barlow-condensed)] text-3xl font-black uppercase text-[#111]">
               Venda
             </h1>
+            {venda.numero_venda && (
+              <span className="text-[#111] text-lg font-bold bg-[#FEF9C3] border border-[#F5C842] px-2.5 py-0.5 rounded-lg">
+                {venda.numero_venda}
+              </span>
+            )}
             {venda.numero_negociacao && (
               <span className="text-[#6B7280] text-lg font-medium">#{venda.numero_negociacao}</span>
             )}
@@ -295,30 +272,14 @@ export default function VendaDetalheClient({ venda: initial, perfil }: Props) {
           </div>
         </div>
 
-        {/* Card Documentos */}
-        <div className="bg-white border border-[#E5E7EB] rounded-xl p-5">
-          <div className="flex items-center justify-between mb-4">
-            <p className="text-xs font-bold uppercase tracking-wider text-[#9CA3AF]">Documentos Anexados</p>
-            <button
-              onClick={() => fileRef.current?.click()}
-              disabled={uploading}
-              className="text-xs font-semibold text-[#92400E] bg-[#FEF9C3] border border-[#F5C842] hover:bg-[#FEF08A] px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
-            >
-              {uploading ? 'Enviando...' : 'Anexar Documentos'}
-            </button>
-            <input
-              ref={fileRef}
-              type="file"
-              multiple
-              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-              className="hidden"
-              onChange={e => e.target.files && handleUpload(e.target.files)}
-            />
-          </div>
-
-          {(venda.documentos_urls ?? []).length === 0 ? (
-            <p className="text-[#9CA3AF] text-sm text-center py-6">Nenhum documento anexado.</p>
-          ) : (
+        {/* Card Documentos (legado) — mantido só para exibir uploads antigos feitos
+            via mecanismo anterior (bucket público "vendas-docs"). Novos anexos
+            devem ser enviados pelo card "Anexos" abaixo. */}
+        {(venda.documentos_urls ?? []).length > 0 && (
+          <div className="bg-white border border-[#E5E7EB] rounded-xl p-5">
+            <p className="text-xs font-bold uppercase tracking-wider text-[#9CA3AF] mb-4">
+              Documentos Anexados (legado)
+            </p>
             <ul className="space-y-2">
               {venda.documentos_urls.map((url, i) => {
                 const nome = decodeURIComponent(url.split('/').pop() ?? `documento-${i + 1}`)
@@ -340,10 +301,18 @@ export default function VendaDetalheClient({ venda: initial, perfil }: Props) {
                 )
               })}
             </ul>
-          )}
-        </div>
+          </div>
+        )}
 
       </div>
+
+      {/* Anexos (mesma tabela/bucket privado usados na Documentação do veículo).
+          Restrito a gerente/diretor/admin — mesmo motivo de sensibilidade. */}
+      {podeVerDocumentacao && (
+        <div className="mt-5">
+          <AnexosClient entidadeTipo="venda" entidadeId={venda.id} anexos={anexos} />
+        </div>
+      )}
 
       {/* Card Observações */}
       <div className="mt-5 bg-white border border-[#E5E7EB] rounded-xl p-5">

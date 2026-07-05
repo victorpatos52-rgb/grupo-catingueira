@@ -162,6 +162,35 @@ export interface VistoriaVeiculo {
   created_at: string
 }
 
+export interface VeiculoAquisicao {
+  id: string
+  veiculo_id: string
+  nome_vendedor: string | null
+  documento_vendedor: string | null
+  telefone_vendedor: string | null
+  forma_pagamento_compra: string | null
+  data_compra: string | null
+  hora_compra: string | null
+  valor_compra: number | null
+  observacoes: string | null
+  criado_em: string
+}
+
+export type EntidadeAnexo = 'veiculo' | 'venda'
+
+export interface Anexo {
+  id: string
+  entidade_tipo: EntidadeAnexo
+  entidade_id: string
+  nome_arquivo: string
+  /** Path do objeto no bucket privado `veiculos-documentos` (não é uma URL pública — bucket é privado) */
+  url: string
+  tipo_arquivo: string | null
+  criado_por: string | null
+  criado_em: string
+  usuario?: Pick<UsuarioPerfil, 'nome'> | null
+}
+
 export interface DespesaLoja {
   id: string
   loja_id: string
@@ -181,7 +210,9 @@ export interface Venda {
   veiculo_id: string
   vendedor_id: string | null
   numero_negociacao: string | null
+  numero_venda?: string | null
   data_venda: string
+  hora_venda?: string | null
   comprador_nome: string
   comprador_cpf: string | null
   comprador_rg: string | null

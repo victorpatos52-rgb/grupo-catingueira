@@ -4,7 +4,8 @@ import { getLojaIdAtiva } from '@/lib/getLojaIdAtiva'
 import MarcaVendidoButton from '@/components/admin/MarcaVendidoButton'
 import ExcluirVeiculoButton from '@/components/admin/ExcluirVeiculoButton'
 import VeiculoTabs from './VeiculoTabs'
-import type { Veiculo, UsuarioPerfil, FinanceiroVeiculo, CustoManutencao } from '@/types'
+import type { AnexoComUrl } from './DocumentacaoVeiculoClient'
+import type { Veiculo, UsuarioPerfil, FinanceiroVeiculo, CustoManutencao, VeiculoAquisicao, Anexo, VistoriaVeiculo } from '@/types'
 
 export default async function EditarVeiculoPage({
   params,
@@ -22,9 +23,10 @@ export default async function EditarVeiculoPage({
   const perfil = perfilData as UsuarioPerfil
 
   const lojaId = await getLojaIdAtiva(perfil)
+  const podeVerFinanceiro = ['gerente', 'diretor', 'admin'].includes(perfil.perfil)
 
   const admin = adminSupabase()
-  const [{ data }, { data: finData }, { data: custosData }] = await Promise.all([
+  const [{ data }, { data: finData }, { data: custosData }, { data: aquisicaoData }, { data: anexosData }, { data: vistoriaData }] = await Promise.all([
     admin.from('veiculos').select('*').eq('id', id).eq('loja_id', lojaId).single(),
     admin
       .from('financeiro_veiculos')
@@ -37,14 +39,42 @@ export default async function EditarVeiculoPage({
       .select('*')
       .eq('veiculo_id', id)
       .order('data', { ascending: false }),
+    // Documentação (aquisição/anexos) só é buscada para quem tem permissão de vê-la —
+    // evita mandar dados sensíveis (CPF do vendedor, signed URLs de anexos privados)
+    // no payload para um vendedor, mesmo que a aba fique escondida na UI.
+    podeVerFinanceiro
+      ? admin.from('veiculo_aquisicao').select('*').eq('veiculo_id', id).maybeSingle()
+      : Promise.resolve({ data: null }),
+    podeVerFinanceiro
+      ? admin
+          .from('anexos')
+          .select('*, usuario:usuarios_perfil(nome)')
+          .eq('entidade_tipo', 'veiculo')
+          .eq('entidade_id', id)
+          .order('criado_em', { ascending: false })
+      : Promise.resolve({ data: [] as Anexo[] }),
+    admin
+      .from('vistoria_veiculo')
+      .select('*')
+      .eq('veiculo_id', id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ])
 
   if (!data) notFound()
   const veiculo = data as Veiculo
   const financeiro = finData as FinanceiroVeiculo | null
   const custos = (custosData ?? []) as CustoManutencao[]
+  const aquisicao = aquisicaoData as VeiculoAquisicao | null
+  const vistoria = vistoriaData as VistoriaVeiculo | null
 
-  const podeVerFinanceiro = ['gerente', 'diretor', 'admin'].includes(perfil.perfil)
+  const anexos: AnexoComUrl[] = await Promise.all(
+    ((anexosData ?? []) as Anexo[]).map(async a => {
+      const { data: signed } = await admin.storage.from('veiculos-documentos').createSignedUrl(a.url, 3600)
+      return { ...a, urlAssinada: signed?.signedUrl ?? null }
+    })
+  )
 
   return (
     <div className="p-6 md:p-8 max-w-4xl">
@@ -97,6 +127,9 @@ export default async function EditarVeiculoPage({
         custos={custos}
         lojaId={lojaId}
         podeVerFinanceiro={podeVerFinanceiro}
+        aquisicao={aquisicao}
+        anexos={anexos}
+        vistoria={vistoria}
       />
     </div>
   )
