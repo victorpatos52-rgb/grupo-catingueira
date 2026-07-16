@@ -3,9 +3,10 @@ import { createServerSupabase, adminSupabase } from '@/lib/supabase-server'
 import { getLojaIdAtiva } from '@/lib/getLojaIdAtiva'
 import MarcaVendidoButton from '@/components/admin/MarcaVendidoButton'
 import ExcluirVeiculoButton from '@/components/admin/ExcluirVeiculoButton'
+import TransferirVeiculoButton from '@/components/admin/TransferirVeiculoButton'
 import VeiculoTabs from './VeiculoTabs'
 import type { AnexoComUrl } from './DocumentacaoVeiculoClient'
-import type { Veiculo, UsuarioPerfil, FinanceiroVeiculo, CustoManutencao, VeiculoAquisicao, Anexo, VistoriaVeiculo } from '@/types'
+import type { Veiculo, UsuarioPerfil, FinanceiroVeiculo, CustoManutencao, VeiculoAquisicao, Anexo, VistoriaVeiculo, VeiculoTransferencia } from '@/types'
 
 export default async function EditarVeiculoPage({
   params,
@@ -26,7 +27,16 @@ export default async function EditarVeiculoPage({
   const podeVerFinanceiro = ['gerente', 'diretor', 'admin'].includes(perfil.perfil)
 
   const admin = adminSupabase()
-  const [{ data }, { data: finData }, { data: custosData }, { data: aquisicaoData }, { data: anexosData }, { data: vistoriaData }] = await Promise.all([
+  const [
+    { data },
+    { data: finData },
+    { data: custosData },
+    { data: aquisicaoData },
+    { data: anexosData },
+    { data: vistoriaData },
+    { data: outrasLojasData },
+    { data: transferenciasData },
+  ] = await Promise.all([
     admin.from('veiculos').select('*').eq('id', id).eq('loja_id', lojaId).single(),
     admin
       .from('financeiro_veiculos')
@@ -60,6 +70,19 @@ export default async function EditarVeiculoPage({
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
+    // Loja(s) de destino possíveis para o botão "Transferir" — só quem tem
+    // permissão de transferir (mesma restrição de Documentação/Financeiro) precisa
+    // dessa lista, mas o filtro em si é feito abaixo (depende de veiculo.loja_id).
+    podeVerFinanceiro
+      ? admin.from('lojas').select('id, nome').order('nome')
+      : Promise.resolve({ data: [] as { id: string; nome: string }[] }),
+    podeVerFinanceiro
+      ? admin
+          .from('veiculo_transferencias')
+          .select('*, loja_origem:lojas!veiculo_transferencias_loja_origem_id_fkey(nome)')
+          .eq('veiculo_id', id)
+          .order('data_transferencia', { ascending: false })
+      : Promise.resolve({ data: [] as VeiculoTransferencia[] }),
   ])
 
   if (!data) notFound()
@@ -79,6 +102,10 @@ export default async function EditarVeiculoPage({
   const custos = (custosData ?? []) as CustoManutencao[]
   const aquisicao = aquisicaoData as VeiculoAquisicao | null
   const vistoria = vistoriaData as VistoriaVeiculo | null
+  const outrasLojas = ((outrasLojasData ?? []) as { id: string; nome: string }[]).filter(
+    l => l.id !== veiculo.loja_id
+  )
+  const transferencias = (transferenciasData ?? []) as VeiculoTransferencia[]
 
   const anexos: AnexoComUrl[] = await Promise.all(
     ((anexosData ?? []) as Anexo[]).map(async a => {
@@ -120,6 +147,9 @@ export default async function EditarVeiculoPage({
             {veiculo.status !== 'vendido' && (
               <MarcaVendidoButton veiculoId={id} />
             )}
+            {podeVerFinanceiro && !veiculo.excluido && (
+              <TransferirVeiculoButton veiculoId={id} outrasLojas={outrasLojas} />
+            )}
             {!veiculo.excluido && <ExcluirVeiculoButton veiculoId={id} />}
           </div>
         </div>
@@ -141,6 +171,7 @@ export default async function EditarVeiculoPage({
         aquisicao={aquisicao}
         anexos={anexos}
         vistoria={vistoria}
+        transferencias={transferencias}
       />
     </div>
   )

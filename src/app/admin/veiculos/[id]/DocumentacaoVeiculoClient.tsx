@@ -7,7 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { saveVeiculoAquisicao } from '@/app/actions'
 import AnexosClient, { type AnexoComUrl } from '@/components/admin/AnexosClient'
-import type { VeiculoAquisicao } from '@/types'
+import type { VeiculoAquisicao, VeiculoTransferencia } from '@/types'
 
 const aquisicaoSchema = z.object({
   nome_vendedor: z.string().optional(),
@@ -28,6 +28,7 @@ interface Props {
   veiculoId: string
   aquisicao: VeiculoAquisicao | null
   anexos: AnexoComUrl[]
+  transferencias: VeiculoTransferencia[]
 }
 
 const inputCls =
@@ -35,7 +36,7 @@ const inputCls =
 const labelCls = 'block text-[#6B7280] text-xs font-semibold uppercase tracking-wider mb-1.5'
 const errorCls = 'text-red-600 text-xs mt-1'
 
-export default function DocumentacaoVeiculoClient({ veiculoId, aquisicao, anexos }: Props) {
+export default function DocumentacaoVeiculoClient({ veiculoId, aquisicao, anexos, transferencias }: Props) {
   const router = useRouter()
 
   const {
@@ -89,6 +90,24 @@ export default function DocumentacaoVeiculoClient({ veiculoId, aquisicao, anexos
 
   return (
     <div className="space-y-6">
+      {/* Histórico de transferências entre lojas */}
+      {transferencias.length > 0 && (
+        <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-sm">
+          <h2 className="text-[#111827] font-bold text-sm uppercase tracking-wider mb-4">
+            Histórico de lojas
+          </h2>
+          <ul className="space-y-1.5">
+            {transferencias.map(t => (
+              <li key={t.id} className="text-sm text-[#374151]">
+                Já pertenceu a: <span className="font-medium">{t.loja_origem?.nome ?? 'loja anterior'}</span>{' '}
+                (até {new Date(t.data_transferencia).toLocaleDateString('pt-BR')})
+                {t.observacoes && <span className="text-[#6B7280]"> — {t.observacoes}</span>}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* Aquisição */}
       <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-sm">
         <h2 className="text-[#111827] font-bold text-sm uppercase tracking-wider mb-4">Dados da aquisição</h2>

@@ -264,6 +264,18 @@ export interface Venda {
   vendedor?: Pick<UsuarioPerfil, 'nome'> | null
 }
 
+export interface VeiculoTransferencia {
+  id: string
+  veiculo_id: string
+  loja_origem_id: string
+  loja_destino_id: string
+  data_transferencia: string
+  transferido_por: string | null
+  observacoes: string | null
+  loja_origem?: Pick<Loja, 'nome'> | null
+  loja_destino?: Pick<Loja, 'nome'> | null
+}
+
 export type TipoLancamento = 'entrada' | 'saida'
 
 export interface LancamentoFinanceiro {

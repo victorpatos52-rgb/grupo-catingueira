@@ -601,6 +601,60 @@ export async function atualizarFotosVeiculo(veiculoId: string, fotos: string[]) 
   revalidatePath('/admin/veiculos/' + veiculoId)
 }
 
+// Move o veículo para outra loja e registra o histórico em veiculo_transferencias.
+// financeiro_veiculos/custos_manutencao/vistoria_veiculo têm loja_id próprio usado
+// em RLS e em relatórios (ex: /admin/financeiro) filtrados pela loja ativa — sem
+// atualizar esses registros junto, eles ficariam "presos" à loja de origem e
+// sumiriam da visão da loja de destino. vendas e anexos não são tocados: vendas já
+// finalizadas pertencem à loja onde a venda aconteceu (não deve ser retroativamente
+// reatribuída) e anexos/veiculo_aquisicao não têm loja_id — seu RLS deriva de
+// veiculos.loja_id dinamicamente, então já acompanham o veículo sem mudança nenhuma.
+export async function transferirVeiculo(
+  veiculoId: string,
+  lojaDestinoId: string,
+  observacoes: string | null
+): Promise<void> {
+  const { userId } = await exigirPerfil(
+    PERFIS_GERENCIA,
+    'Você não tem permissão para transferir veículos entre lojas.'
+  )
+  const supabase = adminSupabase()
+
+  const { data: veiculo, error: veiculoError } = await supabase
+    .from('veiculos')
+    .select('loja_id')
+    .eq('id', veiculoId)
+    .single()
+  if (veiculoError || !veiculo) throw new Error('Veículo não encontrado.')
+  if (veiculo.loja_id === lojaDestinoId) {
+    throw new Error('O veículo já pertence a essa loja.')
+  }
+
+  const { error: historicoError } = await supabase.from('veiculo_transferencias').insert({
+    veiculo_id: veiculoId,
+    loja_origem_id: veiculo.loja_id,
+    loja_destino_id: lojaDestinoId,
+    transferido_por: userId,
+    observacoes,
+  })
+  if (historicoError) throw new Error(historicoError.message)
+
+  const [{ error: veiculoUpdateError }, { error: financeiroError }, { error: custosError }, { error: vistoriaError }] =
+    await Promise.all([
+      supabase.from('veiculos').update({ loja_id: lojaDestinoId }).eq('id', veiculoId),
+      supabase.from('financeiro_veiculos').update({ loja_id: lojaDestinoId }).eq('veiculo_id', veiculoId),
+      supabase.from('custos_manutencao').update({ loja_id: lojaDestinoId }).eq('veiculo_id', veiculoId),
+      supabase.from('vistoria_veiculo').update({ loja_id: lojaDestinoId }).eq('veiculo_id', veiculoId),
+    ])
+  if (veiculoUpdateError) throw new Error(veiculoUpdateError.message)
+  if (financeiroError) throw new Error(financeiroError.message)
+  if (custosError) throw new Error(custosError.message)
+  if (vistoriaError) throw new Error(vistoriaError.message)
+
+  revalidatePath('/admin/veiculos')
+  revalidatePath('/admin/veiculos/' + veiculoId)
+}
+
 // ─── DESPESAS ─────────────────────────────────────────────────────────────────
 
 export async function salvarDespesa(

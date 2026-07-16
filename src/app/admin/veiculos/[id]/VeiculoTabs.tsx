@@ -7,7 +7,7 @@ import CustosVeiculoClient from './CustosVeiculoClient'
 import DocumentacaoVeiculoClient, { type AnexoComUrl } from './DocumentacaoVeiculoClient'
 import VistoriaClient from './vistoria/VistoriaClient'
 import { ITENS_VISTORIA } from '@/lib/vistoriaItens'
-import type { Veiculo, FinanceiroVeiculo, CustoManutencao, VeiculoAquisicao, VistoriaVeiculo } from '@/types'
+import type { Veiculo, FinanceiroVeiculo, CustoManutencao, VeiculoAquisicao, VistoriaVeiculo, VeiculoTransferencia } from '@/types'
 
 type Aba = 'dados' | 'fotos' | 'financeiro' | 'checklist' | 'documentacao' | 'vistoria'
 
@@ -20,9 +20,10 @@ interface Props {
   aquisicao: VeiculoAquisicao | null
   anexos: AnexoComUrl[]
   vistoria: VistoriaVeiculo | null
+  transferencias: VeiculoTransferencia[]
 }
 
-export default function VeiculoTabs({ veiculo, financeiro, custos, lojaId, podeVerFinanceiro, aquisicao, anexos, vistoria }: Props) {
+export default function VeiculoTabs({ veiculo, financeiro, custos, lojaId, podeVerFinanceiro, aquisicao, anexos, vistoria, transferencias }: Props) {
   const [aba, setAba] = useState<Aba>('dados')
 
   const abas: { id: Aba; label: string }[] = [
@@ -94,7 +95,12 @@ export default function VeiculoTabs({ veiculo, financeiro, custos, lojaId, podeV
       )}
 
       {aba === 'documentacao' && podeVerFinanceiro && (
-        <DocumentacaoVeiculoClient veiculoId={veiculo.id} aquisicao={aquisicao} anexos={anexos} />
+        <DocumentacaoVeiculoClient
+          veiculoId={veiculo.id}
+          aquisicao={aquisicao}
+          anexos={anexos}
+          transferencias={transferencias}
+        />
       )}
     </div>
   )
