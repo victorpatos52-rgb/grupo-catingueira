@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { ShieldCheck, CreditCard, Users, Award, CheckCircle, Handshake } from 'lucide-react'
 import VeiculoCard from '@/components/veiculo/VeiculoCard'
 import AnimatedSection from '@/components/ui/AnimatedSection'
@@ -67,15 +68,18 @@ export default function HomeFelizardo({ loja, destaques, waHref, waDisplay, sobr
         >
           {/* Esquerda — conteúdo */}
           <div className="flex flex-col justify-center px-6 sm:px-10 lg:px-16 xl:px-24 py-16 relative overflow-hidden">
-            {/* Imagem de fundo no mobile (hidden no desktop onde a imagem fica à direita) */}
-            <div
-              className="absolute inset-0 lg:hidden"
-              style={{
-                backgroundImage: 'url(https://images.unsplash.com/photo-1580273916550-e323be2ae537?w=900&q=80)',
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-              }}
-            />
+            {/* Imagem de fundo no mobile (hidden no desktop onde a imagem fica à direita).
+                É a primeira coisa visível no mobile, então priority. */}
+            <div className="absolute inset-0 lg:hidden">
+              <Image
+                src="https://images.unsplash.com/photo-1580273916550-e323be2ae537?w=900&q=80"
+                alt=""
+                fill
+                priority
+                sizes="100vw"
+                className="object-cover"
+              />
+            </div>
             <div className="absolute inset-0 lg:hidden bg-white/85" />
 
             <AnimatedSection className="relative z-10">
@@ -88,7 +92,7 @@ export default function HomeFelizardo({ loja, destaques, waHref, waDisplay, sobr
 
               <h1
                 className="font-[family-name:var(--font-barlow-condensed)] font-extrabold uppercase leading-none mb-6"
-                style={{ fontSize: 'clamp(3rem, 7vw, 7rem)', color: '#0D1B2A' }}
+                style={{ fontSize: 'clamp(2.5rem, 7vw, 7rem)', color: '#0D1B2A' }}
               >
                 <span className="block">TRADIÇÃO</span>
                 <span className="block" style={{ color: '#2E6BE6' }}>E INOVAÇÃO</span>
@@ -128,13 +132,17 @@ export default function HomeFelizardo({ loja, destaques, waHref, waDisplay, sobr
             </AnimatedSection>
           </div>
 
-          {/* Direita — imagem */}
+          {/* Direita — imagem (só existe visualmente a partir de lg; sem priority de
+              propósito, porque priority faz preload mesmo com a ancestral "hidden"
+              no mobile — deixando padrão (lazy) ela só carrega quando a tela cruza
+              o breakpoint lg e o elemento realmente fica visível) */}
           <div className="relative hidden lg:block">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src="https://images.unsplash.com/photo-1580273916550-e323be2ae537?w=900&q=80"
               alt="Carro elegante Felizardo Veículos"
-              className="absolute inset-0 w-full h-full object-cover"
+              fill
+              sizes="45vw"
+              className="object-cover"
             />
           </div>
         </div>
@@ -232,12 +240,14 @@ export default function HomeFelizardo({ loja, destaques, waHref, waDisplay, sobr
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-16 items-center">
           {/* Imagem esquerda */}
           <AnimatedSection>
-            <div className="rounded-2xl overflow-hidden" style={{ height: '460px' }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+            <div className="relative rounded-2xl overflow-hidden" style={{ height: '460px' }}>
+              <Image
                 src="https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800&q=80"
                 alt="Nossa história - Felizardo Veículos"
-                className="w-full h-full object-cover"
+                fill
+                loading="lazy"
+                sizes="(max-width: 1024px) 100vw, 50vw"
+                className="object-cover"
               />
             </div>
           </AnimatedSection>
@@ -279,12 +289,14 @@ export default function HomeFelizardo({ loja, destaques, waHref, waDisplay, sobr
       <section className="py-16 md:py-24 px-5 bg-white">
         <div className="max-w-7xl mx-auto">
           <AnimatedSection>
-            <div className="rounded-2xl overflow-hidden" style={{ height: '500px' }}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+            <div className="relative rounded-2xl overflow-hidden" style={{ height: '500px' }}>
+              <Image
                 src="https://images.unsplash.com/photo-1560958089-b8a1929cea89?w=1600&q=80"
                 alt="Estrutura da Felizardo Veículos"
-                className="w-full h-full object-cover"
+                fill
+                loading="lazy"
+                sizes="100vw"
+                className="object-cover"
               />
             </div>
             <p className="text-center text-sm mt-4" style={{ color: '#9CA3AF' }}>

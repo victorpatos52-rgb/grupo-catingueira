@@ -118,7 +118,7 @@ export default function Header() {
 
           <button
             onClick={() => setOpen(v => !v)}
-            className="md:hidden p-2 -mr-1 text-[#3D3D3D]"
+            className="md:hidden min-w-11 min-h-11 flex items-center justify-center -mr-1 text-[#3D3D3D]"
             aria-label={open ? 'Fechar menu' : 'Abrir menu'}
             aria-expanded={open}
           >

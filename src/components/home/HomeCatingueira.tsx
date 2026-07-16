@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { Award, CheckCircle, CreditCard, Handshake, MapPin, Clock } from 'lucide-react'
 import VeiculoCard from '@/components/veiculo/VeiculoCard'
 import AnimatedSection from '@/components/ui/AnimatedSection'
@@ -73,14 +74,14 @@ export default function HomeCatingueira({ loja, destaques, waHref, waDisplay }: 
         {/* Borda esquerda amarela */}
         <div className="absolute left-0 top-0 h-full w-[3px] z-20" style={{ backgroundColor: '#F5C200' }} />
 
-        {/* Imagem de fundo */}
-        <div
-          className="absolute inset-0 z-0"
-          style={{
-            backgroundImage: 'url(https://images.unsplash.com/photo-1603584173870-7f23fdae1b7a?w=1920&q=80)',
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
-          }}
+        {/* Imagem de fundo — primeira coisa visível na home, então priority (sem lazy) */}
+        <Image
+          src="https://images.unsplash.com/photo-1603584173870-7f23fdae1b7a?w=1920&q=80"
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover z-0"
         />
 
         {/* Overlay */}
@@ -103,7 +104,7 @@ export default function HomeCatingueira({ loja, destaques, waHref, waDisplay }: 
 
             <h1
               className="font-[family-name:var(--font-barlow-condensed)] font-black italic uppercase leading-none mb-6"
-              style={{ fontSize: 'clamp(4rem, 10vw, 9rem)' }}
+              style={{ fontSize: 'clamp(2.5rem, 10vw, 9rem)' }}
             >
               <span className="block text-white">HÁ 30 ANOS</span>
               <span className="block text-white">REALIZANDO</span>
@@ -239,11 +240,13 @@ export default function HomeCatingueira({ loja, destaques, waHref, waDisplay }: 
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2">
           {/* Imagem esquerda — fullheight */}
           <div className="relative overflow-hidden" style={{ minHeight: '520px' }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
+            <Image
               src="https://images.unsplash.com/photo-1562519819-016930ada31b?w=800&q=80"
               alt="Interior da loja Catingueira Multimarcas"
-              className="absolute inset-0 w-full h-full object-cover"
+              fill
+              loading="lazy"
+              sizes="(max-width: 1024px) 100vw, 50vw"
+              className="object-cover"
             />
           </div>
 
@@ -337,11 +340,13 @@ export default function HomeCatingueira({ loja, destaques, waHref, waDisplay }: 
           FACHADA — imagem fullwidth com overlay
       ══════════════════════════════════════ */}
       <section className="relative overflow-hidden" style={{ height: '500px' }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
+        <Image
           src="https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?w=1600&q=80"
           alt="Fachada Catingueira Multimarcas"
-          className="absolute inset-0 w-full h-full object-cover"
+          fill
+          loading="lazy"
+          sizes="100vw"
+          className="object-cover"
         />
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-5" style={{ backgroundColor: 'rgba(0,0,0,0.65)' }}>
           <h2
