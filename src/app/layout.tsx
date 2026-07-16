@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import { Barlow, Barlow_Condensed } from 'next/font/google'
 import { GoogleAnalytics } from '@next/third-parties/google'
 import './globals.css'
@@ -6,6 +6,7 @@ import { getLoja } from '@/lib/getLoja'
 import { LojaProvider } from '@/contexts/LojaContext'
 import Header from '@/components/layout/Header'
 import Footer from '@/components/layout/Footer'
+import PwaServiceWorker from '@/components/PwaServiceWorker'
 
 const barlow = Barlow({
   subsets: ['latin'],
@@ -23,10 +24,44 @@ const barlowCondensed = Barlow_Condensed({
   display: 'swap',
 })
 
-export const metadata: Metadata = {
-  title: 'Catingueira Multimarcas — Veículos Seminovos em Patos/PB',
-  description:
-    '30 anos realizando sonhos. Veículos seminovos com procedência garantida, atendimento transparente e financiamento fácil em Patos, Paraíba.',
+function slugLoja(loja: { dominio?: string | null; nome?: string | null } | null) {
+  return (loja?.dominio ?? loja?.nome ?? '').toLowerCase().includes('felizardo')
+    ? 'felizardo'
+    : 'catingueira'
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const loja = await getLoja()
+  const slug = slugLoja(loja)
+  const nome = loja?.nome ?? 'Catingueira Multimarcas'
+
+  return {
+    title: loja?.nome
+      ? `${loja.nome} — Veículos Seminovos em Patos/PB`
+      : 'Catingueira Multimarcas — Veículos Seminovos em Patos/PB',
+    description:
+      loja?.sobre ??
+      '30 anos realizando sonhos. Veículos seminovos com procedência garantida, atendimento transparente e financiamento fácil em Patos, Paraíba.',
+    manifest: '/manifest.webmanifest',
+    icons: {
+      apple: `/icons/${slug}-192.png`,
+    },
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: 'default',
+      title: nome,
+    },
+  }
+}
+
+export async function generateViewport(): Promise<Viewport> {
+  const loja = await getLoja()
+  return {
+    width: 'device-width',
+    initialScale: 1,
+    viewportFit: 'cover',
+    themeColor: loja?.cor_primaria ?? '#F5C842',
+  }
 }
 
 const gaId = process.env.NEXT_PUBLIC_GA_ID
@@ -53,6 +88,7 @@ export default async function RootLayout({
       }
     >
       <body>
+        <PwaServiceWorker />
         <LojaProvider loja={loja}>
           <Header />
           {children}

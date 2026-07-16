@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "gerar-icones-pwa": "node scripts/gerar-icones-pwa.js"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -34,6 +35,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "sharp": "^0.35.3",
     "tailwindcss": "^4",
     "typescript": "^5"
   }
