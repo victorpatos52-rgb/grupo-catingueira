@@ -42,13 +42,14 @@ export default function AnexosClient({ entidadeTipo, entidadeId, anexos: anexosI
         continue
       }
       try {
-        await criarAnexo({
+        const novoAnexo = await criarAnexo({
           entidadeTipo,
           entidadeId,
           nomeArquivo: file.name,
           path,
           tipoArquivo: file.type,
         })
+        setAnexos(prev => [novoAnexo, ...prev])
         router.refresh()
       } catch (err: unknown) {
         setErro(err instanceof Error ? err.message : 'Erro ao registrar anexo')

@@ -4,7 +4,7 @@ import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
-import type { DespesaLoja, Perfil, TipoInteracao, TipoLancamento, Venda, Veiculo } from '@/types'
+import type { Anexo, DespesaLoja, Perfil, TipoInteracao, TipoLancamento, Venda, Veiculo } from '@/types'
 
 function adminSupabase() {
   return createClient(
@@ -838,21 +838,32 @@ export async function criarAnexo(data: {
   nomeArquivo: string
   path: string
   tipoArquivo: string | null
-}) {
+}): Promise<Anexo & { urlAssinada: string | null }> {
   const { userId } = await exigirPerfilDocumentacao()
   const supabase = adminSupabase()
 
-  const { error } = await supabase.from('anexos').insert({
-    entidade_tipo: data.entidadeTipo,
-    entidade_id: data.entidadeId,
-    nome_arquivo: data.nomeArquivo,
-    url: data.path,
-    tipo_arquivo: data.tipoArquivo,
-    criado_por: userId,
-  })
+  const { data: anexo, error } = await supabase
+    .from('anexos')
+    .insert({
+      entidade_tipo: data.entidadeTipo,
+      entidade_id: data.entidadeId,
+      nome_arquivo: data.nomeArquivo,
+      url: data.path,
+      tipo_arquivo: data.tipoArquivo,
+      criado_por: userId,
+    })
+    .select('*, usuario:usuarios_perfil(nome)')
+    .single()
   if (error) throw new Error(error.message)
 
+  // Bucket privado — o cliente não consegue gerar a própria signed URL, então
+  // a Server Action (service role) já devolve uma pronta pra usar no update
+  // otimista da lista, sem precisar de outra chamada/round-trip.
+  const { data: signed } = await supabase.storage.from('veiculos-documentos').createSignedUrl(data.path, 3600)
+
   if (data.entidadeTipo === 'veiculo') revalidatePath('/admin/veiculos/' + data.entidadeId)
+
+  return { ...(anexo as Anexo), urlAssinada: signed?.signedUrl ?? null }
 }
 
 export async function deletarAnexo(anexoId: string, path: string, entidadeId: string) {
