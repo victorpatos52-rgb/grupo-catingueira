@@ -17,6 +17,42 @@ function fmtKm(v: number | null | undefined) {
   return v.toLocaleString('pt-BR') + ' km'
 }
 
+type PagamentoRow = {
+  tipo: string
+  valor: number
+  detalhes: Record<string, string | number | null> | null
+}
+
+function labelTipoPagamento(tipo: string): string {
+  switch (tipo) {
+    case 'dinheiro': return 'Dinheiro'
+    case 'pix': return 'Pix'
+    case 'cheque': return 'Cheque'
+    case 'duplicata': return 'Duplicata'
+    case 'financeira': return 'Financeira/Consórcio'
+    case 'veiculo': return 'Veículo recebido'
+    case 'outros': return 'Outros'
+    default: return tipo
+  }
+}
+
+function detalhesPagamento(p: PagamentoRow): string {
+  const d = p.detalhes
+  switch (p.tipo) {
+    case 'cheque':
+    case 'duplicata':
+      return `${d?.banco ?? ''}${d?.data ? ` — ${fmtData(String(d.data))}` : ''}`
+    case 'financeira':
+      return String(d?.nome ?? '')
+    case 'veiculo':
+      return `${d?.marca ?? ''} ${d?.modelo ?? ''}${d?.placa ? ` — ${d.placa}` : ''}`.trim()
+    case 'outros':
+      return String(d?.descricao ?? '')
+    default:
+      return ''
+  }
+}
+
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -39,6 +75,13 @@ export async function GET(
     .select('*')
     .eq('id', venda.loja_id)
     .single()
+
+  const { data: pagamentosData } = await supabase
+    .from('venda_pagamentos')
+    .select('tipo, valor, detalhes')
+    .eq('venda_id', id)
+    .order('criado_em', { ascending: true })
+  const pagamentos = (pagamentosData ?? []) as PagamentoRow[]
 
   const loja = lojaData ?? { nome: '', endereco: '', whatsapp: '' }
   const v = venda.veiculo ?? {}
@@ -145,13 +188,7 @@ export async function GET(
       <table>
         <tr><th>Forma</th><th>Detalhes</th><th style="text-align:right">Valor</th></tr>
         <tr><td>Recebido</td><td></td><td style="text-align:right">${fmt(venda.valor_venda)}</td></tr>
-        ${venda.pagamento_dinheiro > 0 ? `<tr><td>Dinheiro</td><td></td><td style="text-align:right">${fmt(venda.pagamento_dinheiro)}</td></tr>` : ''}
-        ${venda.pagamento_cheque1_valor > 0 ? `<tr><td>Cheque</td><td>${venda.pagamento_cheque1_banco ?? ''} — ${fmtData(venda.pagamento_cheque1_data)}</td><td style="text-align:right">${fmt(venda.pagamento_cheque1_valor)}</td></tr>` : ''}
-        ${venda.pagamento_cheque2_valor > 0 ? `<tr><td>Cheque</td><td>${venda.pagamento_cheque2_banco ?? ''} — ${fmtData(venda.pagamento_cheque2_data)}</td><td style="text-align:right">${fmt(venda.pagamento_cheque2_valor)}</td></tr>` : ''}
-        ${venda.pagamento_duplicata1_valor > 0 ? `<tr><td>Duplicata</td><td>${venda.pagamento_duplicata1_banco ?? ''} — ${fmtData(venda.pagamento_duplicata1_data)}</td><td style="text-align:right">${fmt(venda.pagamento_duplicata1_valor)}</td></tr>` : ''}
-        ${venda.pagamento_duplicata2_valor > 0 ? `<tr><td>Duplicata</td><td>${venda.pagamento_duplicata2_banco ?? ''} — ${fmtData(venda.pagamento_duplicata2_data)}</td><td style="text-align:right">${fmt(venda.pagamento_duplicata2_valor)}</td></tr>` : ''}
-        ${venda.pagamento_financeira_valor > 0 ? `<tr><td>Financeira/Consórcio</td><td>${venda.pagamento_financeira_nome ?? ''}</td><td style="text-align:right">${fmt(venda.pagamento_financeira_valor)}</td></tr>` : ''}
-        ${venda.pagamento_outros_valor > 0 ? `<tr><td>Outros</td><td>${venda.pagamento_outros_desc ?? ''}</td><td style="text-align:right">${fmt(venda.pagamento_outros_valor)}</td></tr>` : ''}
+        ${pagamentos.map(p => `<tr><td>${labelTipoPagamento(p.tipo)}</td><td>${detalhesPagamento(p)}</td><td style="text-align:right">${fmt(p.valor)}</td></tr>`).join('')}
         <tr>
           <td><strong>Desc.</strong> ${fmt(venda.desconto)}</td>
           <td><strong>Líquido</strong> ${fmt(venda.valor_liquido)}</td>

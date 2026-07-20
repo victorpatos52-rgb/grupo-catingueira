@@ -5,13 +5,14 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { finalizarVenda, salvarVenda } from '@/app/actions'
 import AnexosClient, { type AnexoComUrl } from '@/components/admin/AnexosClient'
-import type { UsuarioPerfil, Venda, Loja } from '@/types'
+import type { UsuarioPerfil, Venda, Loja, VendaPagamento } from '@/types'
 
 interface Props {
   venda: Venda
   loja: Loja
   perfil: UsuarioPerfil
   anexos: AnexoComUrl[]
+  pagamentos: VendaPagamento[]
   podeVerDocumentacao: boolean
 }
 
@@ -29,6 +30,19 @@ function formatarKm(v: number) {
   return v.toLocaleString('pt-BR') + ' km'
 }
 
+function labelPagamento(p: VendaPagamento): string {
+  switch (p.tipo) {
+    case 'dinheiro': return 'Dinheiro'
+    case 'pix': return 'Pix'
+    case 'cheque': return `Cheque${p.detalhes?.banco ? ` (${p.detalhes.banco})` : ''}`
+    case 'duplicata': return `Duplicata${p.detalhes?.banco ? ` (${p.detalhes.banco})` : ''}`
+    case 'financeira': return `Financeira${p.detalhes?.nome ? ` (${p.detalhes.nome})` : ''}`
+    case 'veiculo': return `Veículo recebido${p.detalhes?.marca ? ` — ${p.detalhes.marca} ${p.detalhes.modelo ?? ''}`.trimEnd() : ''}`
+    case 'outros': return `Outros${p.detalhes?.descricao ? ` (${p.detalhes.descricao})` : ''}`
+    default: return p.tipo
+  }
+}
+
 function Campo({ label, value }: { label: string; value: string | number | null | undefined }) {
   return (
     <div>
@@ -38,7 +52,7 @@ function Campo({ label, value }: { label: string; value: string | number | null 
   )
 }
 
-export default function VendaDetalheClient({ venda: initial, perfil, anexos, podeVerDocumentacao }: Props) {
+export default function VendaDetalheClient({ venda: initial, perfil, anexos, pagamentos, podeVerDocumentacao }: Props) {
   const router = useRouter()
   const [venda, setVenda] = useState(initial)
   const [finalizando, setFinalizando] = useState(false)
@@ -46,14 +60,7 @@ export default function VendaDetalheClient({ venda: initial, perfil, anexos, pod
   const [novaObs, setNovaObs] = useState(initial.observacoes ?? '')
   const [salvandoObs, setSalvandoObs] = useState(false)
 
-  const total =
-    venda.pagamento_dinheiro +
-    venda.pagamento_cheque1_valor +
-    venda.pagamento_cheque2_valor +
-    venda.pagamento_duplicata1_valor +
-    venda.pagamento_duplicata2_valor +
-    venda.pagamento_financeira_valor +
-    venda.pagamento_outros_valor
+  const total = pagamentos.reduce((a, p) => a + p.valor, 0)
 
   async function handleFinalizar() {
     if (!confirm('Finalizar esta venda? O veículo será marcado como vendido.')) return
@@ -219,48 +226,15 @@ export default function VendaDetalheClient({ venda: initial, perfil, anexos, pod
         <div className="bg-white border border-[#E5E7EB] rounded-xl p-5">
           <p className="text-xs font-bold uppercase tracking-wider text-[#9CA3AF] mb-4">Pagamentos</p>
           <div className="space-y-2 text-sm">
-            {venda.pagamento_dinheiro > 0 && (
-              <div className="flex justify-between">
-                <span className="text-[#6B7280]">Dinheiro</span>
-                <span className="font-medium">{formatarMoeda(venda.pagamento_dinheiro)}</span>
-              </div>
+            {pagamentos.length === 0 && (
+              <p className="text-[#9CA3AF]">Nenhum pagamento registrado.</p>
             )}
-            {venda.pagamento_cheque1_valor > 0 && (
-              <div className="flex justify-between">
-                <span className="text-[#6B7280]">Cheque 1 {venda.pagamento_cheque1_banco ? `(${venda.pagamento_cheque1_banco})` : ''}</span>
-                <span className="font-medium">{formatarMoeda(venda.pagamento_cheque1_valor)}</span>
+            {pagamentos.map(p => (
+              <div key={p.id} className="flex justify-between">
+                <span className="text-[#6B7280]">{labelPagamento(p)}</span>
+                <span className="font-medium">{formatarMoeda(p.valor)}</span>
               </div>
-            )}
-            {venda.pagamento_cheque2_valor > 0 && (
-              <div className="flex justify-between">
-                <span className="text-[#6B7280]">Cheque 2 {venda.pagamento_cheque2_banco ? `(${venda.pagamento_cheque2_banco})` : ''}</span>
-                <span className="font-medium">{formatarMoeda(venda.pagamento_cheque2_valor)}</span>
-              </div>
-            )}
-            {venda.pagamento_duplicata1_valor > 0 && (
-              <div className="flex justify-between">
-                <span className="text-[#6B7280]">Duplicata 1 {venda.pagamento_duplicata1_banco ? `(${venda.pagamento_duplicata1_banco})` : ''}</span>
-                <span className="font-medium">{formatarMoeda(venda.pagamento_duplicata1_valor)}</span>
-              </div>
-            )}
-            {venda.pagamento_duplicata2_valor > 0 && (
-              <div className="flex justify-between">
-                <span className="text-[#6B7280]">Duplicata 2 {venda.pagamento_duplicata2_banco ? `(${venda.pagamento_duplicata2_banco})` : ''}</span>
-                <span className="font-medium">{formatarMoeda(venda.pagamento_duplicata2_valor)}</span>
-              </div>
-            )}
-            {venda.pagamento_financeira_valor > 0 && (
-              <div className="flex justify-between">
-                <span className="text-[#6B7280]">Financeira {venda.pagamento_financeira_nome ? `(${venda.pagamento_financeira_nome})` : ''}</span>
-                <span className="font-medium">{formatarMoeda(venda.pagamento_financeira_valor)}</span>
-              </div>
-            )}
-            {venda.pagamento_outros_valor > 0 && (
-              <div className="flex justify-between">
-                <span className="text-[#6B7280]">Outros {venda.pagamento_outros_desc ? `(${venda.pagamento_outros_desc})` : ''}</span>
-                <span className="font-medium">{formatarMoeda(venda.pagamento_outros_valor)}</span>
-              </div>
-            )}
+            ))}
             <div className="border-t border-[#E5E7EB] pt-2 mt-2 space-y-1.5">
               <div className="flex justify-between">
                 <span className="text-[#6B7280]">Valor de venda</span>

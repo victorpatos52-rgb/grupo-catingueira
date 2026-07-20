@@ -3,8 +3,8 @@
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { salvarVenda, finalizarVenda, salvarVeiculoRecebido } from '@/app/actions'
-import type { UsuarioPerfil, Veiculo, Venda } from '@/types'
+import { salvarVenda, finalizarVenda, salvarPagamentosVenda } from '@/app/actions'
+import type { UsuarioPerfil, Veiculo, TipoPagamentoVenda } from '@/types'
 
 interface Props {
   perfil: UsuarioPerfil
@@ -55,23 +55,6 @@ type FormData = {
   hora_venda: string
   desconto: number
   valor_liquido: number
-  pagamento_dinheiro: number
-  pagamento_cheque1_banco: string
-  pagamento_cheque1_data: string
-  pagamento_cheque1_valor: number
-  pagamento_cheque2_banco: string
-  pagamento_cheque2_data: string
-  pagamento_cheque2_valor: number
-  pagamento_duplicata1_banco: string
-  pagamento_duplicata1_data: string
-  pagamento_duplicata1_valor: number
-  pagamento_duplicata2_banco: string
-  pagamento_duplicata2_data: string
-  pagamento_duplicata2_valor: number
-  pagamento_financeira_nome: string
-  pagamento_financeira_valor: number
-  pagamento_outros_desc: string
-  pagamento_outros_valor: number
   origem: string
   numero_fiscal: string
   inscricao_estadual: string
@@ -105,28 +88,103 @@ function initialForm(veiculoIdInicial: string | null, vendedorId: string): FormD
     hora_venda: '',
     desconto: 0,
     valor_liquido: 0,
-    pagamento_dinheiro: 0,
-    pagamento_cheque1_banco: '',
-    pagamento_cheque1_data: '',
-    pagamento_cheque1_valor: 0,
-    pagamento_cheque2_banco: '',
-    pagamento_cheque2_data: '',
-    pagamento_cheque2_valor: 0,
-    pagamento_duplicata1_banco: '',
-    pagamento_duplicata1_data: '',
-    pagamento_duplicata1_valor: 0,
-    pagamento_duplicata2_banco: '',
-    pagamento_duplicata2_data: '',
-    pagamento_duplicata2_valor: 0,
-    pagamento_financeira_nome: '',
-    pagamento_financeira_valor: 0,
-    pagamento_outros_desc: '',
-    pagamento_outros_valor: 0,
     origem: '',
     numero_fiscal: '',
     inscricao_estadual: '',
     hodometro_venda: null,
     observacoes: '',
+  }
+}
+
+// ── Pagamentos (lista dinâmica) ────────────────────────────────────────────────
+
+interface PagamentoItemForm {
+  tempId: string
+  tipo: TipoPagamentoVenda
+  valor: number
+  banco: string
+  numeroCheque: string
+  data: string
+  nomeFinanceira: string
+  veiculoMarca: string
+  veiculoModelo: string
+  veiculoAno: string
+  veiculoPlaca: string
+  veiculoCor: string
+  veiculoObs: string
+  outrosDesc: string
+}
+
+function novoPagamentoItem(tipo: TipoPagamentoVenda = 'dinheiro'): PagamentoItemForm {
+  return {
+    tempId: Math.random().toString(36).slice(2),
+    tipo,
+    valor: 0,
+    banco: '',
+    numeroCheque: '',
+    data: '',
+    nomeFinanceira: '',
+    veiculoMarca: '',
+    veiculoModelo: '',
+    veiculoAno: '',
+    veiculoPlaca: '',
+    veiculoCor: '',
+    veiculoObs: '',
+    outrosDesc: '',
+  }
+}
+
+const TIPOS_PAGAMENTO: { value: TipoPagamentoVenda; label: string }[] = [
+  { value: 'dinheiro', label: 'Dinheiro' },
+  { value: 'pix', label: 'Pix' },
+  { value: 'cheque', label: 'Cheque' },
+  { value: 'duplicata', label: 'Duplicata' },
+  { value: 'financeira', label: 'Financeira / Consórcio' },
+  { value: 'veiculo', label: 'Veículo recebido na troca' },
+  { value: 'outros', label: 'Outros' },
+]
+
+function pagamentoItemValido(item: PagamentoItemForm): boolean {
+  if (item.valor <= 0) return false
+  if (item.tipo === 'veiculo') {
+    return !!item.veiculoMarca.trim() && !!item.veiculoModelo.trim() && !!item.veiculoAno && !!item.veiculoCor.trim()
+  }
+  return true
+}
+
+function labelPagamento(item: PagamentoItemForm): string {
+  switch (item.tipo) {
+    case 'dinheiro': return 'Dinheiro'
+    case 'pix': return 'Pix'
+    case 'cheque': return `Cheque${item.banco ? ` (${item.banco})` : ''}`
+    case 'duplicata': return `Duplicata${item.banco ? ` (${item.banco})` : ''}`
+    case 'financeira': return `Financeira${item.nomeFinanceira ? ` (${item.nomeFinanceira})` : ''}`
+    case 'veiculo': return `Veículo recebido${item.veiculoMarca ? ` — ${item.veiculoMarca} ${item.veiculoModelo}` : ''}`
+    case 'outros': return `Outros${item.outrosDesc ? ` (${item.outrosDesc})` : ''}`
+  }
+}
+
+function detalhesDoItem(item: PagamentoItemForm): Record<string, string | number | null> | null {
+  switch (item.tipo) {
+    case 'cheque':
+      return { banco: item.banco || null, numero: item.numeroCheque || null, data: item.data || null }
+    case 'duplicata':
+      return { banco: item.banco || null, data: item.data || null }
+    case 'financeira':
+      return { nome: item.nomeFinanceira || null }
+    case 'veiculo':
+      return {
+        marca: item.veiculoMarca.trim(),
+        modelo: item.veiculoModelo.trim(),
+        ano: item.veiculoAno || null,
+        placa: item.veiculoPlaca.trim() || null,
+        cor: item.veiculoCor.trim() || null,
+        observacoes: item.veiculoObs.trim() || null,
+      }
+    case 'outros':
+      return { descricao: item.outrosDesc.trim() || null }
+    default:
+      return null
   }
 }
 
@@ -227,20 +285,7 @@ export default function NovaVendaClient({ veiculos, usuarios, lojaId, vendedorId
   const [salvando, setSalvando] = useState(false)
   const [finalizando, setFinalizando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
-
-  // ── Veículo recebido na troca (permuta) — opcional ────────────────────────
-  const [temRecebido, setTemRecebido] = useState(false)
-  const [recebido, setRecebido] = useState({
-    marca: '',
-    modelo: '',
-    ano: '',
-    placa: '',
-    cor: '',
-    valor_entrada: 0,
-    observacoes: '',
-  })
-  const recebidoValido =
-    !temRecebido || (!!recebido.marca.trim() && !!recebido.modelo.trim() && !!recebido.ano && !!recebido.cor.trim())
+  const [pagamentos, setPagamentos] = useState<PagamentoItemForm[]>([])
 
   const veiculoSelecionado = veiculos.find(v => v.id === form.veiculo_id) ?? null
 
@@ -264,16 +309,20 @@ export default function NovaVendaClient({ veiculos, usuarios, lojaId, vendedorId
     return Math.max(0, vv - desc)
   }
 
+  function atualizarPagamento(tempId: string, patch: Partial<PagamentoItemForm>) {
+    setPagamentos(prev => prev.map(p => (p.tempId === tempId ? { ...p, ...patch } : p)))
+  }
+
+  function removerPagamento(tempId: string) {
+    setPagamentos(prev => prev.filter(p => p.tempId !== tempId))
+  }
+
+  function adicionarPagamento() {
+    setPagamentos(prev => [...prev, novoPagamentoItem()])
+  }
+
   function totalPagamentos() {
-    return (
-      form.pagamento_dinheiro +
-      form.pagamento_cheque1_valor +
-      form.pagamento_cheque2_valor +
-      form.pagamento_duplicata1_valor +
-      form.pagamento_duplicata2_valor +
-      form.pagamento_financeira_valor +
-      form.pagamento_outros_valor
-    )
+    return pagamentos.reduce((a, p) => a + (p.valor || 0), 0)
   }
 
   async function autoSalvar(): Promise<string> {
@@ -302,23 +351,27 @@ export default function NovaVendaClient({ veiculos, usuarios, lojaId, vendedorId
       valor_venda: form.valor_venda,
       desconto: form.desconto,
       valor_liquido: form.valor_liquido,
-      pagamento_dinheiro: form.pagamento_dinheiro,
-      pagamento_cheque1_banco: form.pagamento_cheque1_banco || null,
-      pagamento_cheque1_data: form.pagamento_cheque1_data || null,
-      pagamento_cheque1_valor: form.pagamento_cheque1_valor,
-      pagamento_cheque2_banco: form.pagamento_cheque2_banco || null,
-      pagamento_cheque2_data: form.pagamento_cheque2_data || null,
-      pagamento_cheque2_valor: form.pagamento_cheque2_valor,
-      pagamento_duplicata1_banco: form.pagamento_duplicata1_banco || null,
-      pagamento_duplicata1_data: form.pagamento_duplicata1_data || null,
-      pagamento_duplicata1_valor: form.pagamento_duplicata1_valor,
-      pagamento_duplicata2_banco: form.pagamento_duplicata2_banco || null,
-      pagamento_duplicata2_data: form.pagamento_duplicata2_data || null,
-      pagamento_duplicata2_valor: form.pagamento_duplicata2_valor,
-      pagamento_financeira_nome: form.pagamento_financeira_nome || null,
-      pagamento_financeira_valor: form.pagamento_financeira_valor,
-      pagamento_outros_desc: form.pagamento_outros_desc || null,
-      pagamento_outros_valor: form.pagamento_outros_valor,
+      // Campos fixos antigos de pagamento não são mais usados — a lista dinâmica
+      // (venda_pagamentos, salva logo abaixo) é a fonte de verdade agora. Zerados
+      // aqui em vez de omitidos porque não sabemos se as colunas antigas têm
+      // default no banco (não estão em nenhuma migration rastreada).
+      pagamento_dinheiro: 0,
+      pagamento_cheque1_banco: null,
+      pagamento_cheque1_data: null,
+      pagamento_cheque1_valor: 0,
+      pagamento_cheque2_banco: null,
+      pagamento_cheque2_data: null,
+      pagamento_cheque2_valor: 0,
+      pagamento_duplicata1_banco: null,
+      pagamento_duplicata1_data: null,
+      pagamento_duplicata1_valor: 0,
+      pagamento_duplicata2_banco: null,
+      pagamento_duplicata2_data: null,
+      pagamento_duplicata2_valor: 0,
+      pagamento_financeira_nome: null,
+      pagamento_financeira_valor: 0,
+      pagamento_outros_desc: null,
+      pagamento_outros_valor: 0,
       origem: form.origem || null,
       numero_fiscal: form.numero_fiscal || null,
       inscricao_estadual: form.inscricao_estadual || null,
@@ -329,19 +382,9 @@ export default function NovaVendaClient({ veiculos, usuarios, lojaId, vendedorId
     }
     const { id } = await salvarVenda(payload)
     setVendaId(id)
-    await salvarVeiculoRecebido(
+    await salvarPagamentosVenda(
       id,
-      temRecebido && recebido.marca.trim() && recebido.modelo.trim()
-        ? {
-            marca: recebido.marca.trim(),
-            modelo: recebido.modelo.trim(),
-            ano: recebido.ano ? Number(recebido.ano) : null,
-            placa: recebido.placa.trim() || null,
-            cor: recebido.cor.trim() || null,
-            valor_entrada: recebido.valor_entrada || null,
-            observacoes: recebido.observacoes.trim() || null,
-          }
-        : null
+      pagamentos.map(p => ({ tipo: p.tipo, valor: p.valor, detalhes: detalhesDoItem(p) }))
     )
     return id
   }
@@ -387,7 +430,8 @@ export default function NovaVendaClient({ veiculos, usuarios, lojaId, vendedorId
 
   const podaAvancar1 = !!form.veiculo_id && form.valor_venda > 0
   const podaAvancar2 = !!form.comprador_nome.trim() && !dataVendaFutura
-  const podaAvancar3 = recebidoValido
+  const pagamentosValidos = pagamentos.every(pagamentoItemValido)
+  const podaAvancar3 = pagamentosValidos
 
   const total = totalPagamentos()
   const diferePagamento = form.valor_liquido > 0 && Math.abs(total - form.valor_liquido) > 0.01
@@ -697,210 +741,128 @@ export default function NovaVendaClient({ veiculos, usuarios, lojaId, vendedorId
           </div>
 
           <div className="space-y-4">
-            {/* Dinheiro */}
-            <div className="p-4 rounded-xl border border-[#E5E7EB] bg-white">
-              <p className="text-sm font-semibold text-[#374151] mb-3">Dinheiro</p>
-              <MoedaInput value={form.pagamento_dinheiro} onChange={v => set('pagamento_dinheiro', v)} />
-            </div>
+            {pagamentos.map(item => (
+              <div key={item.tempId} className="p-4 rounded-xl border border-[#E5E7EB] bg-white">
+                <div className="flex items-center justify-between mb-3 gap-3 flex-wrap">
+                  <select
+                    value={item.tipo}
+                    onChange={e => atualizarPagamento(item.tempId, { tipo: e.target.value as TipoPagamentoVenda })}
+                    className={`${inputCls} cursor-pointer max-w-[220px]`}
+                  >
+                    {TIPOS_PAGAMENTO.map(t => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => removerPagamento(item.tempId)}
+                    className="text-xs text-red-500 hover:text-red-700 transition-colors"
+                  >
+                    Remover
+                  </button>
+                </div>
 
-            {/* Cheque 1 */}
-            <div className="p-4 rounded-xl border border-[#E5E7EB] bg-white">
-              <p className="text-sm font-semibold text-[#374151] mb-3">Cheque 1</p>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-1">
-                  <label className={labelCls}>Banco</label>
-                  <input type="text" value={form.pagamento_cheque1_banco} onChange={e => set('pagamento_cheque1_banco', e.target.value)} className={inputCls} />
-                </div>
-                <div>
-                  <label className={labelCls}>Data</label>
-                  <input type="date" value={form.pagamento_cheque1_data} onChange={e => set('pagamento_cheque1_data', e.target.value)} className={inputCls} />
-                </div>
-                <div>
-                  <label className={labelCls}>Valor</label>
-                  <MoedaInput value={form.pagamento_cheque1_valor} onChange={v => set('pagamento_cheque1_valor', v)} />
-                </div>
-              </div>
-            </div>
-
-            {/* Cheque 2 */}
-            <div className="p-4 rounded-xl border border-[#E5E7EB] bg-white">
-              <p className="text-sm font-semibold text-[#374151] mb-3">Cheque 2</p>
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className={labelCls}>Banco</label>
-                  <input type="text" value={form.pagamento_cheque2_banco} onChange={e => set('pagamento_cheque2_banco', e.target.value)} className={inputCls} />
-                </div>
-                <div>
-                  <label className={labelCls}>Data</label>
-                  <input type="date" value={form.pagamento_cheque2_data} onChange={e => set('pagamento_cheque2_data', e.target.value)} className={inputCls} />
-                </div>
-                <div>
-                  <label className={labelCls}>Valor</label>
-                  <MoedaInput value={form.pagamento_cheque2_valor} onChange={v => set('pagamento_cheque2_valor', v)} />
-                </div>
-              </div>
-            </div>
-
-            {/* Duplicata 1 */}
-            <div className="p-4 rounded-xl border border-[#E5E7EB] bg-white">
-              <p className="text-sm font-semibold text-[#374151] mb-3">Duplicata 1</p>
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className={labelCls}>Banco</label>
-                  <input type="text" value={form.pagamento_duplicata1_banco} onChange={e => set('pagamento_duplicata1_banco', e.target.value)} className={inputCls} />
-                </div>
-                <div>
-                  <label className={labelCls}>Data</label>
-                  <input type="date" value={form.pagamento_duplicata1_data} onChange={e => set('pagamento_duplicata1_data', e.target.value)} className={inputCls} />
-                </div>
-                <div>
-                  <label className={labelCls}>Valor</label>
-                  <MoedaInput value={form.pagamento_duplicata1_valor} onChange={v => set('pagamento_duplicata1_valor', v)} />
-                </div>
-              </div>
-            </div>
-
-            {/* Duplicata 2 */}
-            <div className="p-4 rounded-xl border border-[#E5E7EB] bg-white">
-              <p className="text-sm font-semibold text-[#374151] mb-3">Duplicata 2</p>
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className={labelCls}>Banco</label>
-                  <input type="text" value={form.pagamento_duplicata2_banco} onChange={e => set('pagamento_duplicata2_banco', e.target.value)} className={inputCls} />
-                </div>
-                <div>
-                  <label className={labelCls}>Data</label>
-                  <input type="date" value={form.pagamento_duplicata2_data} onChange={e => set('pagamento_duplicata2_data', e.target.value)} className={inputCls} />
-                </div>
-                <div>
-                  <label className={labelCls}>Valor</label>
-                  <MoedaInput value={form.pagamento_duplicata2_valor} onChange={v => set('pagamento_duplicata2_valor', v)} />
-                </div>
-              </div>
-            </div>
-
-            {/* Financeira */}
-            <div className="p-4 rounded-xl border border-[#E5E7EB] bg-white">
-              <p className="text-sm font-semibold text-[#374151] mb-3">Financeira / Consórcio</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={labelCls}>Nome</label>
-                  <input type="text" value={form.pagamento_financeira_nome} onChange={e => set('pagamento_financeira_nome', e.target.value)} className={inputCls} />
-                </div>
-                <div>
-                  <label className={labelCls}>Valor</label>
-                  <MoedaInput value={form.pagamento_financeira_valor} onChange={v => set('pagamento_financeira_valor', v)} />
-                </div>
-              </div>
-            </div>
-
-            {/* Outros */}
-            <div className="p-4 rounded-xl border border-[#E5E7EB] bg-white">
-              <p className="text-sm font-semibold text-[#374151] mb-3">Outros</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={labelCls}>Descrição</label>
-                  <input type="text" value={form.pagamento_outros_desc} onChange={e => set('pagamento_outros_desc', e.target.value)} className={inputCls} />
-                </div>
-                <div>
-                  <label className={labelCls}>Valor</label>
-                  <MoedaInput value={form.pagamento_outros_valor} onChange={v => set('pagamento_outros_valor', v)} />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Veículo recebido na troca */}
-          <div className="mt-4 p-4 rounded-xl border border-[#E5E7EB] bg-white">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-semibold text-[#374151]">Veículo recebido na troca</p>
-              <label className="flex items-center gap-2 text-xs text-[#6B7280] cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={temRecebido}
-                  onChange={e => setTemRecebido(e.target.checked)}
-                  className="accent-[#F5C842]"
-                />
-                Houve troca
-              </label>
-            </div>
-            {temRecebido && (
-              <>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {item.tipo === 'cheque' && (
+                    <>
+                      <div>
+                        <label className={labelCls}>Banco</label>
+                        <input type="text" value={item.banco} onChange={e => atualizarPagamento(item.tempId, { banco: e.target.value })} className={inputCls} />
+                      </div>
+                      <div>
+                        <label className={labelCls}>Número</label>
+                        <input type="text" value={item.numeroCheque} onChange={e => atualizarPagamento(item.tempId, { numeroCheque: e.target.value })} className={inputCls} />
+                      </div>
+                      <div>
+                        <label className={labelCls}>Data</label>
+                        <input type="date" value={item.data} onChange={e => atualizarPagamento(item.tempId, { data: e.target.value })} className={inputCls} />
+                      </div>
+                    </>
+                  )}
+
+                  {item.tipo === 'duplicata' && (
+                    <>
+                      <div>
+                        <label className={labelCls}>Banco</label>
+                        <input type="text" value={item.banco} onChange={e => atualizarPagamento(item.tempId, { banco: e.target.value })} className={inputCls} />
+                      </div>
+                      <div>
+                        <label className={labelCls}>Data</label>
+                        <input type="date" value={item.data} onChange={e => atualizarPagamento(item.tempId, { data: e.target.value })} className={inputCls} />
+                      </div>
+                    </>
+                  )}
+
+                  {item.tipo === 'financeira' && (
+                    <div>
+                      <label className={labelCls}>Nome da financeira</label>
+                      <input type="text" value={item.nomeFinanceira} onChange={e => atualizarPagamento(item.tempId, { nomeFinanceira: e.target.value })} className={inputCls} />
+                    </div>
+                  )}
+
+                  {item.tipo === 'outros' && (
+                    <div className="col-span-2">
+                      <label className={labelCls}>Descrição</label>
+                      <input type="text" value={item.outrosDesc} onChange={e => atualizarPagamento(item.tempId, { outrosDesc: e.target.value })} className={inputCls} placeholder="Ex: permuta de serviço, crédito de loja..." />
+                    </div>
+                  )}
+
+                  {item.tipo === 'veiculo' && (
+                    <>
+                      <div>
+                        <label className={labelCls}>Marca *</label>
+                        <input required type="text" value={item.veiculoMarca} onChange={e => atualizarPagamento(item.tempId, { veiculoMarca: e.target.value })} className={inputCls} />
+                      </div>
+                      <div>
+                        <label className={labelCls}>Modelo *</label>
+                        <input required type="text" value={item.veiculoModelo} onChange={e => atualizarPagamento(item.tempId, { veiculoModelo: e.target.value })} className={inputCls} />
+                      </div>
+                      <div>
+                        <label className={labelCls}>Ano *</label>
+                        <input required type="number" value={item.veiculoAno} onChange={e => atualizarPagamento(item.tempId, { veiculoAno: e.target.value })} className={inputCls} />
+                      </div>
+                      <div>
+                        <label className={labelCls}>Placa</label>
+                        <input type="text" value={item.veiculoPlaca} onChange={e => atualizarPagamento(item.tempId, { veiculoPlaca: e.target.value })} className={inputCls} />
+                      </div>
+                      <div>
+                        <label className={labelCls}>Cor *</label>
+                        <input required type="text" value={item.veiculoCor} onChange={e => atualizarPagamento(item.tempId, { veiculoCor: e.target.value })} className={inputCls} />
+                      </div>
+                      <div className="col-span-2 sm:col-span-3">
+                        <label className={labelCls}>Observações</label>
+                        <textarea
+                          value={item.veiculoObs}
+                          onChange={e => atualizarPagamento(item.tempId, { veiculoObs: e.target.value })}
+                          rows={2}
+                          className={`${inputCls} resize-none`}
+                        />
+                      </div>
+                    </>
+                  )}
+
                   <div>
-                    <label className={labelCls}>Marca *</label>
-                    <input
-                      required
-                      type="text"
-                      value={recebido.marca}
-                      onChange={e => setRecebido(p => ({ ...p, marca: e.target.value }))}
-                      className={inputCls}
-                    />
-                  </div>
-                  <div>
-                    <label className={labelCls}>Modelo *</label>
-                    <input
-                      required
-                      type="text"
-                      value={recebido.modelo}
-                      onChange={e => setRecebido(p => ({ ...p, modelo: e.target.value }))}
-                      className={inputCls}
-                    />
-                  </div>
-                  <div>
-                    <label className={labelCls}>Ano *</label>
-                    <input
-                      required
-                      type="number"
-                      value={recebido.ano}
-                      onChange={e => setRecebido(p => ({ ...p, ano: e.target.value }))}
-                      className={inputCls}
-                    />
-                  </div>
-                  <div>
-                    <label className={labelCls}>Placa</label>
-                    <input
-                      type="text"
-                      value={recebido.placa}
-                      onChange={e => setRecebido(p => ({ ...p, placa: e.target.value }))}
-                      className={inputCls}
-                    />
-                  </div>
-                  <div>
-                    <label className={labelCls}>Cor *</label>
-                    <input
-                      required
-                      type="text"
-                      value={recebido.cor}
-                      onChange={e => setRecebido(p => ({ ...p, cor: e.target.value }))}
-                      className={inputCls}
-                    />
-                  </div>
-                  <div>
-                    <label className={labelCls}>Valor de entrada</label>
-                    <MoedaInput value={recebido.valor_entrada} onChange={v => setRecebido(p => ({ ...p, valor_entrada: v }))} />
-                  </div>
-                  <div className="col-span-2 sm:col-span-3">
-                    <label className={labelCls}>Observações</label>
-                    <textarea
-                      value={recebido.observacoes}
-                      onChange={e => setRecebido(p => ({ ...p, observacoes: e.target.value }))}
-                      rows={2}
-                      className={`${inputCls} resize-none`}
-                    />
+                    <label className={labelCls}>{item.tipo === 'veiculo' ? 'Valor de entrada' : 'Valor'}</label>
+                    <MoedaInput value={item.valor} onChange={v => atualizarPagamento(item.tempId, { valor: v })} />
                   </div>
                 </div>
-                {!recebidoValido && (
-                  <p className="text-red-600 text-xs mt-2">
-                    Preencha marca, modelo, ano e cor do veículo recebido na troca.
-                  </p>
+
+                {!pagamentoItemValido(item) && item.tipo === 'veiculo' && (
+                  <p className="text-red-600 text-xs mt-2">Preencha marca, modelo, ano e cor do veículo recebido.</p>
                 )}
-                <p className="text-[#9CA3AF] text-xs mt-2">
-                  Esse veículo é cadastrado automaticamente (como rascunho, precisando de fotos/preço) quando a
-                  venda for finalizada.
-                </p>
-              </>
-            )}
+                {!pagamentoItemValido(item) && item.tipo !== 'veiculo' && (
+                  <p className="text-red-600 text-xs mt-2">Informe um valor maior que zero.</p>
+                )}
+              </div>
+            ))}
+
+            <button
+              type="button"
+              onClick={adicionarPagamento}
+              className="w-full py-3 rounded-xl border-2 border-dashed border-[#E5E7EB] text-[#6B7280] text-sm font-medium hover:border-[#F5C842] hover:text-[#111] transition-colors"
+            >
+              + Adicionar pagamento
+            </button>
           </div>
 
           {/* Total */}
@@ -974,30 +936,17 @@ export default function NovaVendaClient({ veiculos, usuarios, lojaId, vendedorId
             </div>
           </div>
 
-          {/* Card veículo recebido na troca */}
-          {temRecebido && (
-            <div className="bg-white border border-[#E5E7EB] rounded-xl p-4">
-              <p className="text-xs font-bold uppercase tracking-wider text-[#9CA3AF] mb-3">Veículo recebido na troca</p>
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div><span className="text-[#9CA3AF] text-xs">Veículo</span><p className="text-[#111] font-medium">{recebido.marca || '—'} {recebido.modelo}</p></div>
-                <div><span className="text-[#9CA3AF] text-xs">Ano / Placa</span><p className="text-[#111]">{recebido.ano || '—'} · {recebido.placa || '—'}</p></div>
-                <div><span className="text-[#9CA3AF] text-xs">Cor</span><p className="text-[#111]">{recebido.cor || '—'}</p></div>
-                <div><span className="text-[#9CA3AF] text-xs">Valor de entrada</span><p className="text-[#111] font-medium">{formatarMoeda(recebido.valor_entrada)}</p></div>
-              </div>
-            </div>
-          )}
-
           {/* Card pagamento */}
           <div className="bg-white border border-[#E5E7EB] rounded-xl p-4">
             <p className="text-xs font-bold uppercase tracking-wider text-[#9CA3AF] mb-3">Pagamentos</p>
             <div className="space-y-1.5 text-sm">
-              {form.pagamento_dinheiro > 0 && <div className="flex justify-between"><span className="text-[#6B7280]">Dinheiro</span><span className="font-medium">{formatarMoeda(form.pagamento_dinheiro)}</span></div>}
-              {form.pagamento_cheque1_valor > 0 && <div className="flex justify-between"><span className="text-[#6B7280]">Cheque 1 ({form.pagamento_cheque1_banco})</span><span className="font-medium">{formatarMoeda(form.pagamento_cheque1_valor)}</span></div>}
-              {form.pagamento_cheque2_valor > 0 && <div className="flex justify-between"><span className="text-[#6B7280]">Cheque 2 ({form.pagamento_cheque2_banco})</span><span className="font-medium">{formatarMoeda(form.pagamento_cheque2_valor)}</span></div>}
-              {form.pagamento_duplicata1_valor > 0 && <div className="flex justify-between"><span className="text-[#6B7280]">Duplicata 1 ({form.pagamento_duplicata1_banco})</span><span className="font-medium">{formatarMoeda(form.pagamento_duplicata1_valor)}</span></div>}
-              {form.pagamento_duplicata2_valor > 0 && <div className="flex justify-between"><span className="text-[#6B7280]">Duplicata 2 ({form.pagamento_duplicata2_banco})</span><span className="font-medium">{formatarMoeda(form.pagamento_duplicata2_valor)}</span></div>}
-              {form.pagamento_financeira_valor > 0 && <div className="flex justify-between"><span className="text-[#6B7280]">Financeira ({form.pagamento_financeira_nome})</span><span className="font-medium">{formatarMoeda(form.pagamento_financeira_valor)}</span></div>}
-              {form.pagamento_outros_valor > 0 && <div className="flex justify-between"><span className="text-[#6B7280]">Outros ({form.pagamento_outros_desc})</span><span className="font-medium">{formatarMoeda(form.pagamento_outros_valor)}</span></div>}
+              {pagamentos.length === 0 && <p className="text-[#9CA3AF]">Nenhum pagamento informado.</p>}
+              {pagamentos.map(p => (
+                <div key={p.tempId} className="flex justify-between">
+                  <span className="text-[#6B7280]">{labelPagamento(p)}</span>
+                  <span className="font-medium">{formatarMoeda(p.valor)}</span>
+                </div>
+              ))}
               <div className="flex justify-between border-t border-[#E5E7EB] pt-2 mt-2">
                 <span className="font-bold text-[#111]">Total</span>
                 <span className="font-bold text-[#111]">{formatarMoeda(totalPagamentos())}</span>
@@ -1025,7 +974,7 @@ export default function NovaVendaClient({ veiculos, usuarios, lojaId, vendedorId
             </button>
             <button
               onClick={handleFinalizar}
-              disabled={salvando || finalizando || !form.veiculo_id || !recebidoValido}
+              disabled={salvando || finalizando || !form.veiculo_id || !pagamentosValidos}
               className="flex-1 px-4 py-3 rounded-xl font-semibold text-sm text-[#92400E] bg-[#FEF9C3] border border-[#F5C842] hover:bg-[#FEF08A] transition-colors disabled:opacity-50"
             >
               {finalizando ? 'Finalizando...' : 'Finalizar Venda'}

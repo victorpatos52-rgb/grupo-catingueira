@@ -2,7 +2,7 @@ import { redirect, notFound } from 'next/navigation'
 import { createServerSupabase, adminSupabase } from '@/lib/supabase-server'
 import { getLojaIdAtiva } from '@/lib/getLojaIdAtiva'
 import type { AnexoComUrl } from '@/components/admin/AnexosClient'
-import type { UsuarioPerfil, Venda, Loja, Anexo } from '@/types'
+import type { UsuarioPerfil, Venda, Loja, Anexo, VendaPagamento } from '@/types'
 import VendaDetalheClient from './VendaDetalheClient'
 
 interface Props {
@@ -29,7 +29,7 @@ export default async function VendaDetalhePage({ params }: Props) {
 
   const admin = adminSupabase()
 
-  const [{ data: vendaData }, { data: lojaData }, { data: anexosData }] = await Promise.all([
+  const [{ data: vendaData }, { data: lojaData }, { data: anexosData }, { data: pagamentosData }] = await Promise.all([
     admin
       .from('vendas')
       .select('*, veiculo:veiculos(id,marca,modelo,versao,ano,cor,km,cambio,combustivel,preco,placa,fotos), vendedor:usuarios_perfil(nome)')
@@ -47,6 +47,13 @@ export default async function VendaDetalhePage({ params }: Props) {
           .eq('entidade_id', id)
           .order('criado_em', { ascending: false })
       : Promise.resolve({ data: [] as Anexo[] }),
+    // Lista de pagamentos — mesma visibilidade que os campos fixos antigos
+    // tinham (não restrita a podeVerDocumentacao, diferente de anexos/aquisição).
+    admin
+      .from('venda_pagamentos')
+      .select('*')
+      .eq('venda_id', id)
+      .order('criado_em', { ascending: true }),
   ])
 
   if (!vendaData) notFound()
@@ -64,6 +71,7 @@ export default async function VendaDetalhePage({ params }: Props) {
       loja={lojaData as Loja}
       perfil={perfil}
       anexos={anexos}
+      pagamentos={(pagamentosData ?? []) as VendaPagamento[]}
       podeVerDocumentacao={podeVerDocumentacao}
     />
   )

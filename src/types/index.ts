@@ -280,6 +280,7 @@ export interface VeiculoTransferencia {
 export interface VeiculoRecebidoVenda {
   id: string
   venda_id: string
+  venda_pagamento_id: string | null
   veiculo_criado_id: string | null
   marca: string
   modelo: string
@@ -289,6 +290,33 @@ export interface VeiculoRecebidoVenda {
   valor_entrada: number | null
   observacoes: string | null
   criado_em: string
+}
+
+export type TipoPagamentoVenda = 'dinheiro' | 'pix' | 'cheque' | 'duplicata' | 'financeira' | 'veiculo' | 'outros'
+
+export interface VendaPagamentoDetalhes {
+  banco?: string | null
+  numero?: string | null
+  data?: string | null
+  nome?: string | null
+  marca?: string | null
+  modelo?: string | null
+  ano?: number | string | null
+  placa?: string | null
+  cor?: string | null
+  observacoes?: string | null
+  descricao?: string | null
+}
+
+export interface VendaPagamento {
+  id: string
+  venda_id: string
+  tipo: TipoPagamentoVenda
+  valor: number
+  detalhes: VendaPagamentoDetalhes | null
+  veiculo_recebido_id: string | null
+  criado_em: string
+  veiculo_recebido?: Pick<VeiculoRecebidoVenda, 'marca' | 'modelo' | 'ano' | 'placa' | 'cor'> | null
 }
 
 export type TipoLancamento = 'entrada' | 'saida'

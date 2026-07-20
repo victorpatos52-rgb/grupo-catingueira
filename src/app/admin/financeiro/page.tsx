@@ -131,14 +131,17 @@ export default async function FinanceiroPage({
           .eq('loja_id', lojaId)
           .gte('data', `${ano}-01-01`)
           .lte('data', `${ano}-12-31`),
+    // "Vendas financiadas" — lê da lista de pagamentos (venda_pagamentos,
+    // tipo='financeira') em vez dos antigos campos fixos pagamento_financeira_*
+    // de vendas. Filtra loja/status na tabela de vendas embutida (!inner).
     isSocio
       ? Promise.resolve({ data: [] as unknown[] })
-      : admin.from('vendas')
-          .select('id, numero_venda, comprador_nome, data_venda, pagamento_financeira_nome, pagamento_financeira_valor')
-          .eq('loja_id', lojaId)
-          .eq('status', 'finalizada')
-          .gt('pagamento_financeira_valor', 0)
-          .order('data_venda', { ascending: false }),
+      : admin.from('venda_pagamentos')
+          .select('valor, detalhes, venda:vendas!inner(id, numero_venda, comprador_nome, data_venda, loja_id, status)')
+          .eq('tipo', 'financeira')
+          .eq('venda.loja_id', lojaId)
+          .eq('venda.status', 'finalizada')
+          .order('criado_em', { ascending: false }),
   ])
 
   // Sócio vê receita já multiplicada pelo percentual do veículo dividido.
@@ -213,6 +216,22 @@ export default async function FinanceiroPage({
     }
   })
 
+  type PagamentoFinanceiraRow = {
+    valor: number
+    detalhes: { nome?: string | null } | null
+    venda: { id: string; numero_venda: string | null; comprador_nome: string; data_venda: string } | null
+  }
+  const vendasFinanciadas: VendaFinanciadaSimples[] = ((vendasFinanciadasData ?? []) as unknown as PagamentoFinanceiraRow[])
+    .filter((r): r is PagamentoFinanceiraRow & { venda: NonNullable<PagamentoFinanceiraRow['venda']> } => !!r.venda)
+    .map(r => ({
+      id: r.venda.id,
+      numero_venda: r.venda.numero_venda,
+      comprador_nome: r.venda.comprador_nome,
+      data_venda: r.venda.data_venda,
+      pagamento_financeira_nome: r.detalhes?.nome ?? null,
+      pagamento_financeira_valor: r.valor,
+    }))
+
   return (
     <FinanceiroClient
       perfil={perfil}
@@ -222,7 +241,7 @@ export default async function FinanceiroPage({
       custosManut={custosData as unknown as CustoManutSimples[]}
       dadosAnuais={dadosAnuais}
       lancamentos={(lancamentosData ?? []) as unknown as LancamentoFinanceiro[]}
-      vendasFinanciadas={(vendasFinanciadasData ?? []) as unknown as VendaFinanciadaSimples[]}
+      vendasFinanciadas={vendasFinanciadas}
       ano={ano}
       mes={mes}
       periodoInicio={periodoInicio}

@@ -4,7 +4,7 @@ import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
-import type { Anexo, DespesaLoja, Perfil, TipoInteracao, TipoLancamento, Venda, Veiculo, VeiculoRecebidoVenda } from '@/types'
+import type { Anexo, DespesaLoja, Perfil, TipoInteracao, TipoLancamento, Venda, Veiculo, VendaPagamentoDetalhes } from '@/types'
 
 function adminSupabase() {
   return createClient(
@@ -789,114 +789,143 @@ export async function finalizarVenda(vendaId: string, veiculoId: string): Promis
   if (e1) throw new Error(e1.message)
   if (e2) throw new Error(e2.message)
 
-  await criarVeiculoRecebidoSeExistir(vendaId, venda)
+  await criarVeiculosRecebidosNaTroca(vendaId, venda)
 
   revalidatePath('/admin/vendas')
   revalidatePath('/admin/veiculos')
 }
 
-// ─── VEÍCULO RECEBIDO NA TROCA (permuta) ───────────────────────────────────────
+// ─── LISTA DE PAGAMENTOS DA VENDA ──────────────────────────────────────────────
 
-// Seção opcional na tela de venda ("Veículo recebido na troca") — salva/atualiza
-// o rascunho junto com o autosave da negociação (salvarVenda). Ainda não cria o
-// veículo de verdade: isso só acontece em finalizarVenda, senão cada autosave
+// Lista dinâmica de itens de pagamento (dinheiro/pix/cheque/duplicata/
+// financeira/veículo recebido na troca) — substitui os antigos campos fixos
+// de vendas.pagamento_*. Autosave da tela de venda manda a lista inteira a
+// cada vez (mesmo padrão de "reenviar o estado inteiro" já usado em
+// salvarVenda); por isso aqui é replace total (apaga tudo e reinsere), não um
+// diff incremental — muito mais simples que rastrear id de item novo/editado/
+// removido numa lista que só existe em memória até o primeiro save.
+//
+// Itens tipo='veiculo' ainda não criam o veículo de verdade aqui — os dados
+// (marca/modelo/ano/placa/cor/observações) ficam em `detalhes` (jsonb) até a
+// venda ser finalizada (criarVeiculosRecebidosNaTroca), senão cada autosave
 // intermediário criaria um veículo novo.
-export async function salvarVeiculoRecebido(
+export async function salvarPagamentosVenda(
   vendaId: string,
-  dados: {
-    marca: string
-    modelo: string
-    ano: number | null
-    placa: string | null
-    cor: string | null
-    valor_entrada: number | null
-    observacoes: string | null
-  } | null
+  itens: { tipo: string; valor: number; detalhes: Record<string, unknown> | null }[]
 ): Promise<void> {
   const supabase = adminSupabase()
 
-  if (!dados || !dados.marca.trim() || !dados.modelo.trim()) {
-    // Seção vazia/desmarcada — remove o rascunho de troca, se ainda não tiver
-    // virado um veículo de verdade (depois de finalizada a venda, não mexe mais).
-    await supabase.from('veiculo_recebido_venda').delete().eq('venda_id', vendaId).is('veiculo_criado_id', null)
-    return
+  const { data: venda, error: vendaError } = await supabase
+    .from('vendas')
+    .select('status')
+    .eq('id', vendaId)
+    .single()
+  if (vendaError || !venda) throw new Error('Venda não encontrada.')
+  if (venda.status === 'finalizada') {
+    throw new Error('Esta venda já foi finalizada — não é possível alterar a lista de pagamentos.')
   }
 
-  const { error } = await supabase.from('veiculo_recebido_venda').upsert(
-    {
-      venda_id: vendaId,
-      marca: dados.marca.trim(),
-      modelo: dados.modelo.trim(),
-      ano: dados.ano,
-      placa: dados.placa,
-      cor: dados.cor,
-      valor_entrada: dados.valor_entrada,
-      observacoes: dados.observacoes,
-    },
-    { onConflict: 'venda_id' }
+  const { error: deleteError } = await supabase.from('venda_pagamentos').delete().eq('venda_id', vendaId)
+  if (deleteError) throw new Error(deleteError.message)
+
+  if (itens.length === 0) return
+
+  const { error: insertError } = await supabase.from('venda_pagamentos').insert(
+    itens.map(item => ({ venda_id: vendaId, tipo: item.tipo, valor: item.valor, detalhes: item.detalhes }))
   )
-  if (error) throw new Error(error.message)
+  if (insertError) throw new Error(insertError.message)
 }
 
-// Cria o veículo "rascunho" a partir do veiculo_recebido_venda (se houver um
-// pendente, isto é, ainda sem veiculo_criado_id) e o registro de aquisição
-// correspondente — chamado no momento em que a venda é finalizada.
-async function criarVeiculoRecebidoSeExistir(
+// ─── VEÍCULO RECEBIDO NA TROCA (permuta) ───────────────────────────────────────
+
+// Para cada item tipo='veiculo' da lista de pagamentos (ainda sem
+// veiculo_recebido_id, ou seja, ainda não processado): cria o veículo
+// "rascunho" com os dados salvos em `detalhes`, o registro de
+// veiculo_recebido_venda ligando tudo, e o registro de aquisição
+// correspondente (valor_compra = valor do item, vendedor = comprador da
+// venda) — chamado no momento em que a venda é finalizada.
+async function criarVeiculosRecebidosNaTroca(
   vendaId: string,
   venda: { loja_id: string; comprador_nome: string; comprador_telefone: string | null; data_venda: string }
 ): Promise<void> {
   const supabase = adminSupabase()
 
-  const { data: recebido } = await supabase
-    .from('veiculo_recebido_venda')
-    .select('*')
+  const { data: itensVeiculo } = await supabase
+    .from('venda_pagamentos')
+    .select('id, valor, detalhes')
     .eq('venda_id', vendaId)
-    .is('veiculo_criado_id', null)
-    .maybeSingle()
-  if (!recebido) return
+    .eq('tipo', 'veiculo')
+    .is('veiculo_recebido_id', null)
 
-  const r = recebido as VeiculoRecebidoVenda
-  if (!r.ano || !r.cor) {
-    throw new Error('Ano e cor do veículo recebido na troca são obrigatórios para cadastrá-lo — volte na tela de venda e complete esses campos.')
-  }
+  for (const item of (itensVeiculo ?? []) as { id: string; valor: number; detalhes: VendaPagamentoDetalhes | null }[]) {
+    const d = item.detalhes ?? {}
+    const marca = d.marca?.trim()
+    const modelo = d.modelo?.trim()
+    const ano = d.ano ? Number(d.ano) : null
+    const cor = d.cor || null
+    const placa = d.placa || null
+    const observacoes = d.observacoes || null
 
-  const { data: novoVeiculo, error: veiculoError } = await supabase
-    .from('veiculos')
-    .insert({
-      loja_id: venda.loja_id,
-      marca: r.marca,
-      modelo: r.modelo,
-      ano: r.ano,
-      cor: r.cor,
-      combustivel: '',
-      cambio: '',
-      preco: 0,
-      placa: r.placa,
-      status: 'disponivel',
-      rascunho: true,
+    if (!marca || !modelo || !ano || !cor) {
+      throw new Error('Marca, modelo, ano e cor de um veículo recebido na troca são obrigatórios para cadastrá-lo — volte na tela de venda e complete esses campos.')
+    }
+
+    const { data: novoVeiculo, error: veiculoError } = await supabase
+      .from('veiculos')
+      .insert({
+        loja_id: venda.loja_id,
+        marca,
+        modelo,
+        ano,
+        cor,
+        combustivel: '',
+        cambio: '',
+        preco: 0,
+        placa,
+        status: 'disponivel',
+        rascunho: true,
+      })
+      .select('id')
+      .single()
+    if (veiculoError || !novoVeiculo) throw new Error(veiculoError?.message ?? 'Erro ao cadastrar veículo recebido na troca.')
+
+    const { data: recebido, error: recebidoError } = await supabase
+      .from('veiculo_recebido_venda')
+      .insert({
+        venda_id: vendaId,
+        venda_pagamento_id: item.id,
+        veiculo_criado_id: novoVeiculo.id,
+        marca,
+        modelo,
+        ano,
+        placa,
+        cor,
+        valor_entrada: item.valor,
+        observacoes,
+      })
+      .select('id')
+      .single()
+    if (recebidoError || !recebido) throw new Error(recebidoError?.message ?? 'Erro ao registrar veículo recebido na troca.')
+
+    const { error: pagamentoError } = await supabase
+      .from('venda_pagamentos')
+      .update({ veiculo_recebido_id: recebido.id })
+      .eq('id', item.id)
+    if (pagamentoError) throw new Error(pagamentoError.message)
+
+    const { error: aquisicaoError } = await supabase.from('veiculo_aquisicao').insert({
+      veiculo_id: novoVeiculo.id,
+      nome_vendedor: venda.comprador_nome,
+      telefone_vendedor: venda.comprador_telefone,
+      forma_pagamento_compra: 'Veículo recebido em troca',
+      data_compra: venda.data_venda,
+      valor_compra: item.valor,
+      observacoes,
     })
-    .select('id')
-    .single()
-  if (veiculoError || !novoVeiculo) throw new Error(veiculoError?.message ?? 'Erro ao cadastrar veículo recebido na troca.')
+    if (aquisicaoError) throw new Error(aquisicaoError.message)
 
-  const { error: recebidoError } = await supabase
-    .from('veiculo_recebido_venda')
-    .update({ veiculo_criado_id: novoVeiculo.id })
-    .eq('id', r.id)
-  if (recebidoError) throw new Error(recebidoError.message)
-
-  const { error: aquisicaoError } = await supabase.from('veiculo_aquisicao').insert({
-    veiculo_id: novoVeiculo.id,
-    nome_vendedor: venda.comprador_nome,
-    telefone_vendedor: venda.comprador_telefone,
-    forma_pagamento_compra: 'Veículo recebido em troca',
-    data_compra: venda.data_venda,
-    valor_compra: r.valor_entrada,
-    observacoes: r.observacoes,
-  })
-  if (aquisicaoError) throw new Error(aquisicaoError.message)
-
-  revalidatePath('/admin/veiculos/' + novoVeiculo.id)
+    revalidatePath('/admin/veiculos/' + novoVeiculo.id)
+  }
 }
 
 // Marca o veículo como publicado (sai do estado "rascunho") — exige o mínimo

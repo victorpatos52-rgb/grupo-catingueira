@@ -54,6 +54,9 @@ create index if not exists idx_veiculos_rascunho on veiculos (loja_id, rascunho)
 -- status também esteja (por engano, ou por alguém marcar 'disponivel' antes
 -- de completar o cadastro) como 'disponivel' — não confia só no filtro da
 -- aplicação (que também vai filtrar rascunho=false nas queries públicas).
-alter policy "público vê disponíveis"
+-- Nome real da policy no banco é "publico_ve_disponiveis" (sem acento, com
+-- underscore) — diverge do texto em schema.sql ("público vê disponíveis"),
+-- que está desatualizado.
+alter policy publico_ve_disponiveis
   on veiculos
   using (status = 'disponivel' and rascunho = false);
