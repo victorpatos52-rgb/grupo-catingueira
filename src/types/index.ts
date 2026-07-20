@@ -319,6 +319,18 @@ export interface VendaPagamento {
   veiculo_recebido?: Pick<VeiculoRecebidoVenda, 'marca' | 'modelo' | 'ano' | 'placa' | 'cor'> | null
 }
 
+export interface VendaPromissoria {
+  id: string
+  venda_id: string
+  numero_parcela: number
+  valor: number
+  vencimento: string
+  pago: boolean
+  data_pagamento: string | null
+  observacoes: string | null
+  criado_em: string
+}
+
 export type TipoLancamento = 'entrada' | 'saida'
 
 export interface LancamentoFinanceiro {

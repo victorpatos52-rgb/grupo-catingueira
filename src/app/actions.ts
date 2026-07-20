@@ -991,6 +991,31 @@ function exigirPerfilFinanceiro() {
   return exigirPerfil(PERFIS_GERENCIA, 'Você não tem permissão para acessar o financeiro desta loja.')
 }
 
+// Anexo de veículo (aquisição/Documentação) é dado sensível — continua restrito
+// a gerente/diretor/admin. Anexo de venda (contrato assinado etc.) é uso do dia
+// a dia do vendedor — liberado pra qualquer perfil autenticado da própria loja
+// da venda (não uma restrição "financeira" como a de veículo).
+async function exigirPermissaoAnexo(entidadeTipo: 'veiculo' | 'venda', entidadeId: string): Promise<{ userId: string }> {
+  if (entidadeTipo === 'veiculo') {
+    return exigirPerfilDocumentacao()
+  }
+
+  const userClient = await userSupabase()
+  const { data: { session } } = await userClient.auth.getSession()
+  if (!session) throw new Error('Não autenticado.')
+
+  const admin = adminSupabase()
+  const [{ data: perfilData }, { data: vendaData }] = await Promise.all([
+    admin.from('usuarios_perfil').select('loja_id').eq('id', session.user.id).single(),
+    admin.from('vendas').select('loja_id').eq('id', entidadeId).single(),
+  ])
+
+  if (!perfilData || !vendaData || perfilData.loja_id !== vendaData.loja_id) {
+    throw new Error('Você não tem permissão para acessar os anexos desta venda.')
+  }
+  return { userId: session.user.id }
+}
+
 // ─── DOCUMENTAÇÃO DO VEÍCULO (AQUISIÇÃO + ANEXOS) ──────────────────────────────
 
 export async function saveVeiculoAquisicao(
@@ -1026,7 +1051,7 @@ export async function criarAnexo(data: {
   path: string
   tipoArquivo: string | null
 }): Promise<Anexo & { urlAssinada: string | null }> {
-  const { userId } = await exigirPerfilDocumentacao()
+  const { userId } = await exigirPermissaoAnexo(data.entidadeTipo, data.entidadeId)
   const supabase = adminSupabase()
 
   const { data: anexo, error } = await supabase
@@ -1054,12 +1079,75 @@ export async function criarAnexo(data: {
 }
 
 export async function deletarAnexo(anexoId: string, path: string, entidadeId: string) {
-  await exigirPerfilDocumentacao()
-  const supabase = adminSupabase()
-  await supabase.storage.from('veiculos-documentos').remove([path])
-  const { error } = await supabase.from('anexos').delete().eq('id', anexoId)
+  const admin = adminSupabase()
+
+  // Deriva o tipo real do anexo no banco (não confia no que o cliente alega
+  // ser) — é isso que decide qual checagem de permissão (mais ou menos
+  // restrita) se aplica.
+  const { data: anexo } = await admin.from('anexos').select('entidade_tipo').eq('id', anexoId).single()
+  if (!anexo) throw new Error('Anexo não encontrado.')
+  const entidadeTipo = anexo.entidade_tipo as 'veiculo' | 'venda'
+
+  await exigirPermissaoAnexo(entidadeTipo, entidadeId)
+
+  await admin.storage.from('veiculos-documentos').remove([path])
+  const { error } = await admin.from('anexos').delete().eq('id', anexoId)
   if (error) throw new Error(error.message)
-  revalidatePath('/admin/veiculos/' + entidadeId)
+
+  if (entidadeTipo === 'veiculo') revalidatePath('/admin/veiculos/' + entidadeId)
+  else revalidatePath('/admin/vendas/' + entidadeId)
+}
+
+// ─── PROMISSÓRIAS (PARCELAMENTO) DA VENDA ──────────────────────────────────────
+
+// Dado financeiro da venda — mesmo nível de acesso de despesas/lançamentos
+// (gerente/diretor/admin), igual à RLS da tabela (migration 012).
+export async function criarPromissoria(
+  vendaId: string,
+  dados: { valor: number; vencimento: string; observacoes: string | null }
+): Promise<void> {
+  await exigirPerfilFinanceiro()
+  const supabase = adminSupabase()
+
+  // Número da parcela é sequencial por venda, calculado aqui (não vem do
+  // formulário) — evita o usuário ter que controlar isso manualmente.
+  const { count } = await supabase
+    .from('venda_promissorias')
+    .select('id', { count: 'exact', head: true })
+    .eq('venda_id', vendaId)
+
+  const { error } = await supabase.from('venda_promissorias').insert({
+    venda_id: vendaId,
+    numero_parcela: (count ?? 0) + 1,
+    valor: dados.valor,
+    vencimento: dados.vencimento,
+    observacoes: dados.observacoes,
+  })
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/vendas/' + vendaId)
+}
+
+export async function marcarPromissoriaPaga(id: string, vendaId: string): Promise<void> {
+  await exigirPerfilFinanceiro()
+  const supabase = adminSupabase()
+  const hoje = new Date().toISOString().split('T')[0]
+  const { error } = await supabase
+    .from('venda_promissorias')
+    .update({ pago: true, data_pagamento: hoje })
+    .eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/vendas/' + vendaId)
+}
+
+export async function desmarcarPromissoriaPaga(id: string, vendaId: string): Promise<void> {
+  await exigirPerfilFinanceiro()
+  const supabase = adminSupabase()
+  const { error } = await supabase
+    .from('venda_promissorias')
+    .update({ pago: false, data_pagamento: null })
+    .eq('id', id)
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/vendas/' + vendaId)
 }
 
 // ─── EXCLUSÃO DE VEÍCULO ───────────────────────────────────────────────────────

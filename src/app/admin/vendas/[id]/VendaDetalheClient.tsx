@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { finalizarVenda, salvarVenda } from '@/app/actions'
 import AnexosClient, { type AnexoComUrl } from '@/components/admin/AnexosClient'
-import type { UsuarioPerfil, Venda, Loja, VendaPagamento } from '@/types'
+import PromissoriasClient from './PromissoriasClient'
+import type { UsuarioPerfil, Venda, Loja, VendaPagamento, VendaPromissoria } from '@/types'
 
 interface Props {
   venda: Venda
@@ -13,6 +14,7 @@ interface Props {
   perfil: UsuarioPerfil
   anexos: AnexoComUrl[]
   pagamentos: VendaPagamento[]
+  promissorias: VendaPromissoria[]
   podeVerDocumentacao: boolean
 }
 
@@ -52,7 +54,7 @@ function Campo({ label, value }: { label: string; value: string | number | null 
   )
 }
 
-export default function VendaDetalheClient({ venda: initial, perfil, anexos, pagamentos, podeVerDocumentacao }: Props) {
+export default function VendaDetalheClient({ venda: initial, perfil, anexos, pagamentos, promissorias, podeVerDocumentacao }: Props) {
   const router = useRouter()
   const [venda, setVenda] = useState(initial)
   const [finalizando, setFinalizando] = useState(false)
@@ -290,11 +292,19 @@ export default function VendaDetalheClient({ venda: initial, perfil, anexos, pag
 
       </div>
 
-      {/* Anexos (mesma tabela/bucket privado usados na Documentação do veículo).
-          Restrito a gerente/diretor/admin — mesmo motivo de sensibilidade. */}
+      {/* Anexos de venda (contrato assinado etc.) — uso do dia a dia do
+          vendedor, liberado pra qualquer perfil da loja. Diferente dos anexos
+          de veículo (Documentação), que continuam restritos a gerente/
+          diretor/admin. */}
+      <div className="mt-5">
+        <AnexosClient entidadeTipo="venda" entidadeId={venda.id} anexos={anexos} />
+      </div>
+
+      {/* Promissórias (parcelamento) — dado financeiro da venda, mesmo nível
+          de acesso de despesas/lançamentos (gerente/diretor/admin). */}
       {podeVerDocumentacao && (
         <div className="mt-5">
-          <AnexosClient entidadeTipo="venda" entidadeId={venda.id} anexos={anexos} />
+          <PromissoriasClient vendaId={venda.id} promissorias={promissorias} />
         </div>
       )}
 

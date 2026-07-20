@@ -60,6 +60,20 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>
 
+const CAMPO_LABELS: Partial<Record<keyof FormData, string>> = {
+  marca: 'Marca',
+  modelo: 'Modelo',
+  ano: 'Ano',
+  cor: 'Cor',
+  km: 'Quilometragem',
+  cambio: 'Câmbio',
+  combustivel: 'Combustível',
+  preco: 'Preço',
+  valor_oferta: 'Valor de oferta',
+  percentual_socio: 'Percentual do sócio',
+  data_aquisicao: 'Data de aquisição',
+}
+
 interface VeiculoFormProps {
   veiculo?: Veiculo
   lojaId: string
@@ -230,8 +244,25 @@ export default function VeiculoForm({ veiculo, lojaId, hideFotos, fotos: fotosEx
   const labelClass = 'block text-[#6B7280] text-xs font-semibold uppercase tracking-wider mb-1.5'
   const errorClass = 'text-red-600 text-xs mt-1'
 
+  function campoCls(hasError?: boolean) {
+    return hasError
+      ? `${inputClass} border-red-500 focus:ring-red-200 focus:border-red-500`
+      : inputClass
+  }
+
+  const camposComErro = Object.keys(errors)
+    .map(k => CAMPO_LABELS[k as keyof FormData])
+    .filter((label): label is string => !!label)
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      {camposComErro.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
+          <p className="font-semibold">Preencha os campos obrigatórios destacados abaixo:</p>
+          <p>{camposComErro.join(', ')}</p>
+        </div>
+      )}
+
       {/* Fotos */}
       {!hideFotos && <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-sm">
         <h2 className="text-[#111827] font-bold text-sm uppercase tracking-wider mb-4">Fotos</h2>
@@ -298,36 +329,36 @@ export default function VeiculoForm({ veiculo, lojaId, hideFotos, fotos: fotosEx
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div>
             <label className={labelClass}>Marca *</label>
-            <input {...register('marca')} className={inputClass} placeholder="Ex: Toyota" />
+            <input {...register('marca')} className={campoCls(!!errors.marca)} placeholder="Ex: Toyota" />
             {errors.marca && <p className={errorClass}>{errors.marca.message}</p>}
           </div>
           <div>
             <label className={labelClass}>Modelo *</label>
-            <input {...register('modelo')} className={inputClass} placeholder="Ex: Corolla" />
+            <input {...register('modelo')} className={campoCls(!!errors.modelo)} placeholder="Ex: Corolla" />
             {errors.modelo && <p className={errorClass}>{errors.modelo.message}</p>}
           </div>
           <div>
             <label className={labelClass}>Versão</label>
-            <input {...register('versao')} className={inputClass} placeholder="Ex: XEi 2.0" />
+            <input {...register('versao')} className={campoCls(!!errors.versao)} placeholder="Ex: XEi 2.0" />
           </div>
           <div>
             <label className={labelClass}>Ano *</label>
-            <input type="number" {...register('ano', { valueAsNumber: true })} className={inputClass} />
+            <input type="number" {...register('ano', { valueAsNumber: true })} className={campoCls(!!errors.ano)} />
             {errors.ano && <p className={errorClass}>{errors.ano.message}</p>}
           </div>
           <div>
             <label className={labelClass}>Cor *</label>
-            <input {...register('cor')} className={inputClass} placeholder="Ex: Prata" />
+            <input {...register('cor')} className={campoCls(!!errors.cor)} placeholder="Ex: Prata" />
             {errors.cor && <p className={errorClass}>{errors.cor.message}</p>}
           </div>
           <div>
             <label className={labelClass}>Quilometragem *</label>
-            <input type="number" {...register('km', { valueAsNumber: true })} className={inputClass} placeholder="0" />
+            <input type="number" {...register('km', { valueAsNumber: true })} className={campoCls(!!errors.km)} placeholder="0" />
             {errors.km && <p className={errorClass}>{errors.km.message}</p>}
           </div>
           <div>
             <label className={labelClass}>Câmbio *</label>
-            <select {...register('cambio')} className={inputClass}>
+            <select {...register('cambio')} className={campoCls(!!errors.cambio)}>
               <option value="">Selecione</option>
               <option>Manual</option>
               <option>Automático</option>
@@ -338,7 +369,7 @@ export default function VeiculoForm({ veiculo, lojaId, hideFotos, fotos: fotosEx
           </div>
           <div>
             <label className={labelClass}>Combustível *</label>
-            <select {...register('combustivel')} className={inputClass}>
+            <select {...register('combustivel')} className={campoCls(!!errors.combustivel)}>
               <option value="">Selecione</option>
               <option>Flex</option>
               <option>Gasolina</option>
@@ -351,19 +382,19 @@ export default function VeiculoForm({ veiculo, lojaId, hideFotos, fotos: fotosEx
           </div>
           <div>
             <label className={labelClass}>Placa</label>
-            <input {...register('placa')} className={inputClass} placeholder="AAA-0000" />
+            <input {...register('placa')} className={campoCls(!!errors.placa)} placeholder="AAA-0000" />
           </div>
           <div>
             <label className={labelClass}>Chassi</label>
-            <input {...register('chassi')} className={inputClass} placeholder="9BWZZZ377VT004251" />
+            <input {...register('chassi')} className={campoCls(!!errors.chassi)} placeholder="9BWZZZ377VT004251" />
           </div>
           <div>
             <label className={labelClass}>Renavam</label>
-            <input {...register('renavam')} className={inputClass} placeholder="00000000000" />
+            <input {...register('renavam')} className={campoCls(!!errors.renavam)} placeholder="00000000000" />
           </div>
           <div>
             <label className={labelClass}>Tipo</label>
-            <select {...register('tipo')} className={inputClass}>
+            <select {...register('tipo')} className={campoCls(!!errors.tipo)}>
               <option value="">Selecione</option>
               <option>Sedan</option>
               <option>Hatch</option>
@@ -379,7 +410,7 @@ export default function VeiculoForm({ veiculo, lojaId, hideFotos, fotos: fotosEx
           </div>
           <div>
             <label className={labelClass}>Portas</label>
-            <select {...register('portas', { valueAsNumber: true })} className={inputClass}>
+            <select {...register('portas', { valueAsNumber: true })} className={campoCls(!!errors.portas)}>
               <option value="">Selecione</option>
               <option value={2}>2</option>
               <option value={3}>3</option>
@@ -389,11 +420,11 @@ export default function VeiculoForm({ veiculo, lojaId, hideFotos, fotos: fotosEx
           </div>
           <div>
             <label className={labelClass}>Hodômetro na venda (km)</label>
-            <input type="number" {...register('hodometro_venda', { valueAsNumber: true, setValueAs: v => v === '' ? null : Number(v) })} className={inputClass} placeholder="0" />
+            <input type="number" {...register('hodometro_venda', { valueAsNumber: true, setValueAs: v => v === '' ? null : Number(v) })} className={campoCls(!!errors.hodometro_venda)} placeholder="0" />
           </div>
           <div>
             <label className={labelClass}>Preço (R$) *</label>
-            <input type="number" {...register('preco', { valueAsNumber: true })} className={inputClass} placeholder="0" />
+            <input type="number" {...register('preco', { valueAsNumber: true })} className={campoCls(!!errors.preco)} placeholder="0" />
             {errors.preco && <p className={errorClass}>{errors.preco.message}</p>}
           </div>
           <div>
@@ -401,7 +432,7 @@ export default function VeiculoForm({ veiculo, lojaId, hideFotos, fotos: fotosEx
             <input
               type="number"
               {...register('valor_oferta', { setValueAs: v => (v === '' ? null : Number(v)) })}
-              className={inputClass}
+              className={campoCls(!!errors.valor_oferta)}
               placeholder="Deixe em branco se não houver oferta"
             />
             {errors.valor_oferta && <p className={errorClass}>{errors.valor_oferta.message}</p>}
@@ -418,7 +449,7 @@ export default function VeiculoForm({ veiculo, lojaId, hideFotos, fotos: fotosEx
                     className={`${inputClass} bg-gray-100 text-gray-500 cursor-not-allowed`}
                   />
                 ) : (
-                  <select {...register('proprietario_tipo')} className={inputClass}>
+                  <select {...register('proprietario_tipo')} className={campoCls(!!errors.proprietario_tipo)}>
                     <option value="felipe">Só Felipe</option>
                     <option value="dividido">Dividido com sócio</option>
                   </select>
@@ -433,7 +464,7 @@ export default function VeiculoForm({ veiculo, lojaId, hideFotos, fotos: fotosEx
                     max={100}
                     step="0.01"
                     {...register('percentual_socio', { setValueAs: v => (v === '' ? null : Number(v)) })}
-                    className={inputClass}
+                    className={campoCls(!!errors.percentual_socio)}
                     placeholder="Ex: 50"
                   />
                   {errors.percentual_socio && <p className={errorClass}>{errors.percentual_socio.message}</p>}
@@ -443,12 +474,12 @@ export default function VeiculoForm({ veiculo, lojaId, hideFotos, fotos: fotosEx
           )}
           <div>
             <label className={labelClass}>Data de aquisição *</label>
-            <input type="date" {...register('data_aquisicao')} className={inputClass} />
+            <input type="date" {...register('data_aquisicao')} className={campoCls(!!errors.data_aquisicao)} />
             {errors.data_aquisicao && <p className={errorClass}>{errors.data_aquisicao.message}</p>}
           </div>
           <div>
             <label className={labelClass}>Status *</label>
-            <select {...register('status')} className={inputClass}>
+            <select {...register('status')} className={campoCls(!!errors.status)}>
               <option value="disponivel">Disponível</option>
               <option value="reservado">Reservado</option>
               <option value="vendido">Vendido</option>
@@ -473,7 +504,7 @@ export default function VeiculoForm({ veiculo, lojaId, hideFotos, fotos: fotosEx
           <textarea
             {...register('descricao')}
             rows={4}
-            className={`${inputClass} resize-none`}
+            className={`${campoCls(!!errors.descricao)} resize-none`}
             placeholder="Descreva o veículo, histórico de revisões, estado geral..."
           />
         </div>

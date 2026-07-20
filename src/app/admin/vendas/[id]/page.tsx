@@ -2,7 +2,7 @@ import { redirect, notFound } from 'next/navigation'
 import { createServerSupabase, adminSupabase } from '@/lib/supabase-server'
 import { getLojaIdAtiva } from '@/lib/getLojaIdAtiva'
 import type { AnexoComUrl } from '@/components/admin/AnexosClient'
-import type { UsuarioPerfil, Venda, Loja, Anexo, VendaPagamento } from '@/types'
+import type { UsuarioPerfil, Venda, Loja, Anexo, VendaPagamento, VendaPromissoria } from '@/types'
 import VendaDetalheClient from './VendaDetalheClient'
 
 interface Props {
@@ -29,7 +29,7 @@ export default async function VendaDetalhePage({ params }: Props) {
 
   const admin = adminSupabase()
 
-  const [{ data: vendaData }, { data: lojaData }, { data: anexosData }, { data: pagamentosData }] = await Promise.all([
+  const [{ data: vendaData }, { data: lojaData }, { data: anexosData }, { data: pagamentosData }, { data: promissoriasData }] = await Promise.all([
     admin
       .from('vendas')
       .select('*, veiculo:veiculos(id,marca,modelo,versao,ano,cor,km,cambio,combustivel,preco,placa,fotos), vendedor:usuarios_perfil(nome)')
@@ -37,16 +37,15 @@ export default async function VendaDetalhePage({ params }: Props) {
       .eq('loja_id', lojaId)
       .single(),
     admin.from('lojas').select('*').eq('id', lojaId).single(),
-    // Anexos de venda são tão sensíveis quanto os de veículo — só busca
-    // (e só gera signed URLs) se o perfil tiver permissão de vê-los.
-    podeVerDocumentacao
-      ? admin
-          .from('anexos')
-          .select('*, usuario:usuarios_perfil(nome)')
-          .eq('entidade_tipo', 'venda')
-          .eq('entidade_id', id)
-          .order('criado_em', { ascending: false })
-      : Promise.resolve({ data: [] as Anexo[] }),
+    // Anexos de venda (contrato assinado etc.) são uso do dia a dia do
+    // vendedor — diferente dos anexos de veículo (documentação/aquisição),
+    // não ficam atrás do gate de gerente/diretor/admin.
+    admin
+      .from('anexos')
+      .select('*, usuario:usuarios_perfil(nome)')
+      .eq('entidade_tipo', 'venda')
+      .eq('entidade_id', id)
+      .order('criado_em', { ascending: false }),
     // Lista de pagamentos — mesma visibilidade que os campos fixos antigos
     // tinham (não restrita a podeVerDocumentacao, diferente de anexos/aquisição).
     admin
@@ -54,6 +53,15 @@ export default async function VendaDetalhePage({ params }: Props) {
       .select('*')
       .eq('venda_id', id)
       .order('criado_em', { ascending: true }),
+    // Promissórias são dado financeiro (mesmo nível de despesas/lançamentos) —
+    // só busca se o perfil tiver permissão de vê-las.
+    podeVerDocumentacao
+      ? admin
+          .from('venda_promissorias')
+          .select('*')
+          .eq('venda_id', id)
+          .order('numero_parcela', { ascending: true })
+      : Promise.resolve({ data: [] as VendaPromissoria[] }),
   ])
 
   if (!vendaData) notFound()
@@ -72,6 +80,7 @@ export default async function VendaDetalhePage({ params }: Props) {
       perfil={perfil}
       anexos={anexos}
       pagamentos={(pagamentosData ?? []) as VendaPagamento[]}
+      promissorias={(promissoriasData ?? []) as VendaPromissoria[]}
       podeVerDocumentacao={podeVerDocumentacao}
     />
   )

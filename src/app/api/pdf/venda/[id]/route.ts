@@ -82,6 +82,8 @@ export async function GET(
     .eq('venda_id', id)
     .order('criado_em', { ascending: true })
   const pagamentos = (pagamentosData ?? []) as PagamentoRow[]
+  const pagamentosVeiculo = pagamentos.filter(p => p.tipo === 'veiculo')
+  const temVeiculoRecebido = pagamentosVeiculo.length > 0
 
   const loja = lojaData ?? { nome: '', endereco: '', whatsapp: '' }
   const v = venda.veiculo ?? {}
@@ -196,6 +198,14 @@ export async function GET(
         </tr>
       </table>
 
+      ${temVeiculoRecebido ? `
+      <table>
+        <tr><th colspan="6">Veículo(s) recebido(s) na troca</th></tr>
+        <tr><th>Marca</th><th>Modelo</th><th>Ano</th><th>Placa</th><th>Cor</th><th style="text-align:right">Valor de entrada</th></tr>
+        ${pagamentosVeiculo.map(p => `<tr><td>${p.detalhes?.marca ?? ''}</td><td>${p.detalhes?.modelo ?? ''}</td><td>${p.detalhes?.ano ?? ''}</td><td>${p.detalhes?.placa ?? ''}</td><td>${p.detalhes?.cor ?? ''}</td><td style="text-align:right">${fmt(p.valor)}</td></tr>`).join('')}
+      </table>
+      ` : ''}
+
       ${venda.observacoes ? `<p><strong>OBS.:</strong> ${venda.observacoes}</p>` : ''}
 
       <div class="assinatura">Assinatura do Comprador</div>
@@ -286,7 +296,10 @@ export async function GET(
   `
 
   // ── Documento 4: Termo de Responsabilidade ────────────────────────────────
-  const doc4 = `
+  // Só faz sentido quando há veículo recebido na troca — é o antigo dono do
+  // carro recebido declarando responsabilidade sobre ELE (o veículo que está
+  // vendendo pra loja), não sobre o carro que está comprando.
+  const doc4 = !temVeiculoRecebido ? '' : `
     <div class="page-break">
       <img class="logo" src="${logoUrl}" alt="${loja.nome}" />
       <div class="titulo">Termo de Responsabilidade</div>
