@@ -6,7 +6,7 @@ import { saveAquisicao, saveValorVenda, saveCustoManutencao, deleteCustoManutenc
 import { formatarPreco, calcularDiasEstoque } from '@/lib/utils'
 import type { Veiculo, FinanceiroVeiculo, CustoManutencao } from '@/types'
 
-const CATEGORIAS = ['Manutenção', 'Transporte', 'Estética', 'Documentação', 'Outros']
+const CATEGORIAS = ['Manutenção', 'Transporte', 'Estética', 'Documentação', 'Cortesia pós-venda', 'Outros']
 
 interface Props {
   veiculo: Veiculo

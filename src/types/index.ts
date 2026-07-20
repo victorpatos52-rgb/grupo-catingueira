@@ -55,6 +55,7 @@ export interface Veiculo {
   data_aquisicao: string
   created_at: string
   excluido?: boolean
+  rascunho?: boolean
 }
 
 export interface CustoAdicional {
@@ -274,6 +275,20 @@ export interface VeiculoTransferencia {
   observacoes: string | null
   loja_origem?: Pick<Loja, 'nome'> | null
   loja_destino?: Pick<Loja, 'nome'> | null
+}
+
+export interface VeiculoRecebidoVenda {
+  id: string
+  venda_id: string
+  veiculo_criado_id: string | null
+  marca: string
+  modelo: string
+  ano: number | null
+  placa: string | null
+  cor: string | null
+  valor_entrada: number | null
+  observacoes: string | null
+  criado_em: string
 }
 
 export type TipoLancamento = 'entrada' | 'saida'

@@ -39,6 +39,7 @@ export default async function EstoquePage({
     .select('id, loja_id, marca, modelo, versao, ano, cor, km, combustivel, cambio, preco, valor_oferta, placa, chassi, renavam, tipo, portas, hodometro_venda, descricao, opcionais, status, destaque, fotos, data_aquisicao, created_at, excluido')
     .eq('status', 'disponivel')
     .eq('excluido', false)
+    .eq('rascunho', false)
     .order('created_at', { ascending: false })
 
   if (loja) {

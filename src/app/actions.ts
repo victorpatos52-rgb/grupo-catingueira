@@ -4,7 +4,7 @@ import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
-import type { Anexo, DespesaLoja, Perfil, TipoInteracao, TipoLancamento, Venda, Veiculo } from '@/types'
+import type { Anexo, DespesaLoja, Perfil, TipoInteracao, TipoLancamento, Venda, Veiculo, VeiculoRecebidoVenda } from '@/types'
 
 function adminSupabase() {
   return createClient(
@@ -724,9 +724,27 @@ export async function deletarLancamentoFinanceiro(id: string): Promise<void> {
 
 // ─── VENDAS ───────────────────────────────────────────────────────────────────
 
+// Venda retroativa é permitida livremente (comum lançar vendas atrasadas) — a
+// única regra é não deixar gravar uma venda "do futuro". Mesma regra já
+// aplicada na tela (NovaVendaClient), reforçada aqui contra quem chamar a
+// Server Action diretamente pulando a validação do formulário.
+function validarDataVendaNaoFutura(dataVenda: string | null | undefined, horaVenda?: string | null) {
+  if (!dataVenda) return
+  const hoje = new Date().toISOString().split('T')[0]
+  if (dataVenda > hoje) throw new Error('A venda não pode ser registrada com data no futuro.')
+  if (dataVenda === hoje && horaVenda) {
+    const agora = new Date()
+    const horaAtual = `${String(agora.getHours()).padStart(2, '0')}:${String(agora.getMinutes()).padStart(2, '0')}`
+    if (horaVenda > horaAtual) throw new Error('A venda não pode ser registrada com hora no futuro.')
+  }
+}
+
 export async function salvarVenda(
   data: Partial<Venda> & { loja_id: string; veiculo_id: string; comprador_nome: string }
 ): Promise<{ id: string }> {
+  if (data.data_venda !== undefined) {
+    validarDataVendaNaoFutura(data.data_venda, data.hora_venda)
+  }
   const supabase = adminSupabase()
   if (data.id) {
     const { id, veiculo, vendedor, ...rest } = data as Venda & { veiculo?: unknown; vendedor?: unknown }
@@ -755,14 +773,154 @@ export async function salvarVenda(
 
 export async function finalizarVenda(vendaId: string, veiculoId: string): Promise<void> {
   const supabase = adminSupabase()
+
+  const { data: venda, error: vendaError } = await supabase
+    .from('vendas')
+    .select('data_venda, hora_venda, loja_id, comprador_nome, comprador_telefone')
+    .eq('id', vendaId)
+    .single()
+  if (vendaError || !venda) throw new Error('Venda não encontrada.')
+  validarDataVendaNaoFutura(venda.data_venda, venda.hora_venda)
+
   const [{ error: e1 }, { error: e2 }] = await Promise.all([
     supabase.from('vendas').update({ status: 'finalizada' }).eq('id', vendaId),
     supabase.from('veiculos').update({ status: 'vendido' }).eq('id', veiculoId),
   ])
   if (e1) throw new Error(e1.message)
   if (e2) throw new Error(e2.message)
+
+  await criarVeiculoRecebidoSeExistir(vendaId, venda)
+
   revalidatePath('/admin/vendas')
   revalidatePath('/admin/veiculos')
+}
+
+// ─── VEÍCULO RECEBIDO NA TROCA (permuta) ───────────────────────────────────────
+
+// Seção opcional na tela de venda ("Veículo recebido na troca") — salva/atualiza
+// o rascunho junto com o autosave da negociação (salvarVenda). Ainda não cria o
+// veículo de verdade: isso só acontece em finalizarVenda, senão cada autosave
+// intermediário criaria um veículo novo.
+export async function salvarVeiculoRecebido(
+  vendaId: string,
+  dados: {
+    marca: string
+    modelo: string
+    ano: number | null
+    placa: string | null
+    cor: string | null
+    valor_entrada: number | null
+    observacoes: string | null
+  } | null
+): Promise<void> {
+  const supabase = adminSupabase()
+
+  if (!dados || !dados.marca.trim() || !dados.modelo.trim()) {
+    // Seção vazia/desmarcada — remove o rascunho de troca, se ainda não tiver
+    // virado um veículo de verdade (depois de finalizada a venda, não mexe mais).
+    await supabase.from('veiculo_recebido_venda').delete().eq('venda_id', vendaId).is('veiculo_criado_id', null)
+    return
+  }
+
+  const { error } = await supabase.from('veiculo_recebido_venda').upsert(
+    {
+      venda_id: vendaId,
+      marca: dados.marca.trim(),
+      modelo: dados.modelo.trim(),
+      ano: dados.ano,
+      placa: dados.placa,
+      cor: dados.cor,
+      valor_entrada: dados.valor_entrada,
+      observacoes: dados.observacoes,
+    },
+    { onConflict: 'venda_id' }
+  )
+  if (error) throw new Error(error.message)
+}
+
+// Cria o veículo "rascunho" a partir do veiculo_recebido_venda (se houver um
+// pendente, isto é, ainda sem veiculo_criado_id) e o registro de aquisição
+// correspondente — chamado no momento em que a venda é finalizada.
+async function criarVeiculoRecebidoSeExistir(
+  vendaId: string,
+  venda: { loja_id: string; comprador_nome: string; comprador_telefone: string | null; data_venda: string }
+): Promise<void> {
+  const supabase = adminSupabase()
+
+  const { data: recebido } = await supabase
+    .from('veiculo_recebido_venda')
+    .select('*')
+    .eq('venda_id', vendaId)
+    .is('veiculo_criado_id', null)
+    .maybeSingle()
+  if (!recebido) return
+
+  const r = recebido as VeiculoRecebidoVenda
+  if (!r.ano || !r.cor) {
+    throw new Error('Ano e cor do veículo recebido na troca são obrigatórios para cadastrá-lo — volte na tela de venda e complete esses campos.')
+  }
+
+  const { data: novoVeiculo, error: veiculoError } = await supabase
+    .from('veiculos')
+    .insert({
+      loja_id: venda.loja_id,
+      marca: r.marca,
+      modelo: r.modelo,
+      ano: r.ano,
+      cor: r.cor,
+      combustivel: '',
+      cambio: '',
+      preco: 0,
+      placa: r.placa,
+      status: 'disponivel',
+      rascunho: true,
+    })
+    .select('id')
+    .single()
+  if (veiculoError || !novoVeiculo) throw new Error(veiculoError?.message ?? 'Erro ao cadastrar veículo recebido na troca.')
+
+  const { error: recebidoError } = await supabase
+    .from('veiculo_recebido_venda')
+    .update({ veiculo_criado_id: novoVeiculo.id })
+    .eq('id', r.id)
+  if (recebidoError) throw new Error(recebidoError.message)
+
+  const { error: aquisicaoError } = await supabase.from('veiculo_aquisicao').insert({
+    veiculo_id: novoVeiculo.id,
+    nome_vendedor: venda.comprador_nome,
+    telefone_vendedor: venda.comprador_telefone,
+    forma_pagamento_compra: 'Veículo recebido em troca',
+    data_compra: venda.data_venda,
+    valor_compra: r.valor_entrada,
+    observacoes: r.observacoes,
+  })
+  if (aquisicaoError) throw new Error(aquisicaoError.message)
+
+  revalidatePath('/admin/veiculos/' + novoVeiculo.id)
+}
+
+// Marca o veículo como publicado (sai do estado "rascunho") — exige o mínimo
+// pra aparecer decentemente no site/listagens: pelo menos 1 foto e preço > 0.
+export async function publicarVeiculo(veiculoId: string): Promise<void> {
+  const supabase = adminSupabase()
+
+  const { data: veiculo, error: fetchError } = await supabase
+    .from('veiculos')
+    .select('fotos, preco')
+    .eq('id', veiculoId)
+    .single()
+  if (fetchError || !veiculo) throw new Error('Veículo não encontrado.')
+  if (!veiculo.fotos || veiculo.fotos.length === 0) {
+    throw new Error('Adicione pelo menos 1 foto antes de publicar.')
+  }
+  if (!veiculo.preco || veiculo.preco <= 0) {
+    throw new Error('Defina o preço de venda antes de publicar.')
+  }
+
+  const { error } = await supabase.from('veiculos').update({ rascunho: false }).eq('id', veiculoId)
+  if (error) throw new Error(error.message)
+  revalidatePath('/admin/veiculos')
+  revalidatePath('/admin/veiculos/' + veiculoId)
 }
 
 export async function deletarVenda(vendaId: string): Promise<void> {

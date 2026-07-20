@@ -9,7 +9,7 @@ import VistoriaClient from './vistoria/VistoriaClient'
 import { ITENS_VISTORIA } from '@/lib/vistoriaItens'
 import type { Veiculo, FinanceiroVeiculo, CustoManutencao, VeiculoAquisicao, VistoriaVeiculo, VeiculoTransferencia } from '@/types'
 
-type Aba = 'dados' | 'fotos' | 'financeiro' | 'checklist' | 'documentacao' | 'vistoria'
+export type Aba = 'dados' | 'fotos' | 'financeiro' | 'checklist' | 'documentacao' | 'vistoria'
 
 interface Props {
   veiculo: Veiculo
@@ -21,10 +21,11 @@ interface Props {
   anexos: AnexoComUrl[]
   vistoria: VistoriaVeiculo | null
   transferencias: VeiculoTransferencia[]
+  abaInicial?: Aba
 }
 
-export default function VeiculoTabs({ veiculo, financeiro, custos, lojaId, podeVerFinanceiro, aquisicao, anexos, vistoria, transferencias }: Props) {
-  const [aba, setAba] = useState<Aba>('dados')
+export default function VeiculoTabs({ veiculo, financeiro, custos, lojaId, podeVerFinanceiro, aquisicao, anexos, vistoria, transferencias, abaInicial }: Props) {
+  const [aba, setAba] = useState<Aba>(abaInicial ?? 'dados')
 
   const abas: { id: Aba; label: string }[] = [
     { id: 'dados', label: 'Dados' },
@@ -65,7 +66,7 @@ export default function VeiculoTabs({ veiculo, financeiro, custos, lojaId, podeV
         />
       )}
 
-      {aba === 'financeiro' && (
+      {aba === 'financeiro' && podeVerFinanceiro && (
         <CustosVeiculoClient
           veiculo={veiculo}
           financeiro={financeiro}

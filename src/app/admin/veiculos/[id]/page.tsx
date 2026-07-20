@@ -4,16 +4,23 @@ import { getLojaIdAtiva } from '@/lib/getLojaIdAtiva'
 import MarcaVendidoButton from '@/components/admin/MarcaVendidoButton'
 import ExcluirVeiculoButton from '@/components/admin/ExcluirVeiculoButton'
 import TransferirVeiculoButton from '@/components/admin/TransferirVeiculoButton'
-import VeiculoTabs from './VeiculoTabs'
+import PublicarVeiculoButton from '@/components/admin/PublicarVeiculoButton'
+import VeiculoTabs, { type Aba } from './VeiculoTabs'
 import type { AnexoComUrl } from './DocumentacaoVeiculoClient'
 import type { Veiculo, UsuarioPerfil, FinanceiroVeiculo, CustoManutencao, VeiculoAquisicao, Anexo, VistoriaVeiculo, VeiculoTransferencia } from '@/types'
 
+const ABAS_VALIDAS: Aba[] = ['dados', 'fotos', 'financeiro', 'checklist', 'documentacao', 'vistoria']
+const ABAS_RESTRITAS: Aba[] = ['financeiro', 'documentacao']
+
 export default async function EditarVeiculoPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ aba?: string }>
 }) {
   const { id } = await params
+  const { aba: abaParam } = await searchParams
   const supabase = await createServerSupabase()
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -25,6 +32,14 @@ export default async function EditarVeiculoPage({
 
   const lojaId = await getLojaIdAtiva(perfil)
   const podeVerFinanceiro = ['gerente', 'diretor', 'admin'].includes(perfil.perfil)
+
+  // Permite abrir direto numa aba específica (ex: link "Lançar despesa" na tela
+  // de venda) — só aceita valores conhecidos, e nunca uma aba restrita pra quem
+  // não tem podeVerFinanceiro (a própria VeiculoTabs também revalida isso).
+  const abaInicial: Aba | undefined =
+    abaParam && (ABAS_VALIDAS as string[]).includes(abaParam) && (podeVerFinanceiro || !ABAS_RESTRITAS.includes(abaParam as Aba))
+      ? (abaParam as Aba)
+      : undefined
 
   const admin = adminSupabase()
   const [
@@ -128,14 +143,26 @@ export default async function EditarVeiculoPage({
         </a>
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h1 className="font-[family-name:var(--font-barlow-condensed)] text-3xl font-black uppercase text-[#111]">
+            <h1 className="font-[family-name:var(--font-barlow-condensed)] text-3xl font-black uppercase text-[#111] flex items-center gap-3">
               Editar Veículo
+              {veiculo.rascunho && (
+                <span className="text-xs px-2.5 py-1 rounded-full border border-amber-300 bg-amber-50 text-amber-700 font-semibold tracking-wide normal-case">
+                  RASCUNHO
+                </span>
+              )}
             </h1>
             <p className="text-[#6B7280] text-sm mt-1">
               {veiculo.marca} {veiculo.modelo} {veiculo.ano}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {veiculo.rascunho && (
+              <PublicarVeiculoButton
+                veiculoId={id}
+                temFoto={veiculo.fotos.length > 0}
+                temPreco={veiculo.preco > 0}
+              />
+            )}
             <a
               href={`/api/pdf/ficha/${id}`}
               target="_blank"
@@ -172,6 +199,7 @@ export default async function EditarVeiculoPage({
         anexos={anexos}
         vistoria={vistoria}
         transferencias={transferencias}
+        abaInicial={abaInicial}
       />
     </div>
   )

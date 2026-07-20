@@ -124,6 +124,14 @@ export default function VendaDetalheClient({ venda: initial, perfil, anexos, pod
           >
             🚗 Ver veículo
           </a>
+          {podeVerDocumentacao && (
+            <a
+              href={`/admin/veiculos/${venda.veiculo_id}?aba=financeiro`}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border border-[#E5E7EB] text-[#6B7280] hover:text-[#111827] hover:border-[#D1D5DB] transition-colors bg-white"
+            >
+              💸 Lançar despesa neste veículo
+            </a>
+          )}
           <a
             href={`/api/pdf/venda/${venda.id}`}
             target="_blank"

@@ -11,6 +11,7 @@ import VeiculosBuscaClient from './VeiculosBuscaClient'
 interface SearchParams {
   status?: string
   q?: string
+  rascunho?: string
 }
 
 export default async function VeiculosAdminPage({
@@ -39,6 +40,9 @@ export default async function VeiculosAdminPage({
   }
   if (params.status) {
     query = query.eq('status', params.status as 'disponivel' | 'reservado' | 'vendido' | 'manutencao')
+  }
+  if (params.rascunho) {
+    query = query.eq('rascunho', true)
   }
   if (params.q) {
     const q = params.q.replace(/'/g, "''")
@@ -86,7 +90,7 @@ export default async function VeiculosAdminPage({
 
       <VeiculosBuscaClient valorInicial={params.q ?? ''} status={params.status ?? ''} />
 
-      <div className="flex gap-2 mb-6 flex-wrap">
+      <div className="flex gap-2 mb-3 flex-wrap">
         {statusOptions.map(opt => (
           <a
             key={opt.value}
@@ -94,6 +98,7 @@ export default async function VeiculosAdminPage({
               const p = new URLSearchParams()
               if (opt.value) p.set('status', opt.value)
               if (params.q) p.set('q', params.q)
+              if (params.rascunho) p.set('rascunho', '1')
               const qs = p.toString()
               return `/admin/veiculos${qs ? `?${qs}` : ''}`
             })()}
@@ -106,6 +111,26 @@ export default async function VeiculosAdminPage({
             {opt.label}
           </a>
         ))}
+      </div>
+
+      <div className="flex gap-2 mb-6 flex-wrap">
+        <a
+          href={(() => {
+            const p = new URLSearchParams()
+            if (params.status) p.set('status', params.status)
+            if (params.q) p.set('q', params.q)
+            if (!params.rascunho) p.set('rascunho', '1')
+            const qs = p.toString()
+            return `/admin/veiculos${qs ? `?${qs}` : ''}`
+          })()}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+            params.rascunho
+              ? 'border-amber-400 text-amber-700 bg-amber-50'
+              : 'border-[#E5E5E5] text-[#6B7280] hover:border-[#D0D0D0] hover:text-[#374151] bg-white'
+          }`}
+        >
+          📝 Só rascunhos
+        </a>
       </div>
 
       <div className="bg-white border border-[#E5E5E5] rounded-xl overflow-hidden shadow-sm">
@@ -149,7 +174,14 @@ export default async function VeiculosAdminPage({
                           )}
                         </div>
                         <div>
-                          <p className="text-[#111] font-medium">{v.marca} {v.modelo}</p>
+                          <p className="text-[#111] font-medium flex items-center gap-1.5">
+                            {v.marca} {v.modelo}
+                            {v.rascunho && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full border border-amber-300 bg-amber-50 text-amber-700 font-semibold tracking-wide">
+                                RASCUNHO
+                              </span>
+                            )}
+                          </p>
                           <p className="text-[#9CA3AF] text-xs">{v.ano} · {v.cambio}</p>
                         </div>
                       </div>
@@ -169,13 +201,16 @@ export default async function VeiculosAdminPage({
                         >
                           Editar
                         </Link>
-                        <a
-                          href={`/veiculo/${v.id}`}
-                          target="_blank"
-                          className="text-xs text-[#6B7280] hover:text-[#111] px-2.5 py-1.5 rounded-md border border-[#E5E5E5] hover:border-[#D0D0D0] transition-colors bg-white"
-                        >
-                          Ver
-                        </a>
+                        {/* Rascunho nunca aparece no site público — link "Ver" seria um 404 */}
+                        {!v.rascunho && (
+                          <a
+                            href={`/veiculo/${v.id}`}
+                            target="_blank"
+                            className="text-xs text-[#6B7280] hover:text-[#111] px-2.5 py-1.5 rounded-md border border-[#E5E5E5] hover:border-[#D0D0D0] transition-colors bg-white"
+                          >
+                            Ver
+                          </a>
+                        )}
                         {/* Sócio não acessa /admin/vendas (bloqueado no proxy) — esconde o atalho */}
                         {v.status !== 'vendido' && !ehSocio && (
                           <MarcaVendidoButton veiculoId={v.id} />

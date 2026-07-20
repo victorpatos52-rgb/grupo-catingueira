@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { salvarVenda, finalizarVenda } from '@/app/actions'
+import { salvarVenda, finalizarVenda, salvarVeiculoRecebido } from '@/app/actions'
 import type { UsuarioPerfil, Veiculo, Venda } from '@/types'
 
 interface Props {
@@ -228,7 +228,33 @@ export default function NovaVendaClient({ veiculos, usuarios, lojaId, vendedorId
   const [finalizando, setFinalizando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
 
+  // ── Veículo recebido na troca (permuta) — opcional ────────────────────────
+  const [temRecebido, setTemRecebido] = useState(false)
+  const [recebido, setRecebido] = useState({
+    marca: '',
+    modelo: '',
+    ano: '',
+    placa: '',
+    cor: '',
+    valor_entrada: 0,
+    observacoes: '',
+  })
+  const recebidoValido =
+    !temRecebido || (!!recebido.marca.trim() && !!recebido.modelo.trim() && !!recebido.ano && !!recebido.cor.trim())
+
   const veiculoSelecionado = veiculos.find(v => v.id === form.veiculo_id) ?? null
+
+  // Venda retroativa é permitida livremente (comum lançar vendas atrasadas) —
+  // a única regra é não deixar registrar uma venda "do futuro".
+  const dataVendaFutura = (() => {
+    if (form.data_venda > hoje) return true
+    if (form.data_venda === hoje && form.hora_venda) {
+      const agora = new Date()
+      const horaAtual = `${String(agora.getHours()).padStart(2, '0')}:${String(agora.getMinutes()).padStart(2, '0')}`
+      return form.hora_venda > horaAtual
+    }
+    return false
+  })()
 
   const set = useCallback(<K extends keyof FormData>(key: K, value: FormData[K]) => {
     setForm(prev => ({ ...prev, [key]: value }))
@@ -303,6 +329,20 @@ export default function NovaVendaClient({ veiculos, usuarios, lojaId, vendedorId
     }
     const { id } = await salvarVenda(payload)
     setVendaId(id)
+    await salvarVeiculoRecebido(
+      id,
+      temRecebido && recebido.marca.trim() && recebido.modelo.trim()
+        ? {
+            marca: recebido.marca.trim(),
+            modelo: recebido.modelo.trim(),
+            ano: recebido.ano ? Number(recebido.ano) : null,
+            placa: recebido.placa.trim() || null,
+            cor: recebido.cor.trim() || null,
+            valor_entrada: recebido.valor_entrada || null,
+            observacoes: recebido.observacoes.trim() || null,
+          }
+        : null
+    )
     return id
   }
 
@@ -346,7 +386,8 @@ export default function NovaVendaClient({ veiculos, usuarios, lojaId, vendedorId
   }
 
   const podaAvancar1 = !!form.veiculo_id && form.valor_venda > 0
-  const podaAvancar2 = !!form.comprador_nome.trim()
+  const podaAvancar2 = !!form.comprador_nome.trim() && !dataVendaFutura
+  const podaAvancar3 = recebidoValido
 
   const total = totalPagamentos()
   const diferePagamento = form.valor_liquido > 0 && Math.abs(total - form.valor_liquido) > 0.01
@@ -576,12 +617,25 @@ export default function NovaVendaClient({ veiculos, usuarios, lojaId, vendedorId
             </div>
             <div>
               <label className={labelCls}>Data da venda</label>
-              <input type="date" value={form.data_venda} onChange={e => set('data_venda', e.target.value)} className={inputCls} />
+              <input
+                type="date"
+                value={form.data_venda}
+                max={hoje}
+                onChange={e => set('data_venda', e.target.value)}
+                className={inputCls}
+              />
             </div>
             <div>
               <label className={labelCls}>Hora da venda</label>
               <input type="time" value={form.hora_venda} onChange={e => set('hora_venda', e.target.value)} className={inputCls} />
             </div>
+            {dataVendaFutura && (
+              <div className="sm:col-span-2">
+                <p className="text-red-600 text-xs">
+                  A venda não pode ser registrada com data/hora no futuro.
+                </p>
+              </div>
+            )}
             <div>
               <label className={labelCls}>Origem</label>
               <select value={form.origem} onChange={e => set('origem', e.target.value)} className={`${inputCls} cursor-pointer`}>
@@ -756,6 +810,99 @@ export default function NovaVendaClient({ veiculos, usuarios, lojaId, vendedorId
             </div>
           </div>
 
+          {/* Veículo recebido na troca */}
+          <div className="mt-4 p-4 rounded-xl border border-[#E5E7EB] bg-white">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm font-semibold text-[#374151]">Veículo recebido na troca</p>
+              <label className="flex items-center gap-2 text-xs text-[#6B7280] cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={temRecebido}
+                  onChange={e => setTemRecebido(e.target.checked)}
+                  className="accent-[#F5C842]"
+                />
+                Houve troca
+              </label>
+            </div>
+            {temRecebido && (
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className={labelCls}>Marca *</label>
+                    <input
+                      required
+                      type="text"
+                      value={recebido.marca}
+                      onChange={e => setRecebido(p => ({ ...p, marca: e.target.value }))}
+                      className={inputCls}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Modelo *</label>
+                    <input
+                      required
+                      type="text"
+                      value={recebido.modelo}
+                      onChange={e => setRecebido(p => ({ ...p, modelo: e.target.value }))}
+                      className={inputCls}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Ano *</label>
+                    <input
+                      required
+                      type="number"
+                      value={recebido.ano}
+                      onChange={e => setRecebido(p => ({ ...p, ano: e.target.value }))}
+                      className={inputCls}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Placa</label>
+                    <input
+                      type="text"
+                      value={recebido.placa}
+                      onChange={e => setRecebido(p => ({ ...p, placa: e.target.value }))}
+                      className={inputCls}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Cor *</label>
+                    <input
+                      required
+                      type="text"
+                      value={recebido.cor}
+                      onChange={e => setRecebido(p => ({ ...p, cor: e.target.value }))}
+                      className={inputCls}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Valor de entrada</label>
+                    <MoedaInput value={recebido.valor_entrada} onChange={v => setRecebido(p => ({ ...p, valor_entrada: v }))} />
+                  </div>
+                  <div className="col-span-2 sm:col-span-3">
+                    <label className={labelCls}>Observações</label>
+                    <textarea
+                      value={recebido.observacoes}
+                      onChange={e => setRecebido(p => ({ ...p, observacoes: e.target.value }))}
+                      rows={2}
+                      className={`${inputCls} resize-none`}
+                    />
+                  </div>
+                </div>
+                {!recebidoValido && (
+                  <p className="text-red-600 text-xs mt-2">
+                    Preencha marca, modelo, ano e cor do veículo recebido na troca.
+                  </p>
+                )}
+                <p className="text-[#9CA3AF] text-xs mt-2">
+                  Esse veículo é cadastrado automaticamente (como rascunho, precisando de fotos/preço) quando a
+                  venda for finalizada.
+                </p>
+              </>
+            )}
+          </div>
+
           {/* Total */}
           <div className="mt-4 p-4 rounded-xl border border-[#E5E7EB] bg-[#F9FAFB]">
             <div className="flex items-center justify-between">
@@ -827,6 +974,19 @@ export default function NovaVendaClient({ veiculos, usuarios, lojaId, vendedorId
             </div>
           </div>
 
+          {/* Card veículo recebido na troca */}
+          {temRecebido && (
+            <div className="bg-white border border-[#E5E7EB] rounded-xl p-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-[#9CA3AF] mb-3">Veículo recebido na troca</p>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div><span className="text-[#9CA3AF] text-xs">Veículo</span><p className="text-[#111] font-medium">{recebido.marca || '—'} {recebido.modelo}</p></div>
+                <div><span className="text-[#9CA3AF] text-xs">Ano / Placa</span><p className="text-[#111]">{recebido.ano || '—'} · {recebido.placa || '—'}</p></div>
+                <div><span className="text-[#9CA3AF] text-xs">Cor</span><p className="text-[#111]">{recebido.cor || '—'}</p></div>
+                <div><span className="text-[#9CA3AF] text-xs">Valor de entrada</span><p className="text-[#111] font-medium">{formatarMoeda(recebido.valor_entrada)}</p></div>
+              </div>
+            </div>
+          )}
+
           {/* Card pagamento */}
           <div className="bg-white border border-[#E5E7EB] rounded-xl p-4">
             <p className="text-xs font-bold uppercase tracking-wider text-[#9CA3AF] mb-3">Pagamentos</p>
@@ -865,7 +1025,7 @@ export default function NovaVendaClient({ veiculos, usuarios, lojaId, vendedorId
             </button>
             <button
               onClick={handleFinalizar}
-              disabled={salvando || finalizando || !form.veiculo_id}
+              disabled={salvando || finalizando || !form.veiculo_id || !recebidoValido}
               className="flex-1 px-4 py-3 rounded-xl font-semibold text-sm text-[#92400E] bg-[#FEF9C3] border border-[#F5C842] hover:bg-[#FEF08A] transition-colors disabled:opacity-50"
             >
               {finalizando ? 'Finalizando...' : 'Finalizar Venda'}
@@ -889,6 +1049,7 @@ export default function NovaVendaClient({ veiculos, usuarios, lojaId, vendedorId
             disabled={
               (etapa === 1 && !podaAvancar1) ||
               (etapa === 2 && !podaAvancar2) ||
+              (etapa === 3 && !podaAvancar3) ||
               salvando
             }
             className="px-5 py-2.5 rounded-xl text-sm font-semibold text-[#92400E] bg-[#FEF9C3] border border-[#F5C842] hover:bg-[#FEF08A] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
