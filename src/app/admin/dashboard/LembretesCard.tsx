@@ -19,6 +19,7 @@ const tipoBadge: Record<string, string> = {
   financiamento: 'bg-amber-50 text-amber-700',
   visita: 'bg-green-50 text-green-700',
   personalizado: 'bg-gray-100 text-gray-600',
+  promissoria: 'bg-red-50 text-red-700',
 }
 
 const tipoLabel: Record<string, string> = {
@@ -28,6 +29,7 @@ const tipoLabel: Record<string, string> = {
   financiamento: 'Financiamento',
   visita: 'Visita',
   personalizado: 'Personalizado',
+  promissoria: 'Parcela',
 }
 
 export default function LembretesCard({ lembretes }: { lembretes: Lembrete[] }) {
@@ -54,9 +56,17 @@ export default function LembretesCard({ lembretes }: { lembretes: Lembrete[] }) 
       </div>
       <div className="divide-y divide-[#F0F0F0]">
         {lembretes.map(l => {
-          const telefone = l.lead?.telefone
-          const nomeRef = l.lead?.nome ?? (l.veiculo ? `${l.veiculo.marca} ${l.veiculo.modelo} ${l.veiculo.ano}` : 'Lembrete')
-          const waMsg = `Olá${l.lead?.nome ? ` ${l.lead.nome}` : ''}, ${l.mensagem ?? 'entrando em contato conforme combinado.'}`
+          // Lembrete de promissória é "virtual" (nunca gravado em `lembretes`)
+          // — nome/telefone vêm da venda, não de um lead, e não tem como
+          // "concluir" (a linha nem existe pra atualizar); some sozinho da
+          // lista quando a parcela é marcada como paga na tela da venda.
+          const ehPromissoria = l.tipo === 'promissoria'
+          const telefone = l.lead?.telefone ?? l.venda?.comprador_telefone ?? undefined
+          const nomeRef =
+            l.lead?.nome ??
+            l.venda?.comprador_nome ??
+            (l.veiculo ? `${l.veiculo.marca} ${l.veiculo.modelo} ${l.veiculo.ano}` : 'Lembrete')
+          const waMsg = `Olá${nomeRef !== 'Lembrete' ? ` ${nomeRef}` : ''}, ${l.mensagem ?? 'entrando em contato conforme combinado.'}`
           const waHref = buildWaHref(telefone, waMsg)
           return (
             <div key={l.id} className="px-5 py-4 flex items-start justify-between gap-3">
@@ -82,13 +92,24 @@ export default function LembretesCard({ lembretes }: { lembretes: Lembrete[] }) 
                     WhatsApp
                   </a>
                 )}
-                <button
-                  onClick={() => handleConcluir(l.id)}
-                  disabled={loading === l.id}
-                  className="px-2.5 py-1.5 rounded-lg bg-[#F0F0F0] text-[#6B7280] text-xs font-medium hover:bg-[#E5E5E5] transition-colors disabled:opacity-50"
-                >
-                  {loading === l.id ? '...' : 'Concluir'}
-                </button>
+                {ehPromissoria ? (
+                  l.venda?.id && (
+                    <a
+                      href={`/admin/vendas/${l.venda.id}`}
+                      className="px-2.5 py-1.5 rounded-lg bg-[#F0F0F0] text-[#6B7280] text-xs font-medium hover:bg-[#E5E5E5] transition-colors"
+                    >
+                      Ver venda
+                    </a>
+                  )
+                ) : (
+                  <button
+                    onClick={() => handleConcluir(l.id)}
+                    disabled={loading === l.id}
+                    className="px-2.5 py-1.5 rounded-lg bg-[#F0F0F0] text-[#6B7280] text-xs font-medium hover:bg-[#E5E5E5] transition-colors disabled:opacity-50"
+                  >
+                    {loading === l.id ? '...' : 'Concluir'}
+                  </button>
+                )}
               </div>
             </div>
           )

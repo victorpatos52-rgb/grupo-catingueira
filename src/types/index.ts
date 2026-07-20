@@ -146,13 +146,17 @@ export interface Lembrete {
   loja_id: string
   lead_id: string | null
   veiculo_id: string | null
-  tipo: 'pos_venda' | 'aniversario_compra' | 'aniversario_cliente' | 'financiamento' | 'visita' | 'personalizado'
+  tipo: 'pos_venda' | 'aniversario_compra' | 'aniversario_cliente' | 'financiamento' | 'visita' | 'personalizado' | 'promissoria'
   data_lembrete: string
   mensagem: string | null
   concluido: boolean
   created_at: string
   lead?: Pick<Lead, 'nome' | 'telefone'> | null
   veiculo?: Pick<Veiculo, 'marca' | 'modelo' | 'ano'> | null
+  // Só presente em lembretes "virtuais" de promissória (nunca persistidos na
+  // tabela lembretes — ver admin/dashboard/page.tsx) — referencia a venda pra
+  // exibir nome/telefone do comprador e linkar pra tela de detalhe da venda.
+  venda?: Pick<Venda, 'id' | 'comprador_nome' | 'comprador_telefone'> | null
 }
 
 export interface VistoriaVeiculo {

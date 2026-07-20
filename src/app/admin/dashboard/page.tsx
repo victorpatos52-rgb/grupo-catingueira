@@ -4,6 +4,19 @@ import { getLojaIdAtiva } from '@/lib/getLojaIdAtiva'
 import type { Veiculo, Lead, UsuarioPerfil, Lembrete } from '@/types'
 import DashboardClient, { type UltimaVenda, type TopVendedor } from './DashboardClient'
 
+// Quantos dias de antecedência uma promissória a vencer aparece como lembrete
+// (parcelas já vencidas e ainda pendentes aparecem sempre, sem limite).
+const DIAS_ANTECEDENCIA_PROMISSORIA = 3
+
+function fmtMoeda(v: number) {
+  return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
+function fmtDataBR(s: string) {
+  const [y, m, d] = s.split('T')[0].split('-')
+  return `${d}/${m}/${y}`
+}
+
 export default async function DashboardPage() {
   const supabase = await createServerSupabase()
   const { data: { user } } = await supabase.auth.getUser()
@@ -15,11 +28,15 @@ export default async function DashboardPage() {
   if (!perfil) redirect('/login')
 
   const lojaId = await getLojaIdAtiva(perfil)
+  const podeVerFinanceiro = ['gerente', 'diretor', 'admin'].includes(perfil.perfil)
   const admin = adminSupabase()
 
   const agora = new Date()
   const inicioMes = `${agora.getFullYear()}-${String(agora.getMonth() + 1).padStart(2, '0')}-01`
   const hoje = agora.toISOString().split('T')[0]
+  const cutoffPromissoria = new Date(agora)
+  cutoffPromissoria.setDate(cutoffPromissoria.getDate() + DIAS_ANTECEDENCIA_PROMISSORIA)
+  const cutoffPromissoriaStr = cutoffPromissoria.toISOString().split('T')[0]
 
   const [
     { count: totalEstoque },
@@ -32,6 +49,7 @@ export default async function DashboardPage() {
     { data: vendasMesData },
     { data: ultimasVendasData },
     { data: vendedoresData },
+    { data: promissoriasData },
   ] = await Promise.all([
     admin.from('veiculos')
       .select('*', { count: 'exact', head: true })
@@ -74,6 +92,18 @@ export default async function DashboardPage() {
     admin.from('usuarios_perfil')
       .select('id, nome')
       .eq('loja_id', lojaId),
+    // Promissórias pendentes vencendo em breve (ou já vencidas) — viram
+    // lembretes "virtuais" abaixo, nunca são gravadas na tabela lembretes.
+    // Restrito a quem vê financeiro da venda, mesmo nível de acesso já usado
+    // pra promissórias (gerente/diretor/admin) — vendedor não vê cobrança.
+    podeVerFinanceiro
+      ? admin.from('venda_promissorias')
+          .select('id, numero_parcela, valor, vencimento, venda:vendas!inner(id, comprador_nome, comprador_telefone, loja_id)')
+          .eq('pago', false)
+          .eq('venda.loja_id', lojaId)
+          .lte('vencimento', cutoffPromissoriaStr)
+          .order('vencimento')
+      : Promise.resolve({ data: [] as unknown[] }),
   ])
 
   // ── Agregações em JS ────────────────────────────────────────────────────────
@@ -120,6 +150,37 @@ export default async function DashboardPage() {
     .sort((a, b) => b.total - a.total)
     .slice(0, 3)
 
+  // Promissórias pendentes viram lembretes "virtuais" (nunca persistidos em
+  // `lembretes`) — somem sozinhos quando a parcela é marcada como paga, já
+  // que a query acima só busca pago=false a cada carregamento da página.
+  type PromissoriaLembreteRow = {
+    id: string
+    numero_parcela: number
+    valor: number
+    vencimento: string
+    venda: { id: string; comprador_nome: string; comprador_telefone: string | null } | null
+  }
+  const lembretesPromissorias: Lembrete[] = ((promissoriasData ?? []) as unknown as PromissoriaLembreteRow[])
+    .filter((p): p is PromissoriaLembreteRow & { venda: NonNullable<PromissoriaLembreteRow['venda']> } => !!p.venda)
+    .map(p => {
+      const vencida = p.vencimento < hoje
+      return {
+        id: `promissoria-${p.id}`,
+        loja_id: lojaId,
+        lead_id: null,
+        veiculo_id: null,
+        tipo: 'promissoria',
+        data_lembrete: p.vencimento,
+        mensagem: `Parcela ${p.numero_parcela} — ${fmtMoeda(p.valor)} — ${vencida ? 'venceu em' : 'vence em'} ${fmtDataBR(p.vencimento)}`,
+        concluido: false,
+        created_at: p.vencimento,
+        venda: { id: p.venda.id, comprador_nome: p.venda.comprador_nome, comprador_telefone: p.venda.comprador_telefone },
+      }
+    })
+
+  const lembretes: Lembrete[] = [...((lembretesData ?? []) as Lembrete[]), ...lembretesPromissorias]
+    .sort((a, b) => a.data_lembrete.localeCompare(b.data_lembrete))
+
   return (
     <DashboardClient
       totalEstoque={totalEstoque ?? 0}
@@ -134,7 +195,7 @@ export default async function DashboardPage() {
       ultimasVendas={(ultimasVendasData ?? []) as unknown as UltimaVenda[]}
       ultimosVeiculos={(ultimosVeiculosData ?? []) as Veiculo[]}
       ultimosLeads={(ultimosLeadsData ?? []) as Lead[]}
-      lembretes={(lembretesData ?? []) as Lembrete[]}
+      lembretes={lembretes}
     />
   )
 }
