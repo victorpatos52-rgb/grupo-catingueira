@@ -178,7 +178,11 @@ export default function VendasClient({ vendas }: Props) {
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <Link
-                          href={`/admin/vendas/${venda.id}`}
+                          href={
+                            venda.status === 'rascunho'
+                              ? `/admin/vendas/nova?venda_id=${venda.id}`
+                              : `/admin/vendas/${venda.id}`
+                          }
                           className="text-xs text-[#6B7280] hover:text-[#111] px-2.5 py-1 rounded-lg border border-[#E5E7EB] hover:border-[#D1D5DB] transition-colors bg-white whitespace-nowrap"
                         >
                           {venda.status === 'rascunho' ? 'Continuar' : 'Ver'}

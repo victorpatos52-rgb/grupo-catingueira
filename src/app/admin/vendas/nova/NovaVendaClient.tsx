@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { salvarVenda, finalizarVenda, salvarPagamentosVenda } from '@/app/actions'
-import type { UsuarioPerfil, Veiculo, TipoPagamentoVenda } from '@/types'
+import type { UsuarioPerfil, Veiculo, TipoPagamentoVenda, Venda, VendaPagamento } from '@/types'
 
 interface Props {
   perfil: UsuarioPerfil
@@ -13,6 +13,8 @@ interface Props {
   lojaId: string
   vendedorId: string
   veiculoIdInicial: string | null
+  vendaInicial: Venda | null
+  pagamentosIniciais: VendaPagamento[]
 }
 
 function formatarMoeda(v: number) {
@@ -93,6 +95,41 @@ function initialForm(veiculoIdInicial: string | null, vendedorId: string): FormD
     inscricao_estadual: '',
     hodometro_venda: null,
     observacoes: '',
+  }
+}
+
+// Repopula o form ao retomar um rascunho pelo assistente (?venda_id=).
+function formFromVenda(venda: Venda): FormData {
+  return {
+    veiculo_id: venda.veiculo_id,
+    valor_venda: venda.valor_venda,
+    // autoSalvar grava 'Rascunho' como placeholder quando o nome ainda não
+    // foi preenchido — não repopular isso como se fosse dado real.
+    comprador_nome: venda.comprador_nome === 'Rascunho' ? '' : venda.comprador_nome,
+    comprador_cpf: venda.comprador_cpf ?? '',
+    comprador_rg: venda.comprador_rg ?? '',
+    comprador_identidade: venda.comprador_identidade ?? '',
+    comprador_profissao: venda.comprador_profissao ?? '',
+    comprador_data_nasc: venda.comprador_data_nasc ?? '',
+    comprador_estado_civil: venda.comprador_estado_civil ?? '',
+    comprador_endereco: venda.comprador_endereco ?? '',
+    comprador_numero: venda.comprador_numero ?? '',
+    comprador_bairro: venda.comprador_bairro ?? '',
+    comprador_cep: venda.comprador_cep ?? '',
+    comprador_cidade: venda.comprador_cidade ?? '',
+    comprador_uf: venda.comprador_uf ?? '',
+    comprador_telefone: venda.comprador_telefone ?? '',
+    comprador_email: venda.comprador_email ?? '',
+    vendedor_id: venda.vendedor_id ?? '',
+    data_venda: venda.data_venda,
+    hora_venda: venda.hora_venda ?? '',
+    desconto: venda.desconto,
+    valor_liquido: venda.valor_liquido,
+    origem: venda.origem ?? '',
+    numero_fiscal: venda.numero_fiscal ?? '',
+    inscricao_estadual: venda.inscricao_estadual ?? '',
+    hodometro_venda: venda.hodometro_venda ?? null,
+    observacoes: venda.observacoes ?? '',
   }
 }
 
@@ -188,6 +225,30 @@ function detalhesDoItem(item: PagamentoItemForm): Record<string, string | number
   }
 }
 
+// Reconstrói a lista de itens do formulário a partir do que já está salvo em
+// venda_pagamentos, ao retomar um rascunho pelo assistente (?venda_id=).
+function pagamentosFromVendaPagamentos(pagamentos: VendaPagamento[]): PagamentoItemForm[] {
+  return pagamentos.map(p => {
+    const d = p.detalhes ?? {}
+    return {
+      tempId: p.id,
+      tipo: p.tipo,
+      valor: p.valor,
+      banco: d.banco ?? '',
+      numeroCheque: d.numero ?? '',
+      data: d.data ?? '',
+      nomeFinanceira: d.nome ?? '',
+      veiculoMarca: d.marca ?? '',
+      veiculoModelo: d.modelo ?? '',
+      veiculoAno: d.ano != null ? String(d.ano) : '',
+      veiculoPlaca: d.placa ?? '',
+      veiculoCor: d.cor ?? '',
+      veiculoObs: d.observacoes ?? '',
+      outrosDesc: d.descricao ?? '',
+    }
+  })
+}
+
 // ── Stepper ──────────────────────────────────────────────────────────────────
 
 const ETAPAS = ['Veículo', 'Comprador', 'Pagamento', 'Revisão']
@@ -276,16 +337,26 @@ function MoedaInput({
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-export default function NovaVendaClient({ veiculos, usuarios, lojaId, vendedorId, veiculoIdInicial }: Props) {
+export default function NovaVendaClient({ veiculos, usuarios, lojaId, vendedorId, veiculoIdInicial, vendaInicial, pagamentosIniciais }: Props) {
   const router = useRouter()
   const [etapa, setEtapa] = useState(1)
   const [buscaVeiculo, setBuscaVeiculo] = useState('')
-  const [form, setForm] = useState<FormData>(() => initialForm(veiculoIdInicial, vendedorId))
-  const [vendaId, setVendaId] = useState<string | null>(null)
+  const [form, setForm] = useState<FormData>(() =>
+    vendaInicial ? formFromVenda(vendaInicial) : initialForm(veiculoIdInicial, vendedorId)
+  )
+  const [vendaId, setVendaId] = useState<string | null>(vendaInicial?.id ?? null)
   const [salvando, setSalvando] = useState(false)
   const [finalizando, setFinalizando] = useState(false)
   const [erro, setErro] = useState<string | null>(null)
-  const [pagamentos, setPagamentos] = useState<PagamentoItemForm[]>([])
+  const [pagamentos, setPagamentos] = useState<PagamentoItemForm[]>(() =>
+    pagamentosFromVendaPagamentos(pagamentosIniciais)
+  )
+  // Mutex de autoSalvar: se já existe um salvamento em voo (disparado pelo
+  // debounce da etapa 3 ou por uma transição de etapa), uma segunda chamada
+  // concorrente (ex: usuário clica "Próximo" logo após digitar) reaproveita
+  // essa mesma promise em vez de disparar salvarPagamentosVenda em paralelo —
+  // duas chamadas concorrentes (delete+insert) duplicariam linhas de pagamento.
+  const autoSalvarEmVooRef = useRef<Promise<string> | null>(null)
 
   const veiculoSelecionado = veiculos.find(v => v.id === form.veiculo_id) ?? null
 
@@ -326,6 +397,19 @@ export default function NovaVendaClient({ veiculos, usuarios, lojaId, vendedorId
   }
 
   async function autoSalvar(): Promise<string> {
+    if (autoSalvarEmVooRef.current) return autoSalvarEmVooRef.current
+
+    const promise = executarAutoSalvar()
+    autoSalvarEmVooRef.current = promise
+    try {
+      return await promise
+    } finally {
+      autoSalvarEmVooRef.current = null
+    }
+  }
+
+  async function executarAutoSalvar(): Promise<string> {
+    const eraNovo = !vendaId
     const payload = {
       ...(vendaId ? { id: vendaId } : {}),
       loja_id: lojaId,
@@ -386,8 +470,30 @@ export default function NovaVendaClient({ veiculos, usuarios, lojaId, vendedorId
       id,
       pagamentos.map(p => ({ tipo: p.tipo, valor: p.valor, detalhes: detalhesDoItem(p) }))
     )
+    // Assim que a linha em vendas existe, gruda o id na URL — um refresh
+    // depois disso reabre o mesmo rascunho em vez de criar um duplicado.
+    if (eraNovo) {
+      router.replace(`/admin/vendas/nova?venda_id=${id}`, { scroll: false })
+    }
     return id
   }
+
+  // Autosave com debounce na etapa 3 (Pagamento): é a etapa mais longa/aberta
+  // (lista dinâmica de itens), e diferente de 1→2 e 2→3, nada salvava o que
+  // foi digitado aqui até o usuário clicar "Próximo". Dispara sozinho ~1.8s
+  // depois da última alteração — o cleanup do useEffect cancela o timer
+  // anterior a cada nova mudança (debounce de verdade, não um save por tecla).
+  // Se o usuário clicar "Próximo" antes do timer disparar, avancar() chama o
+  // mesmo autoSalvar(), que reaproveita a chamada em voo via mutex (acima) em
+  // vez de duplicar — não há corrida entre os dois caminhos.
+  useEffect(() => {
+    if (etapa !== 3) return
+    const timer = setTimeout(() => {
+      autoSalvar().catch(() => {})
+    }, 1800)
+    return () => clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [etapa, form, pagamentos])
 
   async function avancar() {
     if (etapa === 1 && form.veiculo_id) {
@@ -396,6 +502,11 @@ export default function NovaVendaClient({ veiculos, usuarios, lojaId, vendedorId
       setSalvando(false)
     }
     if (etapa === 2) {
+      setSalvando(true)
+      try { await autoSalvar() } catch {}
+      setSalvando(false)
+    }
+    if (etapa === 3) {
       setSalvando(true)
       try { await autoSalvar() } catch {}
       setSalvando(false)

@@ -25,7 +25,10 @@ export default async function VendaDetalhePage({ params }: Props) {
 
   const perfil = perfilData as UsuarioPerfil
   const lojaId = await getLojaIdAtiva(perfil)
-  const podeVerDocumentacao = ['gerente', 'diretor', 'admin'].includes(perfil.perfil)
+  // "Lançar despesa neste veículo" e Promissórias são financeiro completo —
+  // admin apenas. Anexos de venda (abaixo) não usam nenhuma dessas duas
+  // flags — continuam abertos a qualquer perfil da loja, como já eram.
+  const podeVerFinanceiroCompleto = perfil.perfil === 'admin'
 
   const admin = adminSupabase()
 
@@ -47,15 +50,15 @@ export default async function VendaDetalhePage({ params }: Props) {
       .eq('entidade_id', id)
       .order('criado_em', { ascending: false }),
     // Lista de pagamentos — mesma visibilidade que os campos fixos antigos
-    // tinham (não restrita a podeVerDocumentacao, diferente de anexos/aquisição).
+    // tinham (sempre aberta, diferente de anexos/aquisição do veículo).
     admin
       .from('venda_pagamentos')
       .select('*')
       .eq('venda_id', id)
       .order('criado_em', { ascending: true }),
-    // Promissórias são dado financeiro (mesmo nível de despesas/lançamentos) —
-    // só busca se o perfil tiver permissão de vê-las.
-    podeVerDocumentacao
+    // Promissórias são financeiro completo (mesmo nível de despesas/
+    // lançamentos) — admin apenas, só busca se o perfil tiver permissão.
+    podeVerFinanceiroCompleto
       ? admin
           .from('venda_promissorias')
           .select('*')
@@ -81,7 +84,7 @@ export default async function VendaDetalhePage({ params }: Props) {
       anexos={anexos}
       pagamentos={(pagamentosData ?? []) as VendaPagamento[]}
       promissorias={(promissoriasData ?? []) as VendaPromissoria[]}
-      podeVerDocumentacao={podeVerDocumentacao}
+      podeVerFinanceiroCompleto={podeVerFinanceiroCompleto}
     />
   )
 }

@@ -28,7 +28,11 @@ export default async function DashboardPage() {
   if (!perfil) redirect('/login')
 
   const lojaId = await getLojaIdAtiva(perfil)
-  const podeVerFinanceiro = ['gerente', 'diretor', 'admin'].includes(perfil.perfil)
+  // Promissória é financeiro completo (mesmo padrão do resto do financeiro
+  // reorganizado) — admin apenas. Na prática esta página já é 100% admin-only
+  // via proxy.ts ("Dashboard: só admin"), então isso é defesa em profundidade
+  // explícita, não uma mudança de comportamento observável hoje.
+  const podeVerFinanceiroCompleto = perfil.perfil === 'admin'
   const admin = adminSupabase()
 
   const agora = new Date()
@@ -94,9 +98,8 @@ export default async function DashboardPage() {
       .eq('loja_id', lojaId),
     // Promissórias pendentes vencendo em breve (ou já vencidas) — viram
     // lembretes "virtuais" abaixo, nunca são gravadas na tabela lembretes.
-    // Restrito a quem vê financeiro da venda, mesmo nível de acesso já usado
-    // pra promissórias (gerente/diretor/admin) — vendedor não vê cobrança.
-    podeVerFinanceiro
+    // Financeiro completo — admin apenas.
+    podeVerFinanceiroCompleto
       ? admin.from('venda_promissorias')
           .select('id, numero_parcela, valor, vencimento, venda:vendas!inner(id, comprador_nome, comprador_telefone, loja_id)')
           .eq('pago', false)

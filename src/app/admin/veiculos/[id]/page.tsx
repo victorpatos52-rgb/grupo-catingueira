@@ -10,7 +10,6 @@ import type { AnexoComUrl } from './DocumentacaoVeiculoClient'
 import type { Veiculo, UsuarioPerfil, FinanceiroVeiculo, CustoManutencao, VeiculoAquisicao, Anexo, VistoriaVeiculo, VeiculoTransferencia } from '@/types'
 
 const ABAS_VALIDAS: Aba[] = ['dados', 'fotos', 'financeiro', 'checklist', 'documentacao', 'vistoria']
-const ABAS_RESTRITAS: Aba[] = ['financeiro', 'documentacao']
 
 export default async function EditarVeiculoPage({
   params,
@@ -31,13 +30,20 @@ export default async function EditarVeiculoPage({
   const perfil = perfilData as UsuarioPerfil
 
   const lojaId = await getLojaIdAtiva(perfil)
-  const podeVerFinanceiro = ['gerente', 'diretor', 'admin'].includes(perfil.perfil)
+  // Documentação (aquisição/anexos do veículo, histórico de transferência) —
+  // gerente/diretor/admin, como sempre foi.
+  const podeVerDocumentacao = ['gerente', 'diretor', 'admin'].includes(perfil.perfil)
+  // Financeiro "de verdade" (custo de aquisição, valor de venda, DRE por
+  // carro) — agora restrito a admin. Diferente de podeVerDocumentacao.
+  const podeVerFinanceiroCompleto = perfil.perfil === 'admin'
 
   // Permite abrir direto numa aba específica (ex: link "Lançar despesa" na tela
   // de venda) — só aceita valores conhecidos, e nunca uma aba restrita pra quem
-  // não tem podeVerFinanceiro (a própria VeiculoTabs também revalida isso).
+  // não tem a permissão correspondente (a própria VeiculoTabs também revalida isso).
   const abaInicial: Aba | undefined =
-    abaParam && (ABAS_VALIDAS as string[]).includes(abaParam) && (podeVerFinanceiro || !ABAS_RESTRITAS.includes(abaParam as Aba))
+    abaParam && (ABAS_VALIDAS as string[]).includes(abaParam) &&
+    (abaParam !== 'financeiro' || podeVerFinanceiroCompleto) &&
+    (abaParam !== 'documentacao' || podeVerDocumentacao)
       ? (abaParam as Aba)
       : undefined
 
@@ -53,12 +59,21 @@ export default async function EditarVeiculoPage({
     { data: transferenciasData },
   ] = await Promise.all([
     admin.from('veiculos').select('*').eq('id', id).eq('loja_id', lojaId).single(),
-    admin
-      .from('financeiro_veiculos')
-      .select('*')
-      .eq('veiculo_id', id)
-      .eq('loja_id', lojaId)
-      .maybeSingle(),
+    // financeiro_veiculos (custo de aquisição, preço de venda) agora só é
+    // buscado por quem tem financeiro completo (admin) — mesmo motivo de não
+    // mandar dado sensível no payload mesmo com a aba escondida na UI.
+    podeVerFinanceiroCompleto
+      ? admin
+          .from('financeiro_veiculos')
+          .select('*')
+          .eq('veiculo_id', id)
+          .eq('loja_id', lojaId)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
+    // custos_manutencao NÃO é gated: é usado tanto pela aba Financeiro (admin)
+    // quanto pela aba Checklist de Serviços (aberta pra todo mundo) — só o
+    // valor monetário some da tela pra quem não é admin, a lista de serviços
+    // continua visível pra todos, como sempre foi.
     admin
       .from('custos_manutencao')
       .select('*')
@@ -67,10 +82,10 @@ export default async function EditarVeiculoPage({
     // Documentação (aquisição/anexos) só é buscada para quem tem permissão de vê-la —
     // evita mandar dados sensíveis (CPF do vendedor, signed URLs de anexos privados)
     // no payload para um vendedor, mesmo que a aba fique escondida na UI.
-    podeVerFinanceiro
+    podeVerDocumentacao
       ? admin.from('veiculo_aquisicao').select('*').eq('veiculo_id', id).maybeSingle()
       : Promise.resolve({ data: null }),
-    podeVerFinanceiro
+    podeVerDocumentacao
       ? admin
           .from('anexos')
           .select('*, usuario:usuarios_perfil(nome)')
@@ -85,13 +100,13 @@ export default async function EditarVeiculoPage({
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
-    // Loja(s) de destino possíveis para o botão "Transferir" — só quem tem
-    // permissão de transferir (mesma restrição de Documentação/Financeiro) precisa
-    // dessa lista, mas o filtro em si é feito abaixo (depende de veiculo.loja_id).
-    podeVerFinanceiro
+    // Loja(s) de destino possíveis para o botão "Transferir" — segue o mesmo
+    // nível de Documentação (não é "financeiro completo"), sem mudança de
+    // comportamento nesta reorganização.
+    podeVerDocumentacao
       ? admin.from('lojas').select('id, nome').order('nome')
       : Promise.resolve({ data: [] as { id: string; nome: string }[] }),
-    podeVerFinanceiro
+    podeVerDocumentacao
       ? admin
           .from('veiculo_transferencias')
           .select('*, loja_origem:lojas!veiculo_transferencias_loja_origem_id_fkey(nome)')
@@ -174,7 +189,7 @@ export default async function EditarVeiculoPage({
             {veiculo.status !== 'vendido' && (
               <MarcaVendidoButton veiculoId={id} />
             )}
-            {podeVerFinanceiro && !veiculo.excluido && (
+            {podeVerDocumentacao && !veiculo.excluido && (
               <TransferirVeiculoButton veiculoId={id} outrasLojas={outrasLojas} />
             )}
             {!veiculo.excluido && <ExcluirVeiculoButton veiculoId={id} />}
@@ -194,7 +209,8 @@ export default async function EditarVeiculoPage({
         financeiro={financeiro}
         custos={custos}
         lojaId={lojaId}
-        podeVerFinanceiro={podeVerFinanceiro}
+        podeVerDocumentacao={podeVerDocumentacao}
+        podeVerFinanceiroCompleto={podeVerFinanceiroCompleto}
         aquisicao={aquisicao}
         anexos={anexos}
         vistoria={vistoria}

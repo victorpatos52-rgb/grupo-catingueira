@@ -33,10 +33,11 @@ export default async function FinanceiroPage({
   if (!perfilData) redirect('/login')
   const perfil = perfilData as UsuarioPerfil
 
-  // 'socio' vê uma versão restrita do Financeiro (só DRE dos veículos
-  // divididos, escalado pelo percentual) — os demais perfis, comportamento
-  // idêntico ao de antes.
-  if (!['gerente', 'diretor', 'admin', 'socio'].includes(perfil.perfil)) redirect('/admin/dashboard')
+  // Financeiro completo agora é admin apenas — gerente/diretor perderam acesso
+  // (antes tinham igual admin). 'socio' continua com a versão restrita de
+  // sempre (só DRE dos veículos divididos, escalado pelo percentual),
+  // inalterada por essa reorganização.
+  if (!['admin', 'socio'].includes(perfil.perfil)) redirect('/admin/crm')
 
   const lojaId = await getLojaIdAtiva(perfil)
   const admin = adminSupabase()

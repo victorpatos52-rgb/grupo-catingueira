@@ -349,6 +349,7 @@ export async function saveAquisicao(
   custoAquisicao: number,
   financeiroId?: string
 ) {
+  await exigirPerfilFinanceiroCompleto()
   const supabase = adminSupabase()
   if (financeiroId) {
     const { error } = await supabase
@@ -380,6 +381,10 @@ export async function saveAquisicao(
   revalidatePath('/admin/veiculos/' + veiculoId)
 }
 
+// Sem exigirPerfilFinanceiroCompleto de propósito: custos_manutencao é
+// compartilhado entre a aba "Financeiro" (admin) e a aba "Checklist de
+// Serviços" (aberta pra todo mundo, sem relação com DRE) — restringir aqui
+// bloquearia o Checklist pra gerente/vendedor, que nunca foi restrito.
 export async function saveCustoManutencao(data: {
   id?: string
   veiculo_id: string
@@ -423,6 +428,7 @@ export async function saveValorVenda(
   valor: number,
   financeiroId?: string
 ) {
+  await exigirPerfilFinanceiroCompleto()
   const supabase = adminSupabase()
   const hoje = new Date().toISOString().split('T')[0]
   if (financeiroId) {
@@ -507,7 +513,7 @@ export async function submitContatoLead(
 // ─── VEÍCULO CRUD (bypassa RLS via service role) ──────────────────────────────
 
 // Perfil de quem está chamando a action (via sessão/cookies) — usado só para
-// a restrição extra de sócio abaixo, não substitui exigirPerfil/exigirPerfilFinanceiro.
+// a restrição extra de sócio abaixo, não substitui exigirPerfil/exigirPerfilFinanceiroCompleto.
 async function obterPerfilAtual(): Promise<Perfil | null> {
   const userClient = await userSupabase()
   const { data: { session } } = await userClient.auth.getSession()
@@ -660,7 +666,7 @@ export async function transferirVeiculo(
 export async function salvarDespesa(
   data: Omit<DespesaLoja, 'id' | 'created_at'> & { id?: string }
 ): Promise<void> {
-  await exigirPerfilFinanceiro()
+  await exigirPerfilFinanceiroCompleto()
   const supabase = adminSupabase()
   if (data.id) {
     const { error } = await supabase.from('despesas_loja').update(data).eq('id', data.id)
@@ -673,7 +679,7 @@ export async function salvarDespesa(
 }
 
 export async function deletarDespesa(id: string): Promise<void> {
-  await exigirPerfilFinanceiro()
+  await exigirPerfilFinanceiroCompleto()
   const supabase = adminSupabase()
   const { error } = await supabase.from('despesas_loja').delete().eq('id', id)
   if (error) throw new Error(error.message)
@@ -696,7 +702,7 @@ export async function salvarLancamentoFinanceiro(
   },
   lancamentoId?: string
 ): Promise<void> {
-  const { userId } = await exigirPerfilFinanceiro()
+  const { userId } = await exigirPerfilFinanceiroCompleto()
   const supabase = adminSupabase()
 
   if (lancamentoId) {
@@ -715,7 +721,7 @@ export async function salvarLancamentoFinanceiro(
 }
 
 export async function deletarLancamentoFinanceiro(id: string): Promise<void> {
-  await exigirPerfilFinanceiro()
+  await exigirPerfilFinanceiroCompleto()
   const supabase = adminSupabase()
   const { error } = await supabase.from('lancamentos_financeiros').delete().eq('id', id)
   if (error) throw new Error(error.message)
@@ -748,6 +754,31 @@ export async function salvarVenda(
   const supabase = adminSupabase()
   if (data.id) {
     const { id, veiculo, vendedor, ...rest } = data as Venda & { veiculo?: unknown; vendedor?: unknown }
+
+    // Mesma trava de salvarPagamentosVenda: depois de finalizada, os dados da
+    // negociação (veículo, comprador, forma de pagamento) ficam congelados —
+    // ninguém deve conseguir reabrir e reescrever uma venda já fechada.
+    // Única exceção: editar Observações (handleSalvarObs em VendaDetalheClient)
+    // continua funcionando — esse formulário reenvia loja_id/veiculo_id/
+    // comprador_nome junto porque o tipo desta action exige, mas com o mesmo
+    // valor já salvo; a trava aqui olha se algum campo *além* de observacoes
+    // está de fato mudando de valor, não só se está presente no payload.
+    const { data: existente, error: statusError } = await supabase
+      .from('vendas')
+      .select('*')
+      .eq('id', id)
+      .single()
+    if (statusError || !existente) throw new Error('Venda não encontrada.')
+    if (existente.status === 'finalizada') {
+      const existenteRecord = existente as Record<string, unknown>
+      const mudaAlgoAlemDeObservacoes = Object.entries(rest).some(
+        ([campo, valor]) => campo !== 'observacoes' && valor !== existenteRecord[campo]
+      )
+      if (mudaAlgoAlemDeObservacoes) {
+        throw new Error('Esta venda já foi finalizada — não é possível alterar os dados da negociação.')
+      }
+    }
+
     const { error } = await supabase.from('vendas').update(rest).eq('id', id)
     if (error) throw new Error(error.message)
     revalidatePath('/admin/vendas')
@@ -987,8 +1018,11 @@ function exigirPerfilDocumentacao() {
   return exigirPerfil(PERFIS_GERENCIA, 'Você não tem permissão para acessar a documentação deste veículo.')
 }
 
-function exigirPerfilFinanceiro() {
-  return exigirPerfil(PERFIS_GERENCIA, 'Você não tem permissão para acessar o financeiro desta loja.')
+// Financeiro "completo" (custo/DRE do veículo, despesas, lançamentos/Movimentações,
+// retorno financeira/banco, promissórias, /admin/financeiro como um todo) —
+// restrito a admin.
+function exigirPerfilFinanceiroCompleto() {
+  return exigirPerfil(['admin'], 'Apenas administradores podem acessar o financeiro completo.')
 }
 
 // Anexo de veículo (aquisição/Documentação) é dado sensível — continua restrito
@@ -1106,7 +1140,7 @@ export async function criarPromissoria(
   vendaId: string,
   dados: { valor: number; vencimento: string; observacoes: string | null }
 ): Promise<void> {
-  await exigirPerfilFinanceiro()
+  await exigirPerfilFinanceiroCompleto()
   const supabase = adminSupabase()
 
   // Número da parcela é sequencial por venda, calculado aqui (não vem do
@@ -1128,7 +1162,7 @@ export async function criarPromissoria(
 }
 
 export async function marcarPromissoriaPaga(id: string, vendaId: string): Promise<void> {
-  await exigirPerfilFinanceiro()
+  await exigirPerfilFinanceiroCompleto()
   const supabase = adminSupabase()
   const hoje = new Date().toISOString().split('T')[0]
   const { error } = await supabase
@@ -1140,7 +1174,7 @@ export async function marcarPromissoriaPaga(id: string, vendaId: string): Promis
 }
 
 export async function desmarcarPromissoriaPaga(id: string, vendaId: string): Promise<void> {
-  await exigirPerfilFinanceiro()
+  await exigirPerfilFinanceiroCompleto()
   const supabase = adminSupabase()
   const { error } = await supabase
     .from('venda_promissorias')

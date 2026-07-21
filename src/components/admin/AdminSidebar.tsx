@@ -100,9 +100,12 @@ function initials(str: string) {
 
 function canSee(modulo: string, perfil: UsuarioPerfil | null): boolean {
   if (!perfil) return false
+  // Financeiro completo agora é admin apenas (sócio mantém sua versão
+  // restrita de sempre) — nem diretor nem modulos_permitidos dão acesso.
+  if (modulo === 'financeiro') return perfil.perfil === 'admin' || perfil.perfil === 'socio'
   // Sócio tem acesso restrito por regra fixa (não por modulos_permitidos) —
-  // só Veículos e Financeiro, nunca Dashboard/CRM/Vendas/Usuários.
-  if (perfil.perfil === 'socio') return modulo === 'veiculos' || modulo === 'financeiro'
+  // só Veículos, nunca Dashboard/CRM/Vendas/Usuários (Financeiro já tratado acima).
+  if (perfil.perfil === 'socio') return modulo === 'veiculos'
   if (perfil.perfil === 'admin' || perfil.perfil === 'diretor') return true
   return (perfil.modulos_permitidos ?? []).includes(modulo)
 }

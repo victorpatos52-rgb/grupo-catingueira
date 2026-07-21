@@ -35,12 +35,13 @@ export async function proxy(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname
   const rotaSoDashboard = pathname.startsWith('/admin/dashboard')
+  const rotaSoAdminFinanceiro = pathname.startsWith('/admin/financeiro')
   const rotaBloqueadaParaSocio =
     pathname.startsWith('/admin/crm') ||
     pathname.startsWith('/admin/vendas') ||
     pathname.startsWith('/admin/usuarios')
 
-  if (rotaSoDashboard || rotaBloqueadaParaSocio) {
+  if (rotaSoDashboard || rotaSoAdminFinanceiro || rotaBloqueadaParaSocio) {
     const { data: perfilRow } = await supabase
       .from('usuarios_perfil')
       .select('perfil')
@@ -57,7 +58,18 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(url)
     }
 
-    // Sócio: sem acesso a CRM, Vendas e Usuários (Dashboard já coberto acima).
+    // Financeiro completo: agora é admin apenas — gerente/diretor (que antes
+    // tinham acesso igual admin) são redirecionados pra /admin/crm ao tentar
+    // acessar por URL direta. Sócio mantém acesso à sua versão restrita de
+    // sempre (não é bloqueado aqui).
+    if (rotaSoAdminFinanceiro && perfilAtual !== 'admin' && perfilAtual !== 'socio') {
+      const url = request.nextUrl.clone()
+      url.pathname = '/admin/crm'
+      return NextResponse.redirect(url)
+    }
+
+    // Sócio: sem acesso a CRM, Vendas e Usuários (Dashboard e Financeiro já
+    // cobertos acima).
     if (perfilAtual === 'socio' && rotaBloqueadaParaSocio) {
       const url = request.nextUrl.clone()
       url.pathname = '/admin/veiculos'

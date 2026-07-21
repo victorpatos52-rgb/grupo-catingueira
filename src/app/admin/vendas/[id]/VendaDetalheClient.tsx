@@ -15,7 +15,7 @@ interface Props {
   anexos: AnexoComUrl[]
   pagamentos: VendaPagamento[]
   promissorias: VendaPromissoria[]
-  podeVerDocumentacao: boolean
+  podeVerFinanceiroCompleto: boolean
 }
 
 function formatarMoeda(v: number) {
@@ -54,7 +54,7 @@ function Campo({ label, value }: { label: string; value: string | number | null 
   )
 }
 
-export default function VendaDetalheClient({ venda: initial, perfil, anexos, pagamentos, promissorias, podeVerDocumentacao }: Props) {
+export default function VendaDetalheClient({ venda: initial, perfil, anexos, pagamentos, promissorias, podeVerFinanceiroCompleto }: Props) {
   const router = useRouter()
   const [venda, setVenda] = useState(initial)
   const [finalizando, setFinalizando] = useState(false)
@@ -133,7 +133,7 @@ export default function VendaDetalheClient({ venda: initial, perfil, anexos, pag
           >
             🚗 Ver veículo
           </a>
-          {podeVerDocumentacao && (
+          {podeVerFinanceiroCompleto && (
             <a
               href={`/admin/veiculos/${venda.veiculo_id}?aba=financeiro`}
               className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border border-[#E5E7EB] text-[#6B7280] hover:text-[#111827] hover:border-[#D1D5DB] transition-colors bg-white"
@@ -169,6 +169,22 @@ export default function VendaDetalheClient({ venda: initial, perfil, anexos, pag
           </button>
         </div>
       </div>
+
+      {/* Rascunho aberto direto (link antigo, favorito etc.) — os dados da
+          negociação só são editáveis pelo assistente agora. */}
+      {venda.status === 'rascunho' && (
+        <div className="mb-5 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+          <p className="text-amber-700 text-sm">
+            Esta venda ainda é um rascunho — veículo, comprador e forma de pagamento só podem ser editados pelo assistente de criação.
+          </p>
+          <a
+            href={`/admin/vendas/nova?venda_id=${venda.id}`}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#F5C842] text-[#111827] hover:brightness-90 transition-colors whitespace-nowrap"
+          >
+            ✏️ Editar negociação
+          </a>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
 
@@ -221,6 +237,18 @@ export default function VendaDetalheClient({ venda: initial, perfil, anexos, pag
             <Campo label="Telefone" value={venda.comprador_telefone} />
             <Campo label="E-mail" value={venda.comprador_email} />
             <Campo label="Vendedor" value={venda.vendedor?.nome} />
+          </div>
+        </div>
+
+        {/* Card Detalhes da venda — capturados no assistente mas antes não
+            apareciam em lugar nenhum depois de criada a venda. */}
+        <div className="bg-white border border-[#E5E7EB] rounded-xl p-5">
+          <p className="text-xs font-bold uppercase tracking-wider text-[#9CA3AF] mb-4">Detalhes da venda</p>
+          <div className="grid grid-cols-2 gap-3">
+            <Campo label="Origem" value={venda.origem} />
+            <Campo label="N. Fiscal" value={venda.numero_fiscal} />
+            <Campo label="Inscrição Estadual" value={venda.inscricao_estadual} />
+            <Campo label="Hodômetro" value={venda.hodometro_venda ? formatarKm(venda.hodometro_venda) : null} />
           </div>
         </div>
 
@@ -300,9 +328,9 @@ export default function VendaDetalheClient({ venda: initial, perfil, anexos, pag
         <AnexosClient entidadeTipo="venda" entidadeId={venda.id} anexos={anexos} />
       </div>
 
-      {/* Promissórias (parcelamento) — dado financeiro da venda, mesmo nível
-          de acesso de despesas/lançamentos (gerente/diretor/admin). */}
-      {podeVerDocumentacao && (
+      {/* Promissórias (parcelamento) — financeiro completo, admin apenas,
+          mesmo nível de despesas/lançamentos/Financeiro do veículo. */}
+      {podeVerFinanceiroCompleto && (
         <div className="mt-5">
           <PromissoriasClient vendaId={venda.id} promissorias={promissorias} />
         </div>

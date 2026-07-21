@@ -81,8 +81,12 @@ function canSee(modulo: string, perfil: UsuarioPerfil): boolean {
   // Dashboard é exclusivo do perfil admin (mesma regra já aplicada na sidebar
   // de desktop — esta barra mobile não tinha essa restrição ainda).
   if (modulo === 'dashboard') return perfil.perfil === 'admin'
-  // Sócio tem acesso restrito por regra fixa — só Veículos e Financeiro.
-  if (perfil.perfil === 'socio') return modulo === 'veiculos' || modulo === 'financeiro'
+  // Financeiro completo agora é admin apenas (sócio mantém sua versão
+  // restrita de sempre) — nem diretor nem modulos_permitidos dão acesso.
+  if (modulo === 'financeiro') return perfil.perfil === 'admin' || perfil.perfil === 'socio'
+  // Sócio tem acesso restrito por regra fixa — só Veículos (Financeiro já
+  // tratado acima).
+  if (perfil.perfil === 'socio') return modulo === 'veiculos'
   if (perfil.perfil === 'admin' || perfil.perfil === 'diretor') return true
   return (perfil.modulos_permitidos ?? []).includes(modulo)
 }

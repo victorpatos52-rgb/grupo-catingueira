@@ -16,7 +16,8 @@ interface Props {
   financeiro: FinanceiroVeiculo | null
   custos: CustoManutencao[]
   lojaId: string
-  podeVerFinanceiro: boolean
+  podeVerDocumentacao: boolean
+  podeVerFinanceiroCompleto: boolean
   aquisicao: VeiculoAquisicao | null
   anexos: AnexoComUrl[]
   vistoria: VistoriaVeiculo | null
@@ -24,16 +25,16 @@ interface Props {
   abaInicial?: Aba
 }
 
-export default function VeiculoTabs({ veiculo, financeiro, custos, lojaId, podeVerFinanceiro, aquisicao, anexos, vistoria, transferencias, abaInicial }: Props) {
+export default function VeiculoTabs({ veiculo, financeiro, custos, lojaId, podeVerDocumentacao, podeVerFinanceiroCompleto, aquisicao, anexos, vistoria, transferencias, abaInicial }: Props) {
   const [aba, setAba] = useState<Aba>(abaInicial ?? 'dados')
 
   const abas: { id: Aba; label: string }[] = [
     { id: 'dados', label: 'Dados' },
     { id: 'fotos', label: 'Fotos' },
-    ...(podeVerFinanceiro ? [{ id: 'financeiro' as Aba, label: 'Financeiro' }] : []),
+    ...(podeVerFinanceiroCompleto ? [{ id: 'financeiro' as Aba, label: 'Financeiro' }] : []),
     { id: 'checklist', label: 'Checklist de Serviços' },
     { id: 'vistoria', label: 'Vistoria' },
-    ...(podeVerFinanceiro ? [{ id: 'documentacao' as Aba, label: 'Documentação' }] : []),
+    ...(podeVerDocumentacao ? [{ id: 'documentacao' as Aba, label: 'Documentação' }] : []),
   ]
 
   return (
@@ -66,7 +67,7 @@ export default function VeiculoTabs({ veiculo, financeiro, custos, lojaId, podeV
         />
       )}
 
-      {aba === 'financeiro' && podeVerFinanceiro && (
+      {aba === 'financeiro' && podeVerFinanceiroCompleto && (
         <CustosVeiculoClient
           veiculo={veiculo}
           financeiro={financeiro}
@@ -95,7 +96,7 @@ export default function VeiculoTabs({ veiculo, financeiro, custos, lojaId, podeV
         />
       )}
 
-      {aba === 'documentacao' && podeVerFinanceiro && (
+      {aba === 'documentacao' && podeVerDocumentacao && (
         <DocumentacaoVeiculoClient
           veiculoId={veiculo.id}
           aquisicao={aquisicao}
