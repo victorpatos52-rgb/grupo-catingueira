@@ -41,7 +41,13 @@ function KanbanCard({ lead, isDragging }: { lead: Lead; isDragging: boolean }) {
       style={style}
       {...listeners}
       {...attributes}
-      className={`bg-white rounded-lg border border-[#E5E5E5] p-3 cursor-grab active:cursor-grabbing shadow-sm transition-shadow ${
+      // touch-none é essencial pro drag funcionar bem em touch: sem isso, o
+      // gesto de arrastar compete com o scroll nativo do navegador (que tenta
+      // rolar a página/coluna assim que o dedo se move), então o pointermove
+      // sintético do dnd-kit fica instável perto das bordas — é exatamente
+      // isso que fazia o auto-scroll não disparar de forma confiável no
+      // celular. Não afeta mouse/desktop.
+      className={`bg-white rounded-lg border border-[#E5E5E5] p-3 cursor-grab active:cursor-grabbing shadow-sm transition-shadow touch-none ${
         isDragging ? 'opacity-40' : 'hover:shadow-md'
       }`}
     >
@@ -158,7 +164,22 @@ export default function CrmKanban({ leads: initialLeads, vendedorMap }: Props) {
   }
 
   return (
-    <DndContext sensors={sensors} onDragStart={onDragStart} onDragEnd={onDragEnd}>
+    <DndContext
+      sensors={sensors}
+      onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
+      // Auto-scroll do @dnd-kit já vem ligado por padrão, mas deixo explícito
+      // e ajustado pro caso de uso: coluna estreita em mobile precisa de uma
+      // zona de borda generosa (threshold.x) e velocidade perceptível
+      // (acceleration) pra rolar rápido o bastante enquanto o card é
+      // arrastado perto da esquerda/direita — para sozinho quando o
+      // ponteiro/toque some da borda ou o card é solto (comportamento nativo
+      // do dnd-kit, sem precisar de mais nada).
+      autoScroll={{
+        threshold: { x: 0.2, y: 0.2 },
+        acceleration: 15,
+      }}
+    >
       <div className="flex gap-4 overflow-x-auto pb-4">
         {COLUNAS.map(coluna => (
           <KanbanColumn

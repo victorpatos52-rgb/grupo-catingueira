@@ -91,6 +91,11 @@ function canSee(modulo: string, perfil: UsuarioPerfil): boolean {
   return (perfil.modulos_permitidos ?? []).includes(modulo)
 }
 
+// Altura real da barra (base 4rem + área segura do iOS em modo standalone —
+// resolve pra 0 em navegador normal/Android, então isso é inofensivo lá).
+// A mesma expressão serve pra grudar o drawer de "Mais" logo acima da barra.
+const ALTURA_BARRA = 'calc(4rem + env(safe-area-inset-bottom))'
+
 // ── Componente ────────────────────────────────────────────────────────────────
 
 export default function AdminBottomBar({ perfil }: { perfil: UsuarioPerfil }) {
@@ -124,7 +129,7 @@ export default function AdminBottomBar({ perfil }: { perfil: UsuarioPerfil }) {
           className={`fixed left-0 right-0 z-40 md:hidden bg-white border-t border-[#E5E7EB] shadow-lg transition-transform duration-200 ${
             drawerOpen ? 'translate-y-0' : 'translate-y-full'
           }`}
-          style={{ bottom: '64px' }}
+          style={{ bottom: ALTURA_BARRA }}
         >
           <div className="px-4 py-3 grid grid-cols-3 gap-2">
             {maisItens.map(item => {
@@ -147,8 +152,14 @@ export default function AdminBottomBar({ perfil }: { perfil: UsuarioPerfil }) {
         </div>
       )}
 
-      {/* Bottom bar */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 flex md:hidden bg-white border-t border-[#E5E7EB] h-16">
+      {/* Bottom bar — altura cresce com a área segura (home indicator do
+          iPhone em modo standalone) pra barra não ficar colada nela; os itens
+          continuam ocupando só os 4rem originais, centralizados acima do
+          espaço extra (ver ALTURA_BARRA). */}
+      <nav
+        className="fixed bottom-0 left-0 right-0 z-40 flex md:hidden bg-white border-t border-[#E5E7EB]"
+        style={{ height: ALTURA_BARRA, paddingBottom: 'env(safe-area-inset-bottom)' }}
+      >
         {barItens.map(item => {
           const active = isActive(item.href)
           return (

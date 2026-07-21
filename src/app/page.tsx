@@ -2,6 +2,7 @@ import { createServerSupabase } from '@/lib/supabase-server'
 import { getLoja } from '@/lib/getLoja'
 import HomeCatingueira from '@/components/home/HomeCatingueira'
 import HomeFelizardo from '@/components/home/HomeFelizardo'
+import { buildWaHref, formatWA } from '@/lib/whatsapp'
 import type { Veiculo } from '@/types'
 
 export async function generateMetadata() {
@@ -10,19 +11,6 @@ export async function generateMetadata() {
     title: `${loja?.nome ?? 'Catingueira Multimarcas'} | Veículos Seminovos`,
     description: loja?.sobre ?? `Veículos seminovos em ${loja?.cidade ?? 'Patos'}, ${loja?.estado ?? 'PB'}.`,
   }
-}
-
-function buildWaHref(num: string, text: string): string {
-  const d = num.replace(/\D/g, '')
-  const full = d.startsWith('55') ? d : `55${d}`
-  return `https://wa.me/${full}?text=${encodeURIComponent(text)}`
-}
-
-function formatWA(num: string): string {
-  const d = num.replace(/\D/g, '')
-  const local = d.length === 13 && d.startsWith('55') ? d.slice(2) : d
-  if (local.length === 11) return `${local.slice(0, 2)} ${local[2]} ${local.slice(3, 7)}-${local.slice(7)}`
-  return num
 }
 
 export default async function HomePage() {

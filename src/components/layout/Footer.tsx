@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { MapPin, Phone, Clock } from 'lucide-react'
 import { useLoja } from '@/contexts/LojaContext'
+import { buildWaHref, formatWA } from '@/lib/whatsapp'
 
 function getLogoSrc(nome: string | undefined | null): string | null {
   if (!nome) return null
@@ -12,19 +13,6 @@ function getLogoSrc(nome: string | undefined | null): string | null {
   if (n.includes('felizardo')) return '/logo-felizardo.png'
   if (n.includes('catingueira')) return '/logo-catingueira.png'
   return null
-}
-
-function buildWaHref(num: string): string {
-  const d = num.replace(/\D/g, '')
-  const full = d.startsWith('55') ? d : `55${d}`
-  return `https://wa.me/${full}?text=${encodeURIComponent('Olá! Vim pelo site e gostaria de mais informações.')}`
-}
-
-function formatWA(num: string): string {
-  const d = num.replace(/\D/g, '')
-  const local = d.length === 13 && d.startsWith('55') ? d.slice(2) : d
-  if (local.length === 11) return `${local.slice(0, 2)} ${local[2]} ${local.slice(3, 7)}-${local.slice(7)}`
-  return num
 }
 
 const NAV = [
@@ -41,7 +29,7 @@ export default function Footer() {
   if (pathname?.startsWith('/admin')) return null
 
   const waNum = loja?.whatsapp ?? '83999671729'
-  const waHref = buildWaHref(waNum)
+  const waHref = buildWaHref(waNum, 'Olá! Vim pelo site e gostaria de mais informações.')
   const waDisplay = formatWA(waNum)
   const logoSrc = getLogoSrc(loja?.nome)
   const nomeDisplay = loja?.nome ?? 'Grupo Catingueira'

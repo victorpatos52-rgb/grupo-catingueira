@@ -172,8 +172,19 @@ export default function AdminSidebar({ perfil, loja, lojas }: AdminSidebarProps)
   )
   const adminVisivel  = ADMIN_ITEMS.filter(i => canSee(i.modulo, perfil))
 
+  // Usado tanto na sidebar fixa de desktop quanto no drawer mobile (que ocupa
+  // a tela inteira, inset-y-0) — padding de área segura aqui cobre os dois
+  // casos de uma vez; em desktop (sem notch/home indicator) env() resolve
+  // pra 0 e não muda nada.
   const sidebar = (
-    <div className="w-64 shrink-0 flex flex-col h-full bg-white" style={{ borderRight: '1px solid #E5E7EB' }}>
+    <div
+      className="w-64 shrink-0 flex flex-col h-full bg-white"
+      style={{
+        borderRight: '1px solid #E5E7EB',
+        paddingTop: 'env(safe-area-inset-top)',
+        paddingBottom: 'env(safe-area-inset-bottom)',
+      }}
+    >
 
       {/* ── Logo ─────────────────────────────────────────────────────────── */}
       <div className="px-5 py-5" style={{ borderBottom: '1px solid #E5E7EB' }}>
@@ -346,8 +357,12 @@ export default function AdminSidebar({ perfil, loja, lojas }: AdminSidebarProps)
 
   return (
     <>
-      {/* Mobile: botão hamburger */}
-      <div className="md:hidden fixed top-3 left-3 z-50">
+      {/* Mobile: botão hamburger — desce abaixo da status bar/notch em modo
+          standalone (resolve pro top-3 normal fora do PWA instalado). */}
+      <div
+        className="md:hidden fixed left-3 z-50"
+        style={{ top: 'calc(0.75rem + env(safe-area-inset-top))' }}
+      >
         <button
           onClick={() => setMobileOpen(!mobileOpen)}
           className="w-9 h-9 rounded-lg bg-white shadow-sm border border-[#E5E7EB] flex items-center justify-center"
