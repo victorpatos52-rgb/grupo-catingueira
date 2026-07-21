@@ -8,14 +8,11 @@ import Header from '@/components/layout/Header'
 import Footer from '@/components/layout/Footer'
 import PwaServiceWorker from '@/components/PwaServiceWorker'
 
-// Pesos auditados via grep de className em todas as páginas públicas
-// (font-medium/500 não é usado em nenhuma delas — só no admin, que também
-// usa Barlow via body/globals.css). 400 é essencial (peso padrão do body,
-// usado implicitamente por todo texto sem classe de peso); 600/700 aparecem
-// em várias páginas (labels, CTAs). Ver explicação sobre 500 na resposta.
+// 500 (font-medium) não é usado nas páginas públicas, mas é usado em ~25
+// arquivos do admin — mesma fonte global (body/globals.css), então fica.
 const barlow = Barlow({
   subsets: ['latin'],
-  weight: ['400', '600', '700'],
+  weight: ['400', '500', '600', '700'],
   style: ['normal'],
   variable: '--font-barlow',
   display: 'swap',
