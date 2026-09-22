@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { getTenantLogoUrl } from '@/lib/tenant-assets'
 
 function adminSupabase() {
   return createClient(
@@ -118,17 +119,8 @@ export async function GET(
 
   const enderecoLoja = [loja.endereco, loja.cidade, loja.estado].filter(Boolean).join(' — ')
 
-  // ── Logo via URL pública estática do Vercel ──────────────────────────────────
-  const nomeLoja = loja.nome.toLowerCase()
-  const logoUrl = nomeLoja.includes('catingueira')
-    ? 'https://grupo-catingueira.vercel.app/logo-catingueira.png'
-    : nomeLoja.includes('felizardo')
-    ? 'https://felizardo-veiculos.vercel.app/logo-felizardo.png'
-    : null
-
-  const logoHtml = logoUrl
-    ? `<img src="${logoUrl}" style="width:100%;height:auto;max-height:180px;object-fit:contain;object-position:center;display:block;margin:0 0 12px 0;" />`
-    : `<div style="border:3px double #000;padding:10px 20px;display:inline-block;"><strong style="font-size:22px;text-transform:uppercase;letter-spacing:2px;">${loja.nome}</strong></div>`
+  const logoUrl = getTenantLogoUrl(loja)
+  const logoHtml = `<img src="${logoUrl}" style="width:100%;height:auto;max-height:180px;object-fit:contain;object-position:center;display:block;margin:0 0 12px 0;" />`
 
   // ── Grid de dados ───────────────────────────────────────────────────────────
   function celula(label: string, valor: string): string {

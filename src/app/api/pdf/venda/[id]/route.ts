@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminSupabase } from '@/lib/supabase-server'
+import { getTenantLogoUrl } from '@/lib/tenant-assets'
 
 function fmt(v: number | null | undefined) {
   if (!v) return ''
@@ -85,12 +86,9 @@ export async function GET(
   const pagamentosVeiculo = pagamentos.filter(p => p.tipo === 'veiculo')
   const temVeiculoRecebido = pagamentosVeiculo.length > 0
 
-  const loja = lojaData ?? { nome: '', endereco: '', whatsapp: '' }
+  const loja = lojaData ?? { nome: '', endereco: '', whatsapp: '', logo_url: null }
   const v = venda.veiculo ?? {}
-  const nomeLoja = (loja.nome ?? '').toLowerCase()
-  const logoUrl = nomeLoja.includes('catingueira')
-    ? 'https://grupo-catingueira.vercel.app/logo-catingueira.png'
-    : 'https://felizardo-veiculos.vercel.app/logo-felizardo.png'
+  const logoUrl = getTenantLogoUrl(loja)
 
   const css = `
     <style>

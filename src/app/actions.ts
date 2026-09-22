@@ -4,7 +4,7 @@ import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
-import type { Anexo, DespesaLoja, Perfil, TipoInteracao, TipoLancamento, Venda, Veiculo, VendaPagamentoDetalhes } from '@/types'
+import type { Anexo, DespesaLoja, ImagensLanding, Perfil, TipoInteracao, TipoLancamento, Venda, Veiculo, VendaPagamentoDetalhes } from '@/types'
 
 function adminSupabase() {
   return createClient(
@@ -181,6 +181,7 @@ export async function updateLojaSettings(
     visao: string | null
     instagram: string | null
     maps_url: string | null
+    imagens_landing?: ImagensLanding | null
   }
 ) {
   const supabase = await userSupabase()

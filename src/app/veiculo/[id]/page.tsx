@@ -43,7 +43,7 @@ export default async function VeiculoPage({
   if (veiculo.excluido) notFound()
   if (veiculo.rascunho) notFound()
 
-  const { data: similares } = await supabase
+  const { data: similares, error: erroSimilares } = await supabase
     .from('veiculos')
     .select(veiculoColunas)
     .eq('loja_id', veiculo.loja_id)
@@ -53,6 +53,9 @@ export default async function VeiculoPage({
     .neq('id', veiculo.id)
     .limit(3)
 
+  if (erroSimilares) {
+    console.error('[VeiculoPage] erro ao buscar veículos similares:', erroSimilares)
+  }
   const veiculosSimilares = (similares ?? []) as Veiculo[]
 
   const statusLabel: Record<string, { label: string; cls: string }> = {

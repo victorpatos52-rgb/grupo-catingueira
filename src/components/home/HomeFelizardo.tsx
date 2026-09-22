@@ -1,9 +1,10 @@
 import Link from 'next/link'
-import Image from 'next/image'
 import { ShieldCheck, CreditCard, Users, Award, CheckCircle, Handshake } from 'lucide-react'
 import VeiculoCard from '@/components/veiculo/VeiculoCard'
 import AnimatedSection from '@/components/ui/AnimatedSection'
 import WaIcon from '@/components/ui/WaIcon'
+import LandingImage from '@/components/ui/LandingImage'
+import { getHeroImage, getSecaoImage } from '@/lib/landing-images'
 import type { Loja, Veiculo } from '@/types'
 
 interface Props {
@@ -64,8 +65,8 @@ export default function HomeFelizardo({ loja, destaques, waHref, waDisplay, sobr
             {/* Imagem de fundo no mobile (hidden no desktop onde a imagem fica à direita).
                 É a primeira coisa visível no mobile, então priority. */}
             <div className="absolute inset-0 lg:hidden">
-              <Image
-                src="https://images.unsplash.com/photo-1580273916550-e323be2ae537?w=900&q=80"
+              <LandingImage
+                src={getHeroImage(loja)}
                 alt=""
                 fill
                 priority
@@ -130,8 +131,8 @@ export default function HomeFelizardo({ loja, destaques, waHref, waDisplay, sobr
               no mobile — deixando padrão (lazy) ela só carrega quando a tela cruza
               o breakpoint lg e o elemento realmente fica visível) */}
           <div className="relative hidden lg:block">
-            <Image
-              src="https://images.unsplash.com/photo-1580273916550-e323be2ae537?w=900&q=80"
+            <LandingImage
+              src={getHeroImage(loja)}
               alt="Carro elegante Felizardo Veículos"
               fill
               sizes="45vw"
@@ -234,8 +235,8 @@ export default function HomeFelizardo({ loja, destaques, waHref, waDisplay, sobr
           {/* Imagem esquerda */}
           <AnimatedSection>
             <div className="relative rounded-2xl overflow-hidden" style={{ height: '460px' }}>
-              <Image
-                src="https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=800&q=80"
+              <LandingImage
+                src={getSecaoImage(loja, 'historia')}
                 alt="Nossa história - Felizardo Veículos"
                 fill
                 loading="lazy"
@@ -283,8 +284,8 @@ export default function HomeFelizardo({ loja, destaques, waHref, waDisplay, sobr
         <div className="max-w-7xl mx-auto">
           <AnimatedSection>
             <div className="relative rounded-2xl overflow-hidden" style={{ height: '500px' }}>
-              <Image
-                src="https://images.unsplash.com/photo-1560958089-b8a1929cea89?w=1600&q=80"
+              <LandingImage
+                src={getSecaoImage(loja, 'interior')}
                 alt="Estrutura da Felizardo Veículos"
                 fill
                 loading="lazy"

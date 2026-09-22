@@ -6,14 +6,7 @@ import { usePathname } from 'next/navigation'
 import { MapPin, Phone, Clock } from 'lucide-react'
 import { useLoja } from '@/contexts/LojaContext'
 import { buildWaHref, formatWA } from '@/lib/whatsapp'
-
-function getLogoSrc(nome: string | undefined | null): string | null {
-  if (!nome) return null
-  const n = nome.toLowerCase()
-  if (n.includes('felizardo')) return '/logo-felizardo.png'
-  if (n.includes('catingueira')) return '/logo-catingueira.png'
-  return null
-}
+import { getTenantLogoUrl } from '@/lib/tenant-assets'
 
 const NAV = [
   { label: 'Início', href: '/', external: false },
@@ -31,14 +24,10 @@ export default function Footer() {
   const waNum = loja?.whatsapp ?? '83999671729'
   const waHref = buildWaHref(waNum, 'Olá! Vim pelo site e gostaria de mais informações.')
   const waDisplay = formatWA(waNum)
-  const logoSrc = getLogoSrc(loja?.nome)
+  const logoSrc = getTenantLogoUrl(loja)
   const nomeDisplay = loja?.nome ?? 'Grupo Catingueira'
   const endereco = loja?.endereco ?? 'BR 230, KM 334 — São Sebastião, Patos / PB'
   const horarioLinhas = (loja?.horario ?? 'Seg a Sex: 8h às 18h | Sáb: 8h às 13h').split(' | ')
-
-  const nomeParts = nomeDisplay.split(' ')
-  const nomeL1 = nomeParts[0] ?? nomeDisplay
-  const nomeL2 = nomeParts.slice(1).join(' ')
 
   return (
     <footer style={{ backgroundColor: '#1A1A1A', borderTop: '3px solid var(--cor-primaria)' }}>
@@ -47,29 +36,13 @@ export default function Footer() {
         {/* Col 1: Logo + descrição */}
         <div>
           <Link href="/" className="inline-block mb-5" aria-label={nomeDisplay}>
-            {logoSrc ? (
-              <Image
-                src={logoSrc}
-                alt={nomeDisplay}
-                width={160}
-                height={40}
-                style={{ height: '40px', width: 'auto', filter: 'brightness(0) invert(1)' }}
-              />
-            ) : (
-              <>
-                <span
-                  className="font-[family-name:var(--font-barlow-condensed)] text-2xl font-extrabold italic uppercase leading-none"
-                  style={{ color: 'var(--cor-primaria)' }}
-                >
-                  {nomeL1}
-                </span>
-                {nomeL2 && (
-                  <span className="block text-white text-[10px] font-semibold tracking-[0.3em] -mt-0.5">
-                    {nomeL2.toUpperCase()}
-                  </span>
-                )}
-              </>
-            )}
+            <Image
+              src={logoSrc}
+              alt={nomeDisplay}
+              width={160}
+              height={40}
+              style={{ height: '40px', width: 'auto', filter: 'brightness(0) invert(1)' }}
+            />
           </Link>
           <p className="text-[#888] text-sm leading-relaxed">
             Sua revenda de confiança em Patos e Região.

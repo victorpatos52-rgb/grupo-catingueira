@@ -21,18 +21,41 @@ export default async function HomePage() {
   const waHref = buildWaHref(waNum, 'Olá! Vim pelo site e quero conhecer o estoque.')
   const waDisplay = formatWA(waNum)
 
+  const veiculoColunas = 'id, loja_id, marca, modelo, versao, ano, cor, km, combustivel, cambio, preco, valor_oferta, placa, chassi, renavam, tipo, portas, hodometro_venda, descricao, opcionais, status, destaque, fotos, data_aquisicao, created_at, excluido'
+
   let destaques: Veiculo[] = []
   if (loja) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('veiculos')
-      .select('id, loja_id, marca, modelo, versao, ano, cor, km, combustivel, cambio, preco, valor_oferta, placa, chassi, renavam, tipo, portas, hodometro_venda, descricao, opcionais, status, destaque, fotos, data_aquisicao, created_at, excluido')
+      .select(veiculoColunas)
       .eq('loja_id', loja.id)
       .eq('status', 'disponivel')
       .eq('excluido', false)
       .eq('rascunho', false)
       .eq('destaque', true)
       .limit(9)
+
+    if (error) {
+      console.error('[HomePage] erro ao buscar veículos em destaque:', error)
+    }
     destaques = (data ?? []) as Veiculo[]
+
+    if (destaques.length === 0) {
+      const { data: recentes, error: erroRecentes } = await supabase
+        .from('veiculos')
+        .select(veiculoColunas)
+        .eq('loja_id', loja.id)
+        .eq('status', 'disponivel')
+        .eq('excluido', false)
+        .eq('rascunho', false)
+        .order('created_at', { ascending: false })
+        .limit(9)
+
+      if (erroRecentes) {
+        console.error('[HomePage] erro ao buscar veículos recentes (fallback de destaques):', erroRecentes)
+      }
+      destaques = (recentes ?? []) as Veiculo[]
+    }
   }
 
   const isFelizardo = (loja?.nome ?? '').toLowerCase().includes('felizardo')

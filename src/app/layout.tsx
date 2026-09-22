@@ -1,11 +1,14 @@
 import type { Metadata, Viewport } from 'next'
+import { notFound } from 'next/navigation'
 import { Barlow, Barlow_Condensed } from 'next/font/google'
 import { GoogleAnalytics } from '@next/third-parties/google'
 import './globals.css'
 import { getLoja } from '@/lib/getLoja'
+import { getTenantLogoUrl } from '@/lib/tenant-assets'
 import { LojaProvider } from '@/contexts/LojaContext'
 import Header from '@/components/layout/Header'
 import Footer from '@/components/layout/Footer'
+import WhatsAppFab from '@/components/layout/WhatsAppFab'
 import PwaServiceWorker from '@/components/PwaServiceWorker'
 
 // 500 (font-medium) não é usado nas páginas públicas, mas é usado em ~25
@@ -26,15 +29,8 @@ const barlowCondensed = Barlow_Condensed({
   display: 'swap',
 })
 
-function slugLoja(loja: { dominio?: string | null; nome?: string | null } | null) {
-  return (loja?.dominio ?? loja?.nome ?? '').toLowerCase().includes('felizardo')
-    ? 'felizardo'
-    : 'catingueira'
-}
-
 export async function generateMetadata(): Promise<Metadata> {
   const loja = await getLoja()
-  const slug = slugLoja(loja)
   const nome = loja?.nome ?? 'Catingueira Multimarcas'
 
   return {
@@ -46,7 +42,7 @@ export async function generateMetadata(): Promise<Metadata> {
       '30 anos realizando sonhos. Veículos seminovos com procedência garantida, atendimento transparente e financiamento fácil em Patos, Paraíba.',
     manifest: '/manifest.webmanifest',
     icons: {
-      apple: `/icons/${slug}-192.png`,
+      apple: getTenantLogoUrl(loja),
     },
     appleWebApp: {
       capable: true,
@@ -75,6 +71,8 @@ export default async function RootLayout({
 }) {
   const loja = await getLoja()
 
+  if (!loja) notFound()
+
   const corPrimaria = loja?.cor_primaria ?? '#F5C200'
   const corSecundaria = loja?.cor_secundaria ?? '#1C1C1C'
 
@@ -95,6 +93,7 @@ export default async function RootLayout({
           <Header />
           {children}
           <Footer />
+          <WhatsAppFab />
         </LojaProvider>
       </body>
       {gaId && <GoogleAnalytics gaId={gaId} />}

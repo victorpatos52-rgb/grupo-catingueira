@@ -1,9 +1,10 @@
 import Link from 'next/link'
-import Image from 'next/image'
 import { Award, CheckCircle, CreditCard, Handshake, MapPin, Clock } from 'lucide-react'
 import VeiculoCard from '@/components/veiculo/VeiculoCard'
 import AnimatedSection from '@/components/ui/AnimatedSection'
 import WaIcon from '@/components/ui/WaIcon'
+import LandingImage from '@/components/ui/LandingImage'
+import { getHeroImage, getSecaoImage } from '@/lib/landing-images'
 import type { Loja, Veiculo } from '@/types'
 
 interface Props {
@@ -68,8 +69,8 @@ export default function HomeCatingueira({ loja, destaques, waHref, waDisplay }: 
         <div className="absolute left-0 top-0 h-full w-[3px] z-20" style={{ backgroundColor: '#F5C200' }} />
 
         {/* Imagem de fundo — primeira coisa visível na home, então priority (sem lazy) */}
-        <Image
-          src="https://images.unsplash.com/photo-1603584173870-7f23fdae1b7a?w=1920&q=80"
+        <LandingImage
+          src={getHeroImage(loja)}
           alt=""
           fill
           priority
@@ -233,8 +234,8 @@ export default function HomeCatingueira({ loja, destaques, waHref, waDisplay }: 
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2">
           {/* Imagem esquerda — fullheight */}
           <div className="relative overflow-hidden" style={{ minHeight: '520px' }}>
-            <Image
-              src="https://images.unsplash.com/photo-1562519819-016930ada31b?w=800&q=80"
+            <LandingImage
+              src={getSecaoImage(loja, 'interior')}
               alt="Interior da loja Catingueira Multimarcas"
               fill
               loading="lazy"
@@ -333,8 +334,8 @@ export default function HomeCatingueira({ loja, destaques, waHref, waDisplay }: 
           FACHADA — imagem fullwidth com overlay
       ══════════════════════════════════════ */}
       <section className="relative overflow-hidden" style={{ height: '500px' }}>
-        <Image
-          src="https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?w=1600&q=80"
+        <LandingImage
+          src={getSecaoImage(loja, 'fachada')}
           alt="Fachada Catingueira Multimarcas"
           fill
           loading="lazy"

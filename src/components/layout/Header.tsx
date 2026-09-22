@@ -4,18 +4,11 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { Menu, X } from 'lucide-react'
+import { Menu, X, User } from 'lucide-react'
 import { useLoja } from '@/contexts/LojaContext'
 import { buildWaHref, formatWA } from '@/lib/whatsapp'
+import { getTenantLogoUrl } from '@/lib/tenant-assets'
 import WaIcon from '@/components/ui/WaIcon'
-
-function getLogoSrc(nome: string | undefined | null): string | null {
-  if (!nome) return null
-  const n = nome.toLowerCase()
-  if (n.includes('felizardo')) return '/logo-felizardo.png'
-  if (n.includes('catingueira')) return '/logo-catingueira.png'
-  return null
-}
 
 export default function Header() {
   const pathname = usePathname()
@@ -25,7 +18,7 @@ export default function Header() {
   const waNum = loja?.whatsapp ?? '83999671729'
   const waHref = buildWaHref(waNum, 'Olá! Vim pelo site e gostaria de mais informações.')
   const waDisplay = formatWA(waNum)
-  const logoSrc = getLogoSrc(loja?.nome)
+  const logoSrc = getTenantLogoUrl(loja)
   const nomeDisplay = loja?.nome ?? 'Grupo Catingueira'
 
   const NAV = [
@@ -62,23 +55,14 @@ export default function Header() {
       >
         <div className="max-w-7xl mx-auto px-5 h-full flex items-center justify-between gap-4">
           <Link href="/" className="shrink-0" aria-label={nomeDisplay}>
-            {logoSrc ? (
-              <Image
-                src={logoSrc}
-                alt={nomeDisplay}
-                width={160}
-                height={48}
-                style={{ height: '48px', width: 'auto' }}
-                priority
-              />
-            ) : (
-              <span
-                className="font-[family-name:var(--font-barlow-condensed)] text-xl font-extrabold italic uppercase leading-none"
-                style={{ color: 'var(--cor-primaria)' }}
-              >
-                {nomeDisplay}
-              </span>
-            )}
+            <Image
+              src={logoSrc}
+              alt={nomeDisplay}
+              width={160}
+              height={48}
+              style={{ height: '48px', width: 'auto' }}
+              priority
+            />
           </Link>
 
           <nav className="hidden md:flex items-center gap-7" aria-label="Navegação principal">
@@ -96,15 +80,25 @@ export default function Header() {
             ))}
           </nav>
 
-          <a
-            href={waHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hidden md:inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#25D366] text-white text-xs font-bold uppercase tracking-wide hover:brightness-95 transition-all shrink-0"
-          >
-            <WaIcon size={14} />
-            {waDisplay}
-          </a>
+          <div className="hidden md:flex items-center gap-3 shrink-0">
+            <Link
+              href="/login"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-[#3D3D3D]/70 hover:text-[#3D3D3D] transition-colors"
+            >
+              <User className="w-3.5 h-3.5" />
+              Entrar
+            </Link>
+
+            <a
+              href={waHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#25D366] text-white text-xs font-bold uppercase tracking-wide hover:brightness-95 transition-all"
+            >
+              <WaIcon size={14} />
+              {waDisplay}
+            </a>
+          </div>
 
           <button
             onClick={() => setOpen(v => !v)}
@@ -133,6 +127,13 @@ export default function Header() {
                 {label}
               </Link>
             ))}
+            <Link
+              href="/login"
+              className="inline-flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-[#999999]"
+            >
+              <User className="w-4 h-4" />
+              Entrar
+            </Link>
           </nav>
           <div className="mt-auto px-6 pt-10" style={{ paddingBottom: 'calc(2.5rem + env(safe-area-inset-bottom))' }}>
             <a

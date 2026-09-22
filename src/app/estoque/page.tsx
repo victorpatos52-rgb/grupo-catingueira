@@ -73,7 +73,10 @@ export default async function EstoquePage({
     query = query.lte('preco', parseFloat(params.preco_max))
   }
 
-  const { data } = await query
+  const { data, error } = await query
+  if (error) {
+    console.error('[EstoquePage] erro ao buscar veículos:', error)
+  }
   const veiculos = (data ?? []) as Veiculo[]
 
   return (
