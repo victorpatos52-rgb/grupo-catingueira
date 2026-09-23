@@ -1,6 +1,6 @@
 -- ============================================================
 -- MIGRATION 014 — imagens_landing por loja
--- NÃO EXECUTAR AINDA — apenas para revisão.
+-- Aplicada.
 --
 -- Guarda as imagens da landing page (hero + seções decorativas) de cada
 -- loja, hoje hardcoded como URLs do Unsplash em HomeCatingueira.tsx e

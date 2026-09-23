@@ -1,6 +1,6 @@
 -- ============================================================
 -- MIGRATION 013 — favicon_url por loja
--- NÃO EXECUTAR AINDA — apenas para revisão.
+-- Aplicada.
 --
 -- Guarda a URL do favicon/ícone de app de cada loja, separado do logo
 -- (lojas.logo_url) usado no header/footer/PDFs. Serve como base para

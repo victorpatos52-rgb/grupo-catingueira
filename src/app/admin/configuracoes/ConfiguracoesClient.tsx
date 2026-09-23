@@ -112,6 +112,7 @@ function ConfiguracoesForm({ loja }: { loja: Loja }) {
   const isFelizardo = (loja.dominio ?? loja.nome ?? '').toLowerCase().includes('felizardo')
   const secoesDef = isFelizardo ? SECOES_FELIZARDO : SECOES_CATINGUEIRA
 
+  const [faviconUrl, setFaviconUrl] = useState(loja.favicon_url ?? '')
   const [heroUrl, setHeroUrl] = useState(loja.imagens_landing?.hero ?? '')
   const [secoesUrls, setSecoesUrls] = useState<Record<string, string>>(loja.imagens_landing?.secoes ?? {})
   const [uploadingChave, setUploadingChave] = useState<string | null>(null)
@@ -149,7 +150,7 @@ function ConfiguracoesForm({ loja }: { loja: Loja }) {
     setErro('')
     const supabase = createClient()
     const ext = file.name.split('.').pop()
-    const nome = `landing/${loja.id}/${chave}-${Date.now()}-${Math.random().toString(36).substring(2)}.${ext}`
+    const nome = `configuracoes/${loja.id}/${chave}-${Date.now()}-${Math.random().toString(36).substring(2)}.${ext}`
     const { error } = await supabase.storage
       .from('veiculos-fotos')
       .upload(nome, file, { upsert: false })
@@ -183,6 +184,7 @@ function ConfiguracoesForm({ loja }: { loja: Loja }) {
         instagram: data.instagram || null,
         maps_url: data.maps_url || null,
         imagens_landing: { hero: heroUrl || null, secoes: secoesUrls },
+        favicon_url: faviconUrl || null,
       })
       setSalvoOk(true)
     } catch (err: unknown) {
@@ -272,6 +274,21 @@ function ConfiguracoesForm({ loja }: { loja: Loja }) {
             <textarea {...register('visao')} rows={2} className={`${inputClass} resize-none`} />
           </div>
         </div>
+      </div>
+
+      {/* Favicon */}
+      <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-sm">
+        <h2 className="text-[#111827] font-bold text-sm uppercase tracking-wider mb-1">Favicon</h2>
+        <p className="text-[#9CA3AF] text-xs mb-4">
+          Ícone exibido na aba do navegador. Enquanto vazio, o logo da loja é usado no lugar (e o logo padrão, se nenhum dos dois estiver definido).
+        </p>
+        <ImagemSlot
+          label="Ícone do site"
+          url={faviconUrl}
+          uploading={uploadingChave === 'favicon'}
+          onUpload={file => uploadImagem('favicon', file, setFaviconUrl)}
+          onRemover={() => setFaviconUrl('')}
+        />
       </div>
 
       {/* Imagens da landing page */}

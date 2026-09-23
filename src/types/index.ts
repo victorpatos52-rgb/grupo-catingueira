@@ -14,13 +14,13 @@ export interface Loja {
   id: string
   nome: string
   dominio: string
-  /** Pendente — coluna ainda não existe no banco (migration 015, não aplicada ainda). Ver src/lib/getLoja.ts (LOJA_SLUG). */
+  /** Migration 015, aplicada. Ver src/lib/getLoja.ts (LOJA_SLUG). */
   slug?: string
   whatsapp: string
   cor_primaria: string
   cor_secundaria: string
   logo_url: string | null
-  /** Pendente — coluna ainda não existe no banco (migration 013, não aplicada ainda). Ver src/lib/tenant-assets.ts. */
+  /** Migration 013, aplicada — nula até upload em /admin/configuracoes. Ver src/lib/tenant-assets.ts. */
   favicon_url?: string | null
   endereco: string | null
   cidade: string | null
@@ -32,7 +32,7 @@ export interface Loja {
   visao: string | null
   horario: string | null
   instagram: string | null
-  /** Pendente — coluna ainda não existe no banco (migration 014, não aplicada ainda). Ver src/lib/landing-images.ts. */
+  /** Migration 014, aplicada. Ver src/lib/landing-images.ts. */
   imagens_landing?: ImagensLanding | null
   created_at: string
 }

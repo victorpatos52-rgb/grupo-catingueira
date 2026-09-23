@@ -1,6 +1,6 @@
 -- ============================================================
 -- MIGRATION 015 — slug por loja
--- NÃO EXECUTAR AINDA — apenas para revisão.
+-- Aplicada.
 --
 -- Permite resolver a loja por um identificador estável (LOJA_SLUG env var
 -- em src/lib/getLoja.ts) em vez de depender só do Host — útil em dev local

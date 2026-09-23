@@ -182,11 +182,15 @@ export async function updateLojaSettings(
     instagram: string | null
     maps_url: string | null
     imagens_landing?: ImagensLanding | null
+    favicon_url?: string | null
   }
 ) {
   const supabase = await userSupabase()
-  const { error } = await supabase.from('lojas').update(data).eq('id', lojaId)
+  const { data: atualizadas, error } = await supabase.from('lojas').update(data).eq('id', lojaId).select('id')
   if (error) throw new Error(error.message)
+  if (!atualizadas || atualizadas.length === 0) {
+    throw new Error('Sem permissão para editar esta loja')
+  }
   revalidatePath('/admin/configuracoes')
   revalidatePath('/', 'layout')
 }
