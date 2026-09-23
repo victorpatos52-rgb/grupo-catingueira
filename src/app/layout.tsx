@@ -4,7 +4,7 @@ import { Barlow, Barlow_Condensed } from 'next/font/google'
 import { GoogleAnalytics } from '@next/third-parties/google'
 import './globals.css'
 import { getLoja } from '@/lib/getLoja'
-import { getTenantLogoUrl } from '@/lib/tenant-assets'
+import { getTenantLogoUrl, getTenantStartupImages } from '@/lib/tenant-assets'
 import { LojaProvider } from '@/contexts/LojaContext'
 import Header from '@/components/layout/Header'
 import Footer from '@/components/layout/Footer'
@@ -48,6 +48,7 @@ export async function generateMetadata(): Promise<Metadata> {
       capable: true,
       statusBarStyle: 'default',
       title: nome,
+      startupImage: getTenantStartupImages(loja),
     },
   }
 }

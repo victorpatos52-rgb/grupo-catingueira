@@ -1,7 +1,7 @@
 import { readFile } from 'fs/promises'
 import path from 'path'
 import { getLoja } from '@/lib/getLoja'
-import { getTenantFaviconUrl } from '@/lib/tenant-assets'
+import { DEFAULT_LOGO_URL, getTenantFaviconFallbackUrl, getTenantFaviconUrl } from '@/lib/tenant-assets'
 
 const EXT_CONTENT_TYPE: Record<string, string> = {
   png: 'image/png',
@@ -25,8 +25,8 @@ async function lerAssetLocal(urlRelativa: string): Promise<Response> {
 }
 
 // Substitui o favicon.ico estático (compartilhado por todas as lojas) por um
-// favicon por tenant, lido de `lojas.favicon_url` (com fallback em cascata
-// pra logo_url e por fim pro logo padrão — ver getTenantFaviconUrl).
+// favicon por tenant: `lojas.favicon_url` → ícone estático da loja em
+// public/icons/ → `lojas.logo_url` → logo padrão (ver getTenantFaviconUrl).
 export default async function Icon() {
   const loja = await getLoja()
   const url = getTenantFaviconUrl(loja)
@@ -43,7 +43,8 @@ export default async function Icon() {
       headers: { 'Content-Type': res.headers.get('content-type') ?? contentTypeFromUrl(url) },
     })
   } catch (err) {
-    console.error(`[icon] falha ao buscar favicon em "${url}", usando fallback local:`, err)
-    return lerAssetLocal('/logo-catingueira.png')
+    const fallback = getTenantFaviconFallbackUrl(loja)
+    console.error(`[icon] falha ao buscar favicon em "${url}", usando fallback "${fallback}":`, err)
+    return lerAssetLocal(fallback.startsWith('/') ? fallback : DEFAULT_LOGO_URL)
   }
 }

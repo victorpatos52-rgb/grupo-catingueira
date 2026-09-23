@@ -25,6 +25,8 @@ export interface Loja {
   endereco: string | null
   cidade: string | null
   estado: string | null
+  /** Migration 016, pendente — ainda sem campo em /admin/configuracoes. */
+  cep?: string | null
   maps_url: string | null
   descricao: string | null
   sobre: string | null
