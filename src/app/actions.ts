@@ -20,6 +20,15 @@ async function userSupabase() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
+      // autoRefreshToken: false — renovar sessão é responsabilidade única do
+      // src/proxy.ts, que já roda em toda rota /admin/:path* (inclusive o
+      // POST de Server Action) antes deste client existir. Se este client
+      // também tentasse renovar, competiria com o proxy pelo mesmo refresh
+      // token (uso único/rotativo): quem chegasse depois receberia um token
+      // já invalidado e a sessão sumiria — foi exatamente isso que causava
+      // o "Sem permissão para editar esta loja" intermitente em
+      // updateLojaSettings (loja_id e perfil corretos, sessão inválida).
+      auth: { autoRefreshToken: false },
       cookies: {
         getAll() {
           return cookieStore.getAll()
@@ -29,7 +38,9 @@ async function userSupabase() {
             cookiesToSet.forEach(({ name, value, options }) =>
               cookieStore.set(name, value, options)
             )
-          } catch {}
+          } catch (err) {
+            console.error('[userSupabase] falha ao persistir cookie de sessão:', err)
+          }
         },
       },
     }
@@ -186,6 +197,17 @@ export async function updateLojaSettings(
   }
 ) {
   const supabase = await userSupabase()
+
+  // Checagem explícita da sessão antes do update: com autoRefreshToken
+  // desligado neste client (ver userSupabase), uma sessão expirada/inválida
+  // não se autocorrige aqui — sem isso, o update cairia direto na RLS (que
+  // exige auth.uid() != null) e voltaria com 0 linhas, indistinguível de
+  // "usuário sem permissão sobre essa loja" (ver o throw abaixo).
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) {
+    throw new Error('Sessão expirada. Atualize a página e tente novamente.')
+  }
+
   const { data: atualizadas, error } = await supabase.from('lojas').update(data).eq('id', lojaId).select('id')
   if (error) throw new Error(error.message)
   if (!atualizadas || atualizadas.length === 0) {

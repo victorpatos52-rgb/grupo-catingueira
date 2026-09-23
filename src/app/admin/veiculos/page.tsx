@@ -197,7 +197,7 @@ export default async function VeiculosAdminPage({
                       <div className="flex items-center justify-end gap-2">
                         <Link
                           href={`/admin/veiculos/${v.id}`}
-                          className="text-xs text-[#6B7280] hover:text-[#111] px-2.5 py-1.5 rounded-md border border-[#E5E5E5] hover:border-[#D0D0D0] transition-colors bg-white"
+                          className="inline-flex items-center justify-center min-h-[44px] px-3 text-xs text-[#6B7280] hover:text-[#111] rounded-md border border-[#E5E5E5] hover:border-[#D0D0D0] transition-colors bg-white"
                         >
                           Editar
                         </Link>
@@ -206,7 +206,7 @@ export default async function VeiculosAdminPage({
                           <a
                             href={`/veiculo/${v.id}`}
                             target="_blank"
-                            className="text-xs text-[#6B7280] hover:text-[#111] px-2.5 py-1.5 rounded-md border border-[#E5E5E5] hover:border-[#D0D0D0] transition-colors bg-white"
+                            className="inline-flex items-center justify-center min-h-[44px] px-3 text-xs text-[#6B7280] hover:text-[#111] rounded-md border border-[#E5E5E5] hover:border-[#D0D0D0] transition-colors bg-white"
                           >
                             Ver
                           </a>

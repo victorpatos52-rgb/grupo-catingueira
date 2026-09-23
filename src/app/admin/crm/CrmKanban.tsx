@@ -54,18 +54,18 @@ function KanbanCard({ lead, isDragging }: { lead: Lead; isDragging: boolean }) {
       <Link
         href={`/admin/leads/${lead.id}`}
         onClick={e => e.stopPropagation()}
-        className="font-medium text-sm text-[#111] hover:underline block mb-1"
+        className="block"
       >
-        {lead.nome}
+        <p className="font-medium text-sm text-[#111] hover:underline mb-1">{lead.nome}</p>
+        <p className="text-[#9CA3AF] text-xs">{lead.telefone}</p>
+        {(lead.veiculo || lead.veiculo_interesse) && (
+          <p className="text-[#6B7280] text-xs mt-1 truncate">
+            {lead.veiculo
+              ? `${lead.veiculo.marca} ${lead.veiculo.modelo}`
+              : lead.veiculo_interesse}
+          </p>
+        )}
       </Link>
-      <p className="text-[#9CA3AF] text-xs">{lead.telefone}</p>
-      {(lead.veiculo || lead.veiculo_interesse) && (
-        <p className="text-[#6B7280] text-xs mt-1 truncate">
-          {lead.veiculo
-            ? `${lead.veiculo.marca} ${lead.veiculo.modelo}`
-            : lead.veiculo_interesse}
-        </p>
-      )}
       <div className="flex gap-1 mt-2 flex-wrap">
         <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
           lead.origem === 'whatsapp' ? 'bg-green-50 text-green-700' :
@@ -92,7 +92,7 @@ function KanbanColumn({
   const { setNodeRef, isOver } = useDroppable({ id: coluna.id })
 
   return (
-    <div className="flex-1 min-w-[200px] max-w-[260px] flex flex-col gap-2">
+    <div className="flex-1 min-w-[200px] max-w-[260px] flex flex-col gap-2 snap-start">
       <div
         className="flex items-center justify-between px-2 py-1.5 rounded-lg"
         style={{ backgroundColor: coluna.bg }}
@@ -180,7 +180,7 @@ export default function CrmKanban({ leads: initialLeads, vendedorMap }: Props) {
         acceleration: 15,
       }}
     >
-      <div className="flex gap-4 overflow-x-auto pb-4">
+      <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory">
         {COLUNAS.map(coluna => (
           <KanbanColumn
             key={coluna.id}

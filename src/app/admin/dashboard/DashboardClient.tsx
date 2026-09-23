@@ -199,7 +199,7 @@ export default function DashboardClient({
         <div className="bg-white border border-[#E5E7EB] rounded-xl overflow-hidden shadow-sm">
           <div className="px-5 py-4 border-b border-[#E5E7EB] flex items-center justify-between">
             <h2 className="font-bold text-[#111827] text-sm">Últimas Vendas</h2>
-            <Link href="/admin/vendas" className="text-xs text-[#F59E0B] hover:underline">Ver todas</Link>
+            <Link href="/admin/vendas" className="inline-flex items-center px-2.5 py-3.5 -mx-2.5 -my-3.5 text-xs text-[#F59E0B] hover:underline rounded-lg hover:bg-amber-50 transition-colors">Ver todas</Link>
           </div>
           <div className="divide-y divide-[#F3F4F6]">
             {ultimasVendas.length === 0 ? (
@@ -218,7 +218,7 @@ export default function DashboardClient({
                     <p className="text-[#111827] font-bold text-sm">{fmt(v.valor_liquido)}</p>
                     <Link
                       href={`/admin/vendas/${v.id}`}
-                      className="text-xs text-[#F59E0B] hover:underline"
+                      className="inline-flex items-center px-2.5 py-3.5 -mx-2.5 -my-3.5 text-xs text-[#F59E0B] hover:underline rounded-lg hover:bg-amber-50 transition-colors"
                     >
                       Ver
                     </Link>
@@ -237,7 +237,7 @@ export default function DashboardClient({
         <div className="bg-white border border-[#E5E7EB] rounded-xl overflow-hidden shadow-sm">
           <div className="px-5 py-4 border-b border-[#E5E7EB] flex items-center justify-between">
             <h2 className="font-bold text-[#111827] text-sm">Últimos Veículos</h2>
-            <Link href="/admin/veiculos" className="text-xs text-[#F59E0B] hover:underline">Ver todos</Link>
+            <Link href="/admin/veiculos" className="inline-flex items-center px-2.5 py-3.5 -mx-2.5 -my-3.5 text-xs text-[#F59E0B] hover:underline rounded-lg hover:bg-amber-50 transition-colors">Ver todos</Link>
           </div>
           <div className="divide-y divide-[#F3F4F6]">
             {ultimosVeiculos.length === 0 ? (
@@ -273,7 +273,7 @@ export default function DashboardClient({
         <div className="bg-white border border-[#E5E7EB] rounded-xl overflow-hidden shadow-sm">
           <div className="px-5 py-4 border-b border-[#E5E7EB] flex items-center justify-between">
             <h2 className="font-bold text-[#111827] text-sm">Últimos Leads</h2>
-            <Link href="/admin/crm" className="text-xs text-[#F59E0B] hover:underline">Ver todos</Link>
+            <Link href="/admin/crm" className="inline-flex items-center px-2.5 py-3.5 -mx-2.5 -my-3.5 text-xs text-[#F59E0B] hover:underline rounded-lg hover:bg-amber-50 transition-colors">Ver todos</Link>
           </div>
           <div className="divide-y divide-[#F3F4F6]">
             {ultimosLeads.length === 0 ? (

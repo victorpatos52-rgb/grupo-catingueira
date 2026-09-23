@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { criarUsuario, resetarSenha, atualizarUsuario, deleteUser } from '@/app/actions'
+import Modal from '@/components/ui/Modal'
 import type { UsuarioPerfil, Loja, Perfil } from '@/types'
 
 // ── Constantes ────────────────────────────────────────────────────────────────
@@ -177,6 +178,7 @@ export default function UsuariosClient({ perfil, usuarios, lojas }: Props) {
   const [resetLoad,  setResetLoad]  = useState<string | null>(null)
   const [toggleLoad, setToggleLoad] = useState<string | null>(null)
   const [deleteLoad, setDeleteLoad] = useState<string | null>(null)
+  const [menuAberto, setMenuAberto] = useState<string | null>(null)
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
@@ -188,6 +190,7 @@ export default function UsuariosClient({ perfil, usuarios, lojas }: Props) {
   }
 
   function abrirEditar(u: UsuarioComEmail) {
+    setMenuAberto(null)
     setEditandoUsuario(u)
     setNomeEdit(u.nome); setPerfilEdit(u.perfil)
     setLojaIdEdit(u.loja_id); setAtivoEdit(u.ativo)
@@ -251,6 +254,7 @@ export default function UsuariosClient({ perfil, usuarios, lojas }: Props) {
   }
 
   async function handleResetSenha(userId: string) {
+    setMenuAberto(null)
     if (!confirm('Gerar nova senha aleatória para este usuário?')) return
     setResetLoad(userId)
     try {
@@ -264,6 +268,7 @@ export default function UsuariosClient({ perfil, usuarios, lojas }: Props) {
   }
 
   async function handleToggleAtivo(u: UsuarioComEmail) {
+    setMenuAberto(null)
     setToggleLoad(u.id)
     try {
       await atualizarUsuario(u.id, {
@@ -279,6 +284,7 @@ export default function UsuariosClient({ perfil, usuarios, lojas }: Props) {
   }
 
   async function handleDeletar(u: UsuarioComEmail) {
+    setMenuAberto(null)
     if (!confirm(`Deletar o usuário "${u.nome}" (${u.email})?\n\nEsta ação não pode ser desfeita.`)) return
     setDeleteLoad(u.id)
     try {
@@ -359,9 +365,18 @@ export default function UsuariosClient({ perfil, usuarios, lojas }: Props) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[#E5E7EB] bg-[#F9FAFB]">
-                  {['Usuário', 'E-mail', 'Perfil', 'Loja', 'Módulos', 'Status', 'Criado', 'Ações'].map(h => (
-                    <th key={h} className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap">
-                      {h}
+                  {[
+                    { label: 'Usuário' },
+                    { label: 'E-mail', cls: 'hidden sm:table-cell' },
+                    { label: 'Perfil' },
+                    { label: 'Loja' },
+                    { label: 'Módulos', cls: 'hidden md:table-cell' },
+                    { label: 'Status' },
+                    { label: 'Criado', cls: 'hidden md:table-cell' },
+                    { label: 'Ações' },
+                  ].map(({ label, cls }) => (
+                    <th key={label} className={`text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap ${cls ?? ''}`}>
+                      {label}
                     </th>
                   ))}
                 </tr>
@@ -389,7 +404,7 @@ export default function UsuariosClient({ perfil, usuarios, lojas }: Props) {
                     </td>
 
                     {/* Email */}
-                    <td className="px-4 py-3 text-[#6B7280] text-xs">{u.email || '—'}</td>
+                    <td className="px-4 py-3 text-[#6B7280] text-xs hidden sm:table-cell">{u.email || '—'}</td>
 
                     {/* Perfil */}
                     <td className="px-4 py-3">
@@ -402,7 +417,7 @@ export default function UsuariosClient({ perfil, usuarios, lojas }: Props) {
                     <td className="px-4 py-3 text-[#6B7280] whitespace-nowrap text-sm">{u.loja?.nome ?? '—'}</td>
 
                     {/* Módulos */}
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 hidden md:table-cell">
                       <div className="flex flex-wrap gap-1 max-w-xs">
                         {(u.modulos_permitidos ?? []).length === 0 ? (
                           <span className="text-[#9CA3AF] text-xs">—</span>
@@ -427,47 +442,65 @@ export default function UsuariosClient({ perfil, usuarios, lojas }: Props) {
                     </td>
 
                     {/* Criado */}
-                    <td className="px-4 py-3 text-[#9CA3AF] text-xs whitespace-nowrap">
+                    <td className="px-4 py-3 text-[#9CA3AF] text-xs whitespace-nowrap hidden md:table-cell">
                       {new Date(u.created_at).toLocaleDateString('pt-BR')}
                     </td>
 
                     {/* Ações */}
                     <td className="px-4 py-3">
                       <div className="flex flex-col gap-1">
-                        <div className="flex gap-1 flex-wrap">
+                        <div className="relative">
                           <button
-                            onClick={() => abrirEditar(u)}
-                            className="text-xs text-[#6B7280] hover:text-[#111] px-2.5 py-1 rounded-lg border border-[#E5E7EB] hover:border-[#D1D5DB] transition-colors bg-white"
+                            onClick={() => setMenuAberto(v => v === u.id ? null : u.id)}
+                            aria-label="Ações"
+                            aria-haspopup="menu"
+                            aria-expanded={menuAberto === u.id}
+                            className="flex items-center justify-center w-11 h-11 rounded-lg border border-[#E5E7EB] hover:border-[#D1D5DB] hover:bg-[#F9FAFB] transition-colors text-[#6B7280]"
                           >
-                            Editar
+                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6h.01M12 12h.01M12 18h.01" />
+                            </svg>
                           </button>
-                          {u.id !== perfil.id && (
+                          {menuAberto === u.id && (
                             <>
-                              <button
-                                onClick={() => handleResetSenha(u.id)}
-                                disabled={resetLoad === u.id}
-                                className="text-xs text-[#6B7280] hover:text-amber-700 px-2.5 py-1 rounded-lg border border-[#E5E7EB] hover:border-amber-200 hover:bg-amber-50 transition-colors disabled:opacity-50"
-                              >
-                                {resetLoad === u.id ? '...' : 'Reset senha'}
-                              </button>
-                              <button
-                                onClick={() => handleToggleAtivo(u)}
-                                disabled={toggleLoad === u.id}
-                                className={`text-xs px-2.5 py-1 rounded-lg border transition-colors disabled:opacity-50 ${
-                                  u.ativo
-                                    ? 'text-[#6B7280] hover:text-red-600 border-[#E5E7EB] hover:border-red-200 hover:bg-red-50'
-                                    : 'text-[#6B7280] hover:text-green-700 border-[#E5E7EB] hover:border-green-200 hover:bg-green-50'
-                                }`}
-                              >
-                                {toggleLoad === u.id ? '...' : u.ativo ? 'Desativar' : 'Ativar'}
-                              </button>
-                              <button
-                                onClick={() => handleDeletar(u)}
-                                disabled={deleteLoad === u.id}
-                                className="text-xs text-[#6B7280] hover:text-red-600 px-2.5 py-1 rounded-lg border border-[#E5E7EB] hover:border-red-200 transition-colors disabled:opacity-50"
-                              >
-                                {deleteLoad === u.id ? '...' : 'Deletar'}
-                              </button>
+                              <div className="fixed inset-0 z-10" onClick={() => setMenuAberto(null)} />
+                              <div className="absolute right-0 top-full mt-1 bg-white border border-[#E5E7EB] rounded-xl shadow-lg z-20 py-1 min-w-[170px] overflow-hidden">
+                                <button
+                                  onClick={() => abrirEditar(u)}
+                                  className="w-full text-left px-4 py-3 text-sm text-[#374151] hover:bg-[#F9FAFB] transition-colors"
+                                >
+                                  Editar
+                                </button>
+                                {u.id !== perfil.id && (
+                                  <>
+                                    <button
+                                      onClick={() => handleResetSenha(u.id)}
+                                      disabled={resetLoad === u.id}
+                                      className="w-full text-left px-4 py-3 text-sm text-[#374151] hover:bg-amber-50 hover:text-amber-700 transition-colors disabled:opacity-50"
+                                    >
+                                      {resetLoad === u.id ? 'Gerando...' : 'Reset senha'}
+                                    </button>
+                                    <button
+                                      onClick={() => handleToggleAtivo(u)}
+                                      disabled={toggleLoad === u.id}
+                                      className={`w-full text-left px-4 py-3 text-sm transition-colors disabled:opacity-50 ${
+                                        u.ativo
+                                          ? 'text-[#374151] hover:bg-red-50 hover:text-red-600'
+                                          : 'text-[#374151] hover:bg-green-50 hover:text-green-700'
+                                      }`}
+                                    >
+                                      {toggleLoad === u.id ? 'Salvando...' : u.ativo ? 'Desativar' : 'Ativar'}
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeletar(u)}
+                                      disabled={deleteLoad === u.id}
+                                      className="w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                                    >
+                                      {deleteLoad === u.id ? 'Deletando...' : 'Deletar'}
+                                    </button>
+                                  </>
+                                )}
+                              </div>
                             </>
                           )}
                         </div>
@@ -496,104 +529,98 @@ export default function UsuariosClient({ perfil, usuarios, lojas }: Props) {
       </div>
 
       {/* ── Modal Criar ───────────────────────────────────────────────────────── */}
-      {modal === 'criar' && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={fecharModal} />
-          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E7EB] sticky top-0 bg-white rounded-t-2xl">
-              <h2 className="text-[#111] font-bold text-base">Criar usuário</h2>
-              <button onClick={fecharModal} className="text-[#9CA3AF] hover:text-[#111] transition-colors">
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+      <Modal open={modal === 'criar'} onClose={fecharModal} maxWidth="sm:max-w-lg">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E7EB] sticky top-0 bg-white rounded-t-2xl">
+          <h2 className="text-[#111] font-bold text-base">Criar usuário</h2>
+          <button onClick={fecharModal} className="text-[#9CA3AF] hover:text-[#111] transition-colors">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <form onSubmit={handleCriar} className="p-6 space-y-4">
+          <div>
+            <label className={labelCls}>Nome completo</label>
+            <input required value={nomeNovo} onChange={e => setNomeNovo(e.target.value)} className={inputCls} placeholder="João da Silva" />
+          </div>
+          <div>
+            <label className={labelCls}>E-mail</label>
+            <input required type="email" value={emailNovo} onChange={e => setEmailNovo(e.target.value)} className={inputCls} placeholder="joao@email.com" />
+          </div>
+          <div>
+            <label className={labelCls}>Senha inicial</label>
+            <div className="flex gap-2">
+              <input
+                required
+                value={senhaNova}
+                onChange={e => setSenhaNova(e.target.value)}
+                className={inputCls}
+                placeholder="Senha"
+              />
+              <button
+                type="button"
+                onClick={() => setSenhaNova(gerarSenha())}
+                className="shrink-0 px-3 py-2 rounded-xl border border-[#E5E7EB] text-[#6B7280] text-xs font-medium hover:text-[#111] hover:border-[#D1D5DB] transition-colors whitespace-nowrap"
+              >
+                Gerar
               </button>
             </div>
-
-            <form onSubmit={handleCriar} className="p-6 space-y-4">
-              <div>
-                <label className={labelCls}>Nome completo</label>
-                <input required value={nomeNovo} onChange={e => setNomeNovo(e.target.value)} className={inputCls} placeholder="João da Silva" />
-              </div>
-              <div>
-                <label className={labelCls}>E-mail</label>
-                <input required type="email" value={emailNovo} onChange={e => setEmailNovo(e.target.value)} className={inputCls} placeholder="joao@email.com" />
-              </div>
-              <div>
-                <label className={labelCls}>Senha inicial</label>
-                <div className="flex gap-2">
-                  <input
-                    required
-                    value={senhaNova}
-                    onChange={e => setSenhaNova(e.target.value)}
-                    className={inputCls}
-                    placeholder="Senha"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setSenhaNova(gerarSenha())}
-                    className="shrink-0 px-3 py-2 rounded-xl border border-[#E5E7EB] text-[#6B7280] text-xs font-medium hover:text-[#111] hover:border-[#D1D5DB] transition-colors whitespace-nowrap"
-                  >
-                    Gerar
-                  </button>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className={labelCls}>Perfil</label>
-                  <select
-                    value={perfilNovo}
-                    onChange={e => handlePerfilCriarChange(e.target.value as Perfil)}
-                    className={selectCls}
-                  >
-                    {PERFIS.map(p => <option key={p} value={p} className="capitalize">{p}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className={labelCls}>Loja</label>
-                  <select value={lojaIdNova} onChange={e => setLojaIdNova(e.target.value)} className={selectCls}>
-                    {(perfilNovo === 'socio' ? lojas.filter(ehLojaFelizardo) : lojas).map(l => (
-                      <option key={l.id} value={l.id}>{l.nome}</option>
-                    ))}
-                  </select>
-                  {perfilNovo === 'socio' && (
-                    <p className="text-[#9CA3AF] text-xs mt-1">Sócio só pode ser vinculado à loja Felizardo.</p>
-                  )}
-                </div>
-              </div>
-              <div>
-                <label className={labelCls}>Módulos permitidos</label>
-                <p className="text-[#9CA3AF] text-xs mb-2">Sugeridos pelo perfil — ajuste se necessário.</p>
-                <ModulosCheckbox value={modulosNovos} onChange={setModulosNovos} />
-              </div>
-
-              {criandoErro && <p className="text-red-600 text-sm">{criandoErro}</p>}
-
-              <div className="flex gap-2 pt-2">
-                <button
-                  type="submit"
-                  disabled={criandoLoad}
-                  className="flex-1 px-4 py-2.5 rounded-xl font-semibold text-sm text-[#92400E] bg-[#FEF9C3] border border-[#F5C842] hover:bg-[#FEF08A] transition-colors disabled:opacity-50"
-                >
-                  {criandoLoad ? 'Criando...' : 'Criar usuário'}
-                </button>
-                <button
-                  type="button"
-                  onClick={fecharModal}
-                  className="px-4 py-2.5 rounded-xl text-sm text-[#6B7280] hover:text-[#111] border border-[#E5E7EB] hover:border-[#D1D5DB] transition-colors"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </form>
           </div>
-        </div>
-      )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className={labelCls}>Perfil</label>
+              <select
+                value={perfilNovo}
+                onChange={e => handlePerfilCriarChange(e.target.value as Perfil)}
+                className={selectCls}
+              >
+                {PERFIS.map(p => <option key={p} value={p} className="capitalize">{p}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className={labelCls}>Loja</label>
+              <select value={lojaIdNova} onChange={e => setLojaIdNova(e.target.value)} className={selectCls}>
+                {(perfilNovo === 'socio' ? lojas.filter(ehLojaFelizardo) : lojas).map(l => (
+                  <option key={l.id} value={l.id}>{l.nome}</option>
+                ))}
+              </select>
+              {perfilNovo === 'socio' && (
+                <p className="text-[#9CA3AF] text-xs mt-1">Sócio só pode ser vinculado à loja Felizardo.</p>
+              )}
+            </div>
+          </div>
+          <div>
+            <label className={labelCls}>Módulos permitidos</label>
+            <p className="text-[#9CA3AF] text-xs mb-2">Sugeridos pelo perfil — ajuste se necessário.</p>
+            <ModulosCheckbox value={modulosNovos} onChange={setModulosNovos} />
+          </div>
+
+          {criandoErro && <p className="text-red-600 text-sm">{criandoErro}</p>}
+
+          <div className="flex gap-2 pt-2">
+            <button
+              type="submit"
+              disabled={criandoLoad}
+              className="flex-1 px-4 py-2.5 rounded-xl font-semibold text-sm text-[#92400E] bg-[#FEF9C3] border border-[#F5C842] hover:bg-[#FEF08A] transition-colors disabled:opacity-50"
+            >
+              {criandoLoad ? 'Criando...' : 'Criar usuário'}
+            </button>
+            <button
+              type="button"
+              onClick={fecharModal}
+              className="px-4 py-2.5 rounded-xl text-sm text-[#6B7280] hover:text-[#111] border border-[#E5E7EB] hover:border-[#D1D5DB] transition-colors"
+            >
+              Cancelar
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       {/* ── Modal Editar ──────────────────────────────────────────────────────── */}
-      {modal === 'editar' && editandoUsuario && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={fecharModal} />
-          <div className="relative bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+      <Modal open={modal === 'editar' && !!editandoUsuario} onClose={fecharModal} maxWidth="sm:max-w-lg">
+        {editandoUsuario && (
+          <>
             <div className="flex items-center justify-between px-6 py-4 border-b border-[#E5E7EB] sticky top-0 bg-white rounded-t-2xl">
               <h2 className="text-[#111] font-bold text-base">Editar usuário</h2>
               <button onClick={fecharModal} className="text-[#9CA3AF] hover:text-[#111] transition-colors">
@@ -609,7 +636,7 @@ export default function UsuariosClient({ perfil, usuarios, lojas }: Props) {
                 <input required value={nomeEdit} onChange={e => setNomeEdit(e.target.value)} className={inputCls} />
               </div>
               <p className="text-[#9CA3AF] text-xs -mt-2">E-mail não pode ser editado ({editandoUsuario.email})</p>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className={labelCls}>Perfil</label>
                   <select
@@ -667,9 +694,9 @@ export default function UsuariosClient({ perfil, usuarios, lojas }: Props) {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Modal>
 
     </div>
   )

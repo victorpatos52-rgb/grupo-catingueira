@@ -4,6 +4,16 @@ import { useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
+import {
+  DndContext,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  closestCenter,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import { SortableContext, useSortable, arrayMove, rectSortingStrategy } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { createClient } from '@/lib/supabase'
 import LandingImage from '@/components/ui/LandingImage'
 import { updateLojaSettings } from '@/app/actions'
@@ -98,6 +108,38 @@ function ImagemSlot({
   )
 }
 
+function GaleriaFotoItem({ url, onRemover }: { url: string; onRemover: () => void }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: url })
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      // touch-none evita competir com o scroll nativo em touch (mesmo motivo
+      // do Kanban do CRM e da aba de Fotos do veículo).
+      className={`relative aspect-square rounded-lg overflow-hidden bg-[#F9FAFB] border-2 cursor-grab active:cursor-grabbing touch-none transition-opacity ${
+        isDragging ? 'opacity-40 border-[#F5C842]' : 'border-[#E5E7EB]'
+      }`}
+    >
+      <LandingImage src={url} alt="" fill className="object-cover" sizes="120px" />
+      <button
+        type="button"
+        onClick={onRemover}
+        className="absolute top-1 right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-[10px] hover:opacity-100 transition-opacity"
+      >
+        ×
+      </button>
+    </div>
+  )
+}
+
 export default function ConfiguracoesClient() {
   const { loja } = useAdmin()
 
@@ -115,10 +157,22 @@ function ConfiguracoesForm({ loja }: { loja: Loja }) {
   const [faviconUrl, setFaviconUrl] = useState(loja.favicon_url ?? '')
   const [heroUrl, setHeroUrl] = useState(loja.imagens_landing?.hero ?? '')
   const [secoesUrls, setSecoesUrls] = useState<Record<string, string>>(loja.imagens_landing?.secoes ?? {})
+  const [galeriaUrls, setGaleriaUrls] = useState<string[]>(loja.imagens_landing?.galeria ?? [])
   const [uploadingChave, setUploadingChave] = useState<string | null>(null)
+  const [uploadingGaleria, setUploadingGaleria] = useState(false)
   const [salvando, setSalvando] = useState(false)
   const [salvoOk, setSalvoOk] = useState(false)
   const [erro, setErro] = useState('')
+
+  // Guarda síncrona contra duplo submit — além do `disabled` do botão (que já
+  // cobre clique repetido), uma ref é imune a qualquer atraso de re-render do
+  // React entre cliques e não depende do navegador respeitar `disabled` no
+  // Enter dentro de um input de texto.
+  const enviandoRef = useRef(false)
+  const galeriaInputRef = useRef<HTMLInputElement>(null)
+  const sensoresGaleria = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  )
 
   const {
     register,
@@ -164,7 +218,49 @@ function ConfiguracoesForm({ loja }: { loja: Loja }) {
     setUploadingChave(null)
   }
 
+  async function uploadGaleria(files: FileList) {
+    setUploadingGaleria(true)
+    setErro('')
+    const supabase = createClient()
+    const urls: string[] = []
+
+    for (const file of Array.from(files)) {
+      const ext = file.name.split('.').pop()
+      const nome = `configuracoes/${loja.id}/galeria/${Date.now()}-${Math.random().toString(36).substring(2)}.${ext}`
+      const { error } = await supabase.storage
+        .from('veiculos-fotos')
+        .upload(nome, file, { upsert: false })
+
+      if (error) {
+        setErro(`Erro ao enviar imagem: ${error.message}`)
+      } else {
+        const { data } = supabase.storage.from('veiculos-fotos').getPublicUrl(nome)
+        urls.push(data.publicUrl)
+      }
+    }
+
+    setGaleriaUrls(prev => [...prev, ...urls])
+    setUploadingGaleria(false)
+  }
+
+  function removerGaleriaFoto(index: number) {
+    setGaleriaUrls(prev => prev.filter((_, i) => i !== index))
+  }
+
+  function onGaleriaDragEnd(e: DragEndEvent) {
+    const { active, over } = e
+    if (!over || active.id === over.id) return
+    setGaleriaUrls(prev => {
+      const fromIndex = prev.indexOf(active.id as string)
+      const toIndex = prev.indexOf(over.id as string)
+      if (fromIndex === -1 || toIndex === -1) return prev
+      return arrayMove(prev, fromIndex, toIndex)
+    })
+  }
+
   async function onSubmit(data: FormData) {
+    if (enviandoRef.current) return
+    enviandoRef.current = true
     setSalvando(true)
     setSalvoOk(false)
     setErro('')
@@ -183,7 +279,7 @@ function ConfiguracoesForm({ loja }: { loja: Loja }) {
         visao: data.visao || null,
         instagram: data.instagram || null,
         maps_url: data.maps_url || null,
-        imagens_landing: { hero: heroUrl || null, secoes: secoesUrls },
+        imagens_landing: { hero: heroUrl || null, secoes: secoesUrls, galeria: galeriaUrls },
         favicon_url: faviconUrl || null,
       })
       setSalvoOk(true)
@@ -191,6 +287,7 @@ function ConfiguracoesForm({ loja }: { loja: Loja }) {
       setErro(err instanceof Error ? err.message : 'Erro ao salvar configurações')
     } finally {
       setSalvando(false)
+      enviandoRef.current = false
     }
   }
 
@@ -322,6 +419,48 @@ function ConfiguracoesForm({ loja }: { loja: Loja }) {
         </div>
       </div>
 
+      {/* Galeria da loja */}
+      <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-sm">
+        <h2 className="text-[#111827] font-bold text-sm uppercase tracking-wider mb-1">Galeria da loja</h2>
+        <p className="text-[#9CA3AF] text-xs mb-4">
+          Fotos livres (showroom, fachada, equipe etc.) exibidas numa faixa no final da home pública. Arraste para reordenar. Vazia, a seção some do site — sem placeholder.
+        </p>
+        <DndContext sensors={sensoresGaleria} collisionDetection={closestCenter} onDragEnd={onGaleriaDragEnd}>
+          <SortableContext items={galeriaUrls} strategy={rectSortingStrategy}>
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+              {galeriaUrls.map((url, i) => (
+                <GaleriaFotoItem key={url} url={url} onRemover={() => removerGaleriaFoto(i)} />
+              ))}
+              <button
+                type="button"
+                onClick={() => galeriaInputRef.current?.click()}
+                disabled={uploadingGaleria}
+                className="aspect-square rounded-lg border-2 border-dashed border-[#E5E7EB] hover:border-[#F5C842] bg-[#F9FAFB] flex flex-col items-center justify-center gap-1 transition-colors disabled:opacity-50"
+              >
+                {uploadingGaleria ? (
+                  <span className="text-[#9CA3AF] text-xs">Enviando...</span>
+                ) : (
+                  <>
+                    <svg className="w-6 h-6 text-[#D1D5DB]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" />
+                    </svg>
+                    <span className="text-[#9CA3AF] text-[10px]">Adicionar</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </SortableContext>
+        </DndContext>
+        <input
+          ref={galeriaInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          onChange={e => e.target.files && uploadGaleria(e.target.files)}
+        />
+      </div>
+
       {erro && (
         <p className="text-red-600 text-sm bg-red-50 border border-red-200 rounded-xl px-4 py-3">{erro}</p>
       )}
@@ -329,7 +468,7 @@ function ConfiguracoesForm({ loja }: { loja: Loja }) {
       <div className="flex items-center gap-3">
         <button
           type="submit"
-          disabled={salvando || uploadingChave !== null}
+          disabled={salvando || uploadingChave !== null || uploadingGaleria}
           className="px-8 py-2.5 rounded-xl font-bold text-sm text-[#111827] bg-[#F5C842] hover:brightness-90 transition-all disabled:opacity-50"
         >
           {salvando ? 'Salvando...' : 'Salvar alterações'}

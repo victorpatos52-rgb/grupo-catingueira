@@ -60,7 +60,10 @@ export default function Footer() {
           <ul className="flex flex-col gap-3">
             {NAV.map(({ label, href }) => (
               <li key={label}>
-                <Link href={href} className="text-[#888] text-sm hover:text-white transition-colors">
+                <Link
+                  href={href}
+                  className="text-[#888] text-sm hover:text-white active:text-white active:opacity-70 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent focus-visible:ring-white/50 rounded"
+                >
                   {label}
                 </Link>
               </li>
@@ -70,7 +73,7 @@ export default function Footer() {
                 href={waHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[#888] text-sm hover:text-white transition-colors"
+                className="text-[#888] text-sm hover:text-white active:text-white active:opacity-70 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent focus-visible:ring-white/50 rounded"
               >
                 Contato
               </a>
@@ -92,7 +95,7 @@ export default function Footer() {
                 href={waHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2.5 text-[#888] text-sm hover:text-white transition-colors"
+                className="flex items-center gap-2.5 text-[#888] text-sm hover:text-white active:text-white active:opacity-70 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent focus-visible:ring-white/50 rounded"
               >
                 <Phone className="w-4 h-4 shrink-0" style={{ color: 'var(--cor-primaria)' }} />
                 {waDisplay}

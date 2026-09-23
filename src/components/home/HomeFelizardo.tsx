@@ -4,7 +4,7 @@ import VeiculoCard from '@/components/veiculo/VeiculoCard'
 import AnimatedSection from '@/components/ui/AnimatedSection'
 import WaIcon from '@/components/ui/WaIcon'
 import LandingImage from '@/components/ui/LandingImage'
-import { getHeroImage, getSecaoImage } from '@/lib/landing-images'
+import { getHeroImage, getSecaoImage, getGaleriaImages } from '@/lib/landing-images'
 import type { Loja, Veiculo } from '@/types'
 
 interface Props {
@@ -46,6 +46,8 @@ const DIFERENCIAIS = [
 ]
 
 export default function HomeFelizardo({ loja, destaques, waHref, waDisplay, sobreTexto }: Props) {
+  const galeria = getGaleriaImages(loja)
+
   return (
     <div className="pt-[70px] bg-white">
 
@@ -104,7 +106,7 @@ export default function HomeFelizardo({ loja, destaques, waHref, waDisplay, sobr
               <div className="flex flex-col sm:flex-row gap-3 mb-6">
                 <Link
                   href="/estoque"
-                  className="inline-flex items-center justify-center px-7 py-3.5 rounded-full font-bold text-sm uppercase tracking-wider text-white hover:brightness-110 transition-all"
+                  className="inline-flex items-center justify-center px-7 py-3.5 rounded-full font-bold text-sm uppercase tracking-wider text-white hover:brightness-110 active:brightness-90 active:scale-[0.97] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent focus-visible:ring-white"
                   style={{ backgroundColor: '#2E6BE6' }}
                 >
                   VER ESTOQUE
@@ -113,7 +115,7 @@ export default function HomeFelizardo({ loja, destaques, waHref, waDisplay, sobr
                   href={waHref}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full bg-[#25D366] text-white font-bold text-sm uppercase tracking-wider hover:brightness-95 transition-all"
+                  className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full bg-[#25D366] text-white font-bold text-sm uppercase tracking-wider hover:brightness-95 active:brightness-90 active:scale-[0.97] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent focus-visible:ring-white"
                 >
                   <WaIcon size={16} />
                   WHATSAPP
@@ -215,7 +217,7 @@ export default function HomeFelizardo({ loja, destaques, waHref, waDisplay, sobr
           <AnimatedSection className="mt-10 text-center">
             <Link
               href="/estoque"
-              className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full border-2 font-bold text-sm uppercase tracking-wider transition-all hover:bg-[#2E6BE6] hover:text-white"
+              className="inline-flex items-center gap-2 px-7 py-3.5 rounded-full border-2 font-bold text-sm uppercase tracking-wider transition-all hover:bg-[#2E6BE6] hover:text-white active:bg-[#2E6BE6] active:text-white active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent focus-visible:ring-[#2E6BE6]"
               style={{ borderColor: '#2E6BE6', color: '#2E6BE6' }}
             >
               VER TODO O ESTOQUE
@@ -349,6 +351,51 @@ export default function HomeFelizardo({ loja, destaques, waHref, waDisplay, sobr
       </section>
 
       {/* ══════════════════════════════════════
+          GALERIA — faixa horizontal (some se vazia)
+      ══════════════════════════════════════ */}
+      {galeria.length > 0 && (
+        <section className="py-16 md:py-20 bg-white">
+          <div className="max-w-7xl mx-auto px-5 mb-8">
+            <AnimatedSection>
+              <span
+                className="inline-block text-xs font-bold uppercase tracking-[0.2em] px-3 py-1.5 rounded-full mb-4 text-white"
+                style={{ backgroundColor: '#2E6BE6' }}
+              >
+                NOSSO ESPAÇO
+              </span>
+              <h2
+                className="font-[family-name:var(--font-barlow-condensed)] font-extrabold uppercase leading-none mb-4"
+                style={{ fontSize: 'clamp(2rem, 5vw, 4rem)', color: '#0D1B2A' }}
+              >
+                FEITO PARA RECEBER VOCÊ
+              </h2>
+              <p className="text-[#6B7280] text-base leading-relaxed max-w-lg mx-auto">
+                Um ambiente pensado pra você se sentir em casa em cada visita, do primeiro atendimento à entrega das chaves.
+              </p>
+            </AnimatedSection>
+          </div>
+          <div className="flex gap-4 overflow-x-auto px-5 pb-2 snap-x snap-mandatory">
+            {galeria.map(url => (
+              <div
+                key={url}
+                className="relative shrink-0 w-[260px] sm:w-[320px] aspect-[4/3] rounded-2xl overflow-hidden snap-start"
+              >
+                <LandingImage
+                  src={url}
+                  alt=""
+                  fill
+                  loading="lazy"
+                  sizes="320px"
+                  className="object-cover"
+                />
+              </div>
+            ))}
+            <div className="shrink-0 w-1" aria-hidden />
+          </div>
+        </section>
+      )}
+
+      {/* ══════════════════════════════════════
           CTA FINAL — fundo #1B3A6B
       ══════════════════════════════════════ */}
       <section className="py-16 md:py-28 px-5" style={{ backgroundColor: '#1B3A6B' }}>
@@ -366,7 +413,7 @@ export default function HomeFelizardo({ loja, destaques, waHref, waDisplay, sobr
             href={waHref}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center justify-center gap-3 w-full sm:w-auto px-8 py-4 rounded-full bg-white font-bold text-sm uppercase tracking-wider hover:bg-white/90 transition-colors"
+            className="inline-flex items-center justify-center gap-3 w-full sm:w-auto px-8 py-4 rounded-full bg-white font-bold text-sm uppercase tracking-wider hover:bg-white/90 active:bg-white/80 active:scale-[0.97] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent focus-visible:ring-white"
             style={{ color: '#1B3A6B' }}
           >
             <WaIcon size={18} />

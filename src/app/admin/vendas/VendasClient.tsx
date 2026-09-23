@@ -95,11 +95,14 @@ export default function VendasClient({ vendas }: Props) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[#E5E7EB] bg-[#F9FAFB]">
-                  {['Nº', 'Veículo', 'Comprador', 'Valor', 'Vendedor', 'Data', 'Status', 'Ações'].map(h => (
-                    <th key={h} className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap">
-                      {h}
-                    </th>
-                  ))}
+                  <th className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap hidden lg:table-cell">Nº</th>
+                  <th className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap">Veículo</th>
+                  <th className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap hidden sm:table-cell">Comprador</th>
+                  <th className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap">Valor</th>
+                  <th className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap hidden md:table-cell">Vendedor</th>
+                  <th className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap">Data</th>
+                  <th className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap">Status</th>
+                  <th className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap">Ações</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F3F4F6]">
@@ -107,7 +110,7 @@ export default function VendasClient({ vendas }: Props) {
                   <tr key={venda.id} className="hover:bg-[#FAFAFA] transition-colors">
 
                     {/* Número */}
-                    <td className="px-4 py-3 text-[#6B7280] text-xs font-medium whitespace-nowrap">
+                    <td className="px-4 py-3 text-[#6B7280] text-xs font-medium whitespace-nowrap hidden lg:table-cell">
                       {venda.numero_venda ?? '—'}
                     </td>
 
@@ -139,7 +142,7 @@ export default function VendasClient({ vendas }: Props) {
                     </td>
 
                     {/* Comprador */}
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 hidden sm:table-cell">
                       <p className="text-[#111] font-medium text-sm whitespace-nowrap">{venda.comprador_nome}</p>
                       {venda.comprador_cpf && (
                         <p className="text-[#9CA3AF] text-xs">{venda.comprador_cpf}</p>
@@ -152,7 +155,7 @@ export default function VendasClient({ vendas }: Props) {
                     </td>
 
                     {/* Vendedor */}
-                    <td className="px-4 py-3 text-[#6B7280] text-sm whitespace-nowrap">
+                    <td className="px-4 py-3 text-[#6B7280] text-sm whitespace-nowrap hidden md:table-cell">
                       {venda.vendedor?.nome ?? '—'}
                     </td>
 
@@ -183,7 +186,7 @@ export default function VendasClient({ vendas }: Props) {
                               ? `/admin/vendas/nova?venda_id=${venda.id}`
                               : `/admin/vendas/${venda.id}`
                           }
-                          className="text-xs text-[#6B7280] hover:text-[#111] px-2.5 py-1 rounded-lg border border-[#E5E7EB] hover:border-[#D1D5DB] transition-colors bg-white whitespace-nowrap"
+                          className="inline-flex items-center justify-center min-h-[44px] px-3 text-xs text-[#6B7280] hover:text-[#111] rounded-lg border border-[#E5E7EB] hover:border-[#D1D5DB] transition-colors bg-white whitespace-nowrap"
                         >
                           {venda.status === 'rascunho' ? 'Continuar' : 'Ver'}
                         </Link>
@@ -191,14 +194,14 @@ export default function VendasClient({ vendas }: Props) {
                           href={`/api/pdf/venda/${venda.id}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-xs text-[#6B7280] hover:text-[#111] px-2.5 py-1 rounded-lg border border-[#E5E7EB] hover:border-[#D1D5DB] transition-colors bg-white whitespace-nowrap"
+                          className="inline-flex items-center justify-center min-h-[44px] px-3 text-xs text-[#6B7280] hover:text-[#111] rounded-lg border border-[#E5E7EB] hover:border-[#D1D5DB] transition-colors bg-white whitespace-nowrap"
                         >
                           Imprimir
                         </a>
                         <button
                           onClick={() => handleDeletar(venda)}
                           disabled={deletandoId === venda.id}
-                          className="text-xs text-[#6B7280] hover:text-red-600 px-2.5 py-1 rounded-lg border border-[#E5E7EB] hover:border-red-200 hover:bg-red-50 transition-colors disabled:opacity-50 whitespace-nowrap"
+                          className="inline-flex items-center justify-center min-h-[44px] px-3 text-xs text-[#6B7280] hover:text-red-600 rounded-lg border border-[#E5E7EB] hover:border-red-200 hover:bg-red-50 transition-colors disabled:opacity-50 whitespace-nowrap"
                         >
                           {deletandoId === venda.id ? '...' : 'Deletar'}
                         </button>

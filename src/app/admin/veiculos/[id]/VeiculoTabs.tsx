@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import ScrollFade from '@/components/ui/ScrollFade'
 import VeiculoForm from '@/components/admin/VeiculoForm'
 import FotosVeiculoClient from './FotosVeiculoClient'
 import CustosVeiculoClient from './CustosVeiculoClient'
@@ -39,21 +40,23 @@ export default function VeiculoTabs({ veiculo, financeiro, custos, lojaId, podeV
 
   return (
     <div>
-      <div className="flex border-b border-[#E5E7EB] mb-6 gap-1 flex-wrap">
-        {abas.map(a => (
-          <button
-            key={a.id}
-            onClick={() => setAba(a.id)}
-            className={`px-5 py-2.5 text-sm rounded-t-lg transition-all -mb-px border-b-2 ${
-              aba === a.id
-                ? 'font-semibold text-[#111827] border-[#F5C842] bg-[#FEF9C3]'
-                : 'font-medium text-[#6B7280] border-transparent hover:text-[#111827] hover:bg-[#F9FAFB]'
-            }`}
-          >
-            {a.label}
-          </button>
-        ))}
-      </div>
+      <ScrollFade className="border-b border-[#E5E7EB] mb-6">
+        <div className="flex gap-1">
+          {abas.map(a => (
+            <button
+              key={a.id}
+              onClick={() => setAba(a.id)}
+              className={`px-5 py-2.5 text-sm rounded-t-lg transition-all -mb-px border-b-2 whitespace-nowrap shrink-0 ${
+                aba === a.id
+                  ? 'font-semibold text-[#111827] border-[#F5C842] bg-[#FEF9C3]'
+                  : 'font-medium text-[#6B7280] border-transparent hover:text-[#111827] hover:bg-[#F9FAFB]'
+              }`}
+            >
+              {a.label}
+            </button>
+          ))}
+        </div>
+      </ScrollFade>
 
       {aba === 'dados' && (
         <VeiculoForm veiculo={veiculo} lojaId={lojaId} hideFotos noRedirect />

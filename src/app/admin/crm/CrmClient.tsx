@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import CrmKanban from './CrmKanban'
 import NovoLeadForm from '@/components/admin/NovoLeadForm'
 import type { Lead } from '@/types'
@@ -50,8 +51,11 @@ const origemOpts = [
 ]
 
 export default function CrmClient({ leads, vendedores, lojaId, userId, statusFilter, origemFilter }: Props) {
+  const router = useRouter()
   const [view, setView] = useState<'lista' | 'kanban'>('lista')
   const [meusLeads, setMeusLeads] = useState(false)
+  const [showFiltrosKanban, setShowFiltrosKanban] = useState(false)
+  const filtroAtivo = !!statusFilter || !!origemFilter
 
   // ── Mini dashboard ────────────────────────────────────────────────────────
   const hoje = new Date().toISOString().split('T')[0]
@@ -100,6 +104,22 @@ export default function CrmClient({ leads, vendedores, lojaId, userId, statusFil
               {v}
             </button>
           ))}
+          {view === 'kanban' && (
+            <button
+              onClick={() => setShowFiltrosKanban(v => !v)}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                showFiltrosKanban || filtroAtivo
+                  ? 'bg-[#FEF9C3] border-[#F5C842] text-[#92400E]'
+                  : 'border-[#E5E7EB] text-[#6B7280] hover:text-[#111] bg-white'
+              }`}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h18M6 12h12M10 20h4" />
+              </svg>
+              Filtros
+              {filtroAtivo && <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B]" />}
+            </button>
+          )}
           <button
             onClick={() => setMeusLeads(v => !v)}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
@@ -129,16 +149,16 @@ export default function CrmClient({ leads, vendedores, lojaId, userId, statusFil
       </div>
 
       {/* ── Filtros de status e origem ─────────────────────────────────────── */}
-      {view === 'lista' && (
+      {(view === 'lista' || showFiltrosKanban) && (
         <div className="flex gap-2 mb-5 flex-wrap">
           {statusOpts.map(opt => (
-            <a
+            <button
               key={opt.value}
-              href={
+              onClick={() => router.push(
                 opt.value
                   ? `/admin/crm?status=${opt.value}${origemFilter ? `&origem=${origemFilter}` : ''}`
                   : `/admin/crm${origemFilter ? `?origem=${origemFilter}` : ''}`
-              }
+              )}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors bg-white ${
                 statusFilter === opt.value || (!statusFilter && opt.value === '')
                   ? 'border-[#F5C842] text-[#92400E] bg-[#FEF9C3]'
@@ -146,17 +166,17 @@ export default function CrmClient({ leads, vendedores, lojaId, userId, statusFil
               }`}
             >
               {opt.label}
-            </a>
+            </button>
           ))}
           <div className="w-px bg-[#E5E7EB] mx-1" />
           {origemOpts.map(opt => (
-            <a
+            <button
               key={opt.value}
-              href={
+              onClick={() => router.push(
                 opt.value
                   ? `/admin/crm${statusFilter ? `?status=${statusFilter}&` : '?'}origem=${opt.value}`
                   : `/admin/crm${statusFilter ? `?status=${statusFilter}` : ''}`
-              }
+              )}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors bg-white ${
                 origemFilter === opt.value || (!origemFilter && opt.value === '')
                   ? 'border-[#F5C842] text-[#92400E] bg-[#FEF9C3]'
@@ -164,7 +184,7 @@ export default function CrmClient({ leads, vendedores, lojaId, userId, statusFil
               }`}
             >
               {opt.label}
-            </a>
+            </button>
           ))}
         </div>
       )}
@@ -183,11 +203,14 @@ export default function CrmClient({ leads, vendedores, lojaId, userId, statusFil
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[#E5E7EB] bg-[#F9FAFB]">
-                  {['Nome', 'Telefone', 'Veículo', 'Origem', 'Status', 'Responsável', 'Data', 'Ação'].map(h => (
-                    <th key={h} className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap">
-                      {h}
-                    </th>
-                  ))}
+                  <th className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap">Nome</th>
+                  <th className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap hidden sm:table-cell">Telefone</th>
+                  <th className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap hidden md:table-cell">Veículo</th>
+                  <th className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap hidden sm:table-cell">Origem</th>
+                  <th className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap">Status</th>
+                  <th className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap hidden lg:table-cell">Responsável</th>
+                  <th className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap">Data</th>
+                  <th className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap">Ação</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F3F4F6]">
@@ -210,13 +233,13 @@ export default function CrmClient({ leads, vendedores, lojaId, userId, statusFil
                             {l.nome}
                           </Link>
                         </td>
-                        <td className="px-4 py-3 text-[#6B7280]">{l.telefone}</td>
-                        <td className="px-4 py-3 text-[#6B7280] whitespace-nowrap">
+                        <td className="px-4 py-3 text-[#6B7280] hidden sm:table-cell">{l.telefone}</td>
+                        <td className="px-4 py-3 text-[#6B7280] whitespace-nowrap hidden md:table-cell">
                           {l.veiculo
                             ? `${l.veiculo.marca} ${l.veiculo.modelo} ${l.veiculo.ano}`
                             : l.veiculo_interesse || '—'}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 hidden sm:table-cell">
                           <span className={`text-xs px-2 py-0.5 rounded-full ${origemBadge[l.origem] ?? 'bg-gray-100 text-gray-600'}`}>
                             {l.origem}
                           </span>
@@ -226,7 +249,7 @@ export default function CrmClient({ leads, vendedores, lojaId, userId, statusFil
                             {l.status.replace('_', ' ')}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-[#6B7280] text-xs whitespace-nowrap">
+                        <td className="px-4 py-3 text-[#6B7280] text-xs whitespace-nowrap hidden lg:table-cell">
                           {l.responsavel_id ? vendedorMap[l.responsavel_id] ?? '—' : '—'}
                         </td>
                         <td className="px-4 py-3 text-[#9CA3AF] whitespace-nowrap">{dataFmt}</td>

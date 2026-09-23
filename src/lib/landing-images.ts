@@ -31,3 +31,8 @@ export function getHeroImage(loja: LojaComImagens): string {
 export function getSecaoImage(loja: LojaComImagens, chave: string): string {
   return loja?.imagens_landing?.secoes?.[chave] || PLACEHOLDER_LANDING_IMG
 }
+
+/** Sem placeholder — a galeria é conteúdo opcional; a seção some inteira se vazia (ver Home*.tsx). */
+export function getGaleriaImages(loja: LojaComImagens): string[] {
+  return loja?.imagens_landing?.galeria ?? []
+}

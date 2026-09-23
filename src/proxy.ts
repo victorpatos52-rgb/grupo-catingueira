@@ -4,6 +4,12 @@ import { NextResponse, type NextRequest } from 'next/server'
 export async function proxy(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request })
 
+  // Único ponto responsável por renovar a sessão (autoRefreshToken padrão
+  // true) — roda antes de qualquer Server Action ou layout em
+  // /admin/:path* (o matcher no fim do arquivo). userSupabase() (actions.ts)
+  // e createServerSupabase() (lib/supabase-server.ts) leem a sessão já
+  // renovada aqui e têm autoRefreshToken desligado de propósito, pra não
+  // competir por este mesmo refresh token (rotativo/uso único).
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,

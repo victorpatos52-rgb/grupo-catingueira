@@ -8,6 +8,8 @@ export type TipoInteracao = 'nota' | 'whatsapp' | 'ligacao' | 'visita' | 'propos
 export interface ImagensLanding {
   hero?: string | null
   secoes?: Record<string, string>
+  /** Faixa de fotos livres (showroom, fachada, equipe etc.) no final da home pública — ver src/lib/landing-images.ts. */
+  galeria?: string[]
 }
 
 export interface Loja {

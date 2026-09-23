@@ -4,7 +4,7 @@ import VeiculoCard from '@/components/veiculo/VeiculoCard'
 import AnimatedSection from '@/components/ui/AnimatedSection'
 import WaIcon from '@/components/ui/WaIcon'
 import LandingImage from '@/components/ui/LandingImage'
-import { getHeroImage, getSecaoImage } from '@/lib/landing-images'
+import { getHeroImage, getSecaoImage, getGaleriaImages } from '@/lib/landing-images'
 import type { Loja, Veiculo } from '@/types'
 
 interface Props {
@@ -54,6 +54,7 @@ const DIFERENCIAIS = [
 export default function HomeCatingueira({ loja, destaques, waHref, waDisplay }: Props) {
   const endereco = loja?.endereco ?? 'BR 230, KM 334 — São Sebastião, Patos - PB'
   const horarioLinhas = (loja?.horario ?? 'Seg a Sex: 8h às 18h | Sáb: 8h às 13h').split(' | ')
+  const galeria = getGaleriaImages(loja)
 
   return (
     <div className="pt-[70px]" style={{ backgroundColor: '#0A0A0A' }}>
@@ -112,7 +113,7 @@ export default function HomeCatingueira({ loja, destaques, waHref, waDisplay }: 
             <div className="flex flex-col sm:flex-row gap-3">
               <Link
                 href="/estoque"
-                className="inline-flex items-center justify-center px-8 py-4 font-black text-sm uppercase tracking-wider transition-all hover:brightness-95"
+                className="inline-flex items-center justify-center px-8 py-4 font-black text-sm uppercase tracking-wider transition-all hover:brightness-95 active:brightness-90 active:scale-[0.97] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent focus-visible:ring-white"
                 style={{ backgroundColor: '#F5C200', color: '#0A0A0A' }}
               >
                 VER ESTOQUE →
@@ -121,7 +122,7 @@ export default function HomeCatingueira({ loja, destaques, waHref, waDisplay }: 
                 href={waHref}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 px-8 py-4 border border-white text-white font-black text-sm uppercase tracking-wider hover:bg-white/10 transition-all"
+                className="inline-flex items-center justify-center gap-2 px-8 py-4 border border-white text-white font-black text-sm uppercase tracking-wider hover:bg-white/10 active:bg-white/20 active:scale-[0.97] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent focus-visible:ring-white"
               >
                 <WaIcon size={16} />
                 WHATSAPP
@@ -218,7 +219,7 @@ export default function HomeCatingueira({ loja, destaques, waHref, waDisplay }: 
           <AnimatedSection className="mt-10 text-center">
             <Link
               href="/estoque"
-              className="inline-flex items-center gap-2 px-8 py-4 border font-black text-sm uppercase tracking-wider hover:bg-[#F5C200] hover:text-black hover:border-[#F5C200] transition-all"
+              className="inline-flex items-center gap-2 px-8 py-4 border font-black text-sm uppercase tracking-wider hover:bg-[#F5C200] hover:text-black hover:border-[#F5C200] active:bg-[#F5C200] active:text-black active:border-[#F5C200] active:scale-[0.97] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent focus-visible:ring-[#F5C200]"
               style={{ borderColor: '#F5C200', color: '#F5C200' }}
             >
               VER TODO O ESTOQUE →
@@ -276,7 +277,7 @@ export default function HomeCatingueira({ loja, destaques, waHref, waDisplay }: 
               </div>
               <Link
                 href="/localizacao"
-                className="inline-flex items-center gap-2 px-6 py-3.5 font-black text-sm uppercase tracking-wider hover:brightness-95 transition-all self-start"
+                className="inline-flex items-center gap-2 px-6 py-3.5 font-black text-sm uppercase tracking-wider hover:brightness-95 active:brightness-90 active:scale-[0.97] transition-all self-start focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent focus-visible:ring-white"
                 style={{ backgroundColor: '#F5C200', color: '#0A0A0A' }}
               >
                 COMO CHEGAR →
@@ -354,6 +355,51 @@ export default function HomeCatingueira({ loja, destaques, waHref, waDisplay }: 
       </section>
 
       {/* ══════════════════════════════════════
+          GALERIA — faixa horizontal (some se vazia)
+      ══════════════════════════════════════ */}
+      {galeria.length > 0 && (
+        <section className="py-16 md:py-20" style={{ backgroundColor: '#111111' }}>
+          <div className="max-w-7xl mx-auto px-5 mb-8">
+            <AnimatedSection>
+              <p
+                className="font-[family-name:var(--font-barlow-condensed)] text-xs font-bold uppercase mb-3"
+                style={{ color: '#F5C200', letterSpacing: '0.4em' }}
+              >
+                CONHEÇA A LOJA
+              </p>
+              <h2
+                className="font-[family-name:var(--font-barlow-condensed)] font-black italic uppercase text-white leading-none mb-4"
+                style={{ fontSize: 'clamp(2rem, 5vw, 4rem)' }}
+              >
+                POR DENTRO DA LOJA
+              </h2>
+              <p className="text-[#666] text-base max-w-xl">
+                Showroom, fachada e a equipe que cuida de cada detalhe do seu próximo carro.
+              </p>
+            </AnimatedSection>
+          </div>
+          <div className="flex gap-4 overflow-x-auto px-5 pb-2 snap-x snap-mandatory">
+            {galeria.map(url => (
+              <div
+                key={url}
+                className="relative shrink-0 w-[260px] sm:w-[320px] aspect-[4/3] rounded-lg overflow-hidden snap-start"
+              >
+                <LandingImage
+                  src={url}
+                  alt=""
+                  fill
+                  loading="lazy"
+                  sizes="320px"
+                  className="object-cover"
+                />
+              </div>
+            ))}
+            <div className="shrink-0 w-1" aria-hidden />
+          </div>
+        </section>
+      )}
+
+      {/* ══════════════════════════════════════
           CTA FINAL — fundo amarelo
       ══════════════════════════════════════ */}
       <section className="py-16 md:py-28 px-5" style={{ backgroundColor: '#F5C200' }}>
@@ -371,7 +417,7 @@ export default function HomeCatingueira({ loja, destaques, waHref, waDisplay }: 
             href={waHref}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-3 px-8 py-4 bg-black text-white font-black text-sm uppercase tracking-wider hover:bg-[#1A1A1A] transition-colors"
+            className="inline-flex items-center gap-3 px-8 py-4 bg-black text-white font-black text-sm uppercase tracking-wider hover:bg-[#1A1A1A] active:bg-[#0A0A0A] active:scale-[0.97] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent focus-visible:ring-black"
           >
             <WaIcon size={18} />
             FALAR AGORA — {waDisplay}

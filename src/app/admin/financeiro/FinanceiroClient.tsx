@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { salvarLancamentoFinanceiro, deletarLancamentoFinanceiro } from '@/app/actions'
+import ScrollFade from '@/components/ui/ScrollFade'
 import type { LancamentoFinanceiro, TipoLancamento, UsuarioPerfil } from '@/types'
 
 // Code-split: recharts só entra no bundle quando a aba "Balanço Anual" é aberta.
@@ -503,31 +504,33 @@ export default function FinanceiroClient({
       </div>
 
       {/* ── Abas ───────────────────────────────────────────────────────────── */}
-      <div className="flex gap-0 border-b border-[#E5E7EB] mb-6">
-        {(
-          [
-            { key: 'balanco', label: 'Balanço do Período' },
-            { key: 'receitas', label: 'Receitas' },
-            { key: 'movimentacoes', label: 'Movimentações' },
-            { key: 'anual', label: 'Balanço Anual' },
-          ] as const
-        )
-          // Sócio não vê lançamentos manuais/despesas gerais — só gerente/diretor/admin
-          .filter(t => !(ehSocio && t.key === 'movimentacoes'))
-          .map(({ key, label }) => (
-          <button
-            key={key}
-            onClick={() => setAbaAtiva(key)}
-            className={`px-5 py-2.5 text-sm font-semibold transition-colors whitespace-nowrap border-b-2 -mb-px ${
-              abaAtiva === key
-                ? 'border-[#F5C842] text-[#111]'
-                : 'border-transparent text-[#6B7280] hover:text-[#111]'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      <ScrollFade className="border-b border-[#E5E7EB] mb-6">
+        <div className="flex gap-0">
+          {(
+            [
+              { key: 'balanco', label: 'Balanço do Período' },
+              { key: 'receitas', label: 'Receitas' },
+              { key: 'movimentacoes', label: 'Movimentações' },
+              { key: 'anual', label: 'Balanço Anual' },
+            ] as const
+          )
+            // Sócio não vê lançamentos manuais/despesas gerais — só gerente/diretor/admin
+            .filter(t => !(ehSocio && t.key === 'movimentacoes'))
+            .map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setAbaAtiva(key)}
+              className={`px-5 py-2.5 text-sm font-semibold transition-colors whitespace-nowrap shrink-0 border-b-2 -mb-px ${
+                abaAtiva === key
+                  ? 'border-[#F5C842] text-[#111]'
+                  : 'border-transparent text-[#6B7280] hover:text-[#111]'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </ScrollFade>
 
       {/* ════════════════════════════════════════════════════════════════════ */}
       {/* ABA 1 — BALANÇO DO PERÍODO                                         */}
@@ -660,11 +663,13 @@ export default function FinanceiroClient({
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-[#E5E7EB] bg-[#F9FAFB]">
-                      {['Veículo', 'Data', 'Valor Venda', 'Custo Aq.', 'Custo Manut.', 'Lucro', 'Ver'].map(h => (
-                        <th key={h} className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap">
-                          {h}
-                        </th>
-                      ))}
+                      <th className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap">Veículo</th>
+                      <th className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap">Data</th>
+                      <th className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap">Valor Venda</th>
+                      <th className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap hidden sm:table-cell">Custo Aq.</th>
+                      <th className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap hidden sm:table-cell">Custo Manut.</th>
+                      <th className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap">Lucro</th>
+                      <th className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap">Ver</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#F3F4F6]">
@@ -675,8 +680,8 @@ export default function FinanceiroClient({
                         </td>
                         <td className="px-4 py-3 text-[#6B7280] whitespace-nowrap">{fmtData(v.data_venda)}</td>
                         <td className="px-4 py-3 text-[#111] font-semibold whitespace-nowrap">{fmt(v.valor_venda)}</td>
-                        <td className="px-4 py-3 text-[#6B7280] whitespace-nowrap">{v.custoAquisicao > 0 ? fmt(v.custoAquisicao) : '—'}</td>
-                        <td className="px-4 py-3 text-[#6B7280] whitespace-nowrap">{v.custosManut > 0 ? fmt(v.custosManut) : '—'}</td>
+                        <td className="px-4 py-3 text-[#6B7280] whitespace-nowrap hidden sm:table-cell">{v.custoAquisicao > 0 ? fmt(v.custoAquisicao) : '—'}</td>
+                        <td className="px-4 py-3 text-[#6B7280] whitespace-nowrap hidden sm:table-cell">{v.custosManut > 0 ? fmt(v.custosManut) : '—'}</td>
                         <td className={`px-4 py-3 font-bold whitespace-nowrap ${v.lucro >= 0 ? 'text-green-600' : 'text-red-500'}`}>
                           {fmt(v.lucro)}
                         </td>
@@ -1007,11 +1012,14 @@ export default function FinanceiroClient({
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-[#E5E7EB] bg-[#F9FAFB]">
-                      {['Data', 'Tipo', 'Categoria', 'Descrição', 'Valor', 'Recorrente', 'Venda', 'Ações'].map(h => (
-                        <th key={h} className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap">
-                          {h}
-                        </th>
-                      ))}
+                      <th className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap">Data</th>
+                      <th className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap">Tipo</th>
+                      <th className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap hidden sm:table-cell">Categoria</th>
+                      <th className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap">Descrição</th>
+                      <th className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap">Valor</th>
+                      <th className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap hidden md:table-cell">Recorrente</th>
+                      <th className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap hidden md:table-cell">Venda</th>
+                      <th className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap">Ações</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#F3F4F6]">
@@ -1027,7 +1035,7 @@ export default function FinanceiroClient({
                             {l.tipo === 'entrada' ? 'Entrada' : 'Saída'}
                           </span>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 hidden sm:table-cell">
                           <span className="text-xs px-2 py-0.5 rounded-md font-medium bg-gray-50 text-gray-600 border border-gray-200">
                             {formatarCategoriaLancamento(l.categoria)}
                           </span>
@@ -1043,12 +1051,12 @@ export default function FinanceiroClient({
                         <td className={`px-4 py-3 font-semibold whitespace-nowrap ${l.tipo === 'entrada' ? 'text-green-600' : 'text-red-500'}`}>
                           {l.tipo === 'saida' ? '- ' : ''}{fmt(l.valor)}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 hidden md:table-cell">
                           {l.recorrente
                             ? <span className="text-xs bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-md font-medium">Sim</span>
                             : <span className="text-[#9CA3AF] text-xs">—</span>}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-4 py-3 whitespace-nowrap hidden md:table-cell">
                           {l.venda ? (
                             <a href={`/admin/vendas/${l.venda.id}`} className="text-xs text-[#F59E0B] hover:underline">
                               {l.venda.numero_venda ?? 'Ver venda'}
@@ -1111,11 +1119,11 @@ export default function FinanceiroClient({
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[#E5E7EB] bg-[#F9FAFB]">
-                    {['Mês', 'Despesas', 'Receitas', 'Lucro', 'Veículos Vendidos'].map(h => (
-                      <th key={h} className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap">
-                        {h}
-                      </th>
-                    ))}
+                    <th className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap">Mês</th>
+                    <th className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap">Despesas</th>
+                    <th className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap">Receitas</th>
+                    <th className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap">Lucro</th>
+                    <th className="text-left px-4 py-3 text-[#9CA3AF] font-semibold text-xs uppercase tracking-wider whitespace-nowrap hidden sm:table-cell">Veículos Vendidos</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F3F4F6]">
@@ -1136,7 +1144,7 @@ export default function FinanceiroClient({
                         <td className={`px-4 py-3 font-semibold whitespace-nowrap ${lucro >= 0 ? 'text-green-600' : 'text-red-500'}`}>
                           {d.receitas > 0 || d.despesas > 0 ? fmt(lucro) : '—'}
                         </td>
-                        <td className="px-4 py-3 text-[#6B7280] whitespace-nowrap">
+                        <td className="px-4 py-3 text-[#6B7280] whitespace-nowrap hidden sm:table-cell">
                           {d.vendidos > 0 ? d.vendidos : '—'}
                         </td>
                       </tr>
@@ -1151,7 +1159,7 @@ export default function FinanceiroClient({
                     <td className={`px-4 py-3 font-bold whitespace-nowrap ${totalAnual.receitas - totalAnual.despesas >= 0 ? 'text-green-600' : 'text-red-500'}`}>
                       {fmt(totalAnual.receitas - totalAnual.despesas)}
                     </td>
-                    <td className="px-4 py-3 text-[#111] font-bold">{totalAnual.vendidos}</td>
+                    <td className="px-4 py-3 text-[#111] font-bold hidden sm:table-cell">{totalAnual.vendidos}</td>
                   </tr>
                 </tfoot>
               </table>

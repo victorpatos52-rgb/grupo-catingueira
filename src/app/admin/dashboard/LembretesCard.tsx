@@ -87,7 +87,7 @@ export default function LembretesCard({ lembretes }: { lembretes: Lembrete[] }) 
                     href={waHref}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-[#25D366]/10 text-[#25D366] text-xs font-medium hover:bg-[#25D366]/20 transition-colors"
+                    className="inline-flex items-center justify-center gap-1 min-h-[44px] px-3 rounded-lg bg-[#25D366]/10 text-[#25D366] text-xs font-medium hover:bg-[#25D366]/20 transition-colors"
                   >
                     WhatsApp
                   </a>
@@ -96,7 +96,7 @@ export default function LembretesCard({ lembretes }: { lembretes: Lembrete[] }) 
                   l.venda?.id && (
                     <a
                       href={`/admin/vendas/${l.venda.id}`}
-                      className="px-2.5 py-1.5 rounded-lg bg-[#F0F0F0] text-[#6B7280] text-xs font-medium hover:bg-[#E5E5E5] transition-colors"
+                      className="inline-flex items-center justify-center min-h-[44px] px-3 rounded-lg bg-[#F0F0F0] text-[#6B7280] text-xs font-medium hover:bg-[#E5E5E5] transition-colors"
                     >
                       Ver venda
                     </a>
@@ -105,7 +105,7 @@ export default function LembretesCard({ lembretes }: { lembretes: Lembrete[] }) 
                   <button
                     onClick={() => handleConcluir(l.id)}
                     disabled={loading === l.id}
-                    className="px-2.5 py-1.5 rounded-lg bg-[#F0F0F0] text-[#6B7280] text-xs font-medium hover:bg-[#E5E5E5] transition-colors disabled:opacity-50"
+                    className="inline-flex items-center justify-center min-h-[44px] px-3 rounded-lg bg-[#F0F0F0] text-[#6B7280] text-xs font-medium hover:bg-[#E5E5E5] transition-colors disabled:opacity-50"
                   >
                     {loading === l.id ? '...' : 'Concluir'}
                   </button>

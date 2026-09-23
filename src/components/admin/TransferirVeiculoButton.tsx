@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { transferirVeiculo } from '@/app/actions'
+import Modal from '@/components/ui/Modal'
 
 interface Props {
   veiculoId: string
@@ -41,77 +42,71 @@ export default function TransferirVeiculoButton({ veiculoId, outrasLojas }: Prop
         Transferir para outra loja
       </button>
 
-      {aberto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <div
-            className="fixed inset-0 bg-black/40"
-            onClick={() => !carregando && setAberto(false)}
-          />
-          <div className="relative bg-white rounded-2xl shadow-xl max-w-sm w-full p-6">
-            <h2 className="font-[family-name:var(--font-barlow-condensed)] text-xl font-bold uppercase text-[#111] mb-2">
-              Transferir veículo
-            </h2>
-            <p className="text-[#6B7280] text-sm mb-4">
-              O veículo passará a pertencer à loja escolhida — vendas, financeiro e anexos
-              já registrados continuam vinculados a ele normalmente.
-            </p>
+      <Modal open={aberto} onClose={() => !carregando && setAberto(false)} maxWidth="sm:max-w-sm">
+        <div className="p-6">
+          <h2 className="font-[family-name:var(--font-barlow-condensed)] text-xl font-bold uppercase text-[#111] mb-2">
+            Transferir veículo
+          </h2>
+          <p className="text-[#6B7280] text-sm mb-4">
+            O veículo passará a pertencer à loja escolhida — vendas, financeiro e anexos
+            já registrados continuam vinculados a ele normalmente.
+          </p>
 
-            <div className="mb-4">
-              <label className="block text-[#6B7280] text-xs font-semibold uppercase tracking-wider mb-1.5">
-                Loja de destino
-              </label>
-              <select
-                value={lojaDestinoId}
-                onChange={e => setLojaDestinoId(e.target.value)}
-                disabled={carregando}
-                className="w-full bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl px-3.5 py-2.5 text-[#111827] text-sm focus:outline-none focus:ring-2 focus:ring-[#F5C842] focus:border-[#F5C842] transition-all"
-              >
-                {outrasLojas.map(loja => (
-                  <option key={loja.id} value={loja.id}>
-                    {loja.nome}
-                  </option>
-                ))}
-              </select>
+          <div className="mb-4">
+            <label className="block text-[#6B7280] text-xs font-semibold uppercase tracking-wider mb-1.5">
+              Loja de destino
+            </label>
+            <select
+              value={lojaDestinoId}
+              onChange={e => setLojaDestinoId(e.target.value)}
+              disabled={carregando}
+              className="w-full bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl px-3.5 py-2.5 text-[#111827] text-sm focus:outline-none focus:ring-2 focus:ring-[#F5C842] focus:border-[#F5C842] transition-all"
+            >
+              {outrasLojas.map(loja => (
+                <option key={loja.id} value={loja.id}>
+                  {loja.nome}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-[#6B7280] text-xs font-semibold uppercase tracking-wider mb-1.5">
+              Observações (opcional)
+            </label>
+            <textarea
+              value={observacoes}
+              onChange={e => setObservacoes(e.target.value)}
+              disabled={carregando}
+              rows={3}
+              className="w-full bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl px-3.5 py-2.5 text-[#111827] text-sm focus:outline-none focus:ring-2 focus:ring-[#F5C842] focus:border-[#F5C842] transition-all resize-y"
+            />
+          </div>
+
+          {erro && (
+            <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-2.5 mb-4">
+              <p className="text-red-600 text-sm">{erro}</p>
             </div>
+          )}
 
-            <div className="mb-4">
-              <label className="block text-[#6B7280] text-xs font-semibold uppercase tracking-wider mb-1.5">
-                Observações (opcional)
-              </label>
-              <textarea
-                value={observacoes}
-                onChange={e => setObservacoes(e.target.value)}
-                disabled={carregando}
-                rows={3}
-                className="w-full bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl px-3.5 py-2.5 text-[#111827] text-sm focus:outline-none focus:ring-2 focus:ring-[#F5C842] focus:border-[#F5C842] transition-all resize-y"
-              />
-            </div>
-
-            {erro && (
-              <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-2.5 mb-4">
-                <p className="text-red-600 text-sm">{erro}</p>
-              </div>
-            )}
-
-            <div className="flex gap-2 justify-end">
-              <button
-                onClick={() => setAberto(false)}
-                disabled={carregando}
-                className="px-4 py-2 rounded-xl text-sm font-medium text-[#6B7280] hover:bg-gray-50 transition-colors disabled:opacity-50"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={confirmar}
-                disabled={carregando}
-                className="px-4 py-2 rounded-xl text-sm font-semibold bg-[#F5C842] text-[#111827] hover:brightness-90 transition-colors disabled:opacity-50"
-              >
-                {carregando ? 'Transferindo...' : 'Confirmar transferência'}
-              </button>
-            </div>
+          <div className="flex gap-2 justify-end">
+            <button
+              onClick={() => setAberto(false)}
+              disabled={carregando}
+              className="px-4 py-2 rounded-xl text-sm font-medium text-[#6B7280] hover:bg-gray-50 transition-colors disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={confirmar}
+              disabled={carregando}
+              className="px-4 py-2 rounded-xl text-sm font-semibold bg-[#F5C842] text-[#111827] hover:brightness-90 transition-colors disabled:opacity-50"
+            >
+              {carregando ? 'Transferindo...' : 'Confirmar transferência'}
+            </button>
           </div>
         </div>
-      )}
+      </Modal>
     </>
   )
 }

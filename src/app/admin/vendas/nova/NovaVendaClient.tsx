@@ -251,20 +251,25 @@ function pagamentosFromVendaPagamentos(pagamentos: VendaPagamento[]): PagamentoI
 
 // ── Stepper ──────────────────────────────────────────────────────────────────
 
-const ETAPAS = ['Veículo', 'Comprador', 'Pagamento', 'Revisão']
+const ETAPAS: { label: string; abrev: string }[] = [
+  { label: 'Veículo', abrev: 'Veíc.' },
+  { label: 'Comprador', abrev: 'Compr.' },
+  { label: 'Pagamento', abrev: 'Pgto.' },
+  { label: 'Revisão', abrev: 'Rev.' },
+]
 
 function Stepper({ etapa }: { etapa: number }) {
   return (
-    <div className="flex items-center justify-center gap-0 mb-8">
-      {ETAPAS.map((label, i) => {
+    <div className="flex items-center justify-start sm:justify-center gap-0 mb-8 overflow-x-auto">
+      {ETAPAS.map(({ label, abrev }, i) => {
         const num = i + 1
         const concluido = num < etapa
         const ativo = num === etapa
         return (
-          <div key={label} className="flex items-center">
+          <div key={label} className="flex items-center shrink-0">
             <div className="flex flex-col items-center gap-1">
               <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-colors ${
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-colors shrink-0 ${
                   concluido
                     ? 'bg-green-500 text-white'
                     : ativo
@@ -278,10 +283,15 @@ function Stepper({ etapa }: { etapa: number }) {
                   </svg>
                 ) : num}
               </div>
-              <span className={`text-xs font-medium ${ativo ? 'text-[#111]' : 'text-[#9CA3AF]'}`}>{label}</span>
+              <span className={`text-xs font-medium whitespace-nowrap hidden sm:block ${ativo ? 'text-[#111]' : 'text-[#9CA3AF]'}`}>
+                {label}
+              </span>
+              <span className={`text-[10px] font-medium whitespace-nowrap sm:hidden ${ativo ? 'text-[#111]' : 'text-[#9CA3AF]'}`}>
+                {abrev}
+              </span>
             </div>
             {i < ETAPAS.length - 1 && (
-              <div className={`h-0.5 w-12 mx-1 mb-5 rounded transition-colors ${concluido ? 'bg-green-400' : 'bg-[#E5E7EB]'}`} />
+              <div className={`h-0.5 w-6 sm:w-12 mx-0.5 sm:mx-1 mb-5 rounded transition-colors shrink-0 ${concluido ? 'bg-green-400' : 'bg-[#E5E7EB]'}`} />
             )}
           </div>
         )
