@@ -246,7 +246,7 @@ export default function DashboardClient({
               ultimosVeiculos.map(v => (
                 <Link key={v.id} href={`/admin/veiculos/${v.id}`} className="px-5 py-3 flex items-center gap-3 hover:bg-[#FAFAFA] transition-colors block">
                   <div className="w-12 h-9 rounded-lg overflow-hidden bg-[#F3F4F6] shrink-0">
-                    {v.fotos[0] ? (
+                    {v.fotos?.[0] ? (
                       <Image src={v.fotos[0]} alt="" width={48} height={36} className="object-cover w-full h-full" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">

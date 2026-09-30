@@ -163,7 +163,7 @@ export default async function VeiculosAdminPage({
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
                         <div className="w-14 h-10 rounded-md overflow-hidden bg-[#F5F5F5] shrink-0">
-                          {v.fotos[0] ? (
+                          {v.fotos?.[0] ? (
                             <Image src={v.fotos[0]} alt={`${v.marca} ${v.modelo}`} width={56} height={40} className="object-cover w-full h-full" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">

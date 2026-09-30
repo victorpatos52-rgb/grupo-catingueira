@@ -32,7 +32,13 @@ export function getSecaoImage(loja: LojaComImagens, chave: string): string {
   return loja?.imagens_landing?.secoes?.[chave] || PLACEHOLDER_LANDING_IMG
 }
 
-/** Sem placeholder — a galeria é conteúdo opcional; a seção some inteira se vazia (ver Home*.tsx). */
+/**
+ * Sem placeholder — a galeria é conteúdo opcional; a seção some inteira se
+ * vazia (ver Home*.tsx). `.filter(Boolean)` descarta item null/vazio dentro
+ * do array — mesma classe de bug do `veiculo.fotos[0]` (dado null onde o
+ * tipo promete string) poderia repetir aqui num `.map()` se algum item
+ * viesse null por qualquer motivo (edição concorrente, erro de upload etc.).
+ */
 export function getGaleriaImages(loja: LojaComImagens): string[] {
-  return loja?.imagens_landing?.galeria ?? []
+  return (loja?.imagens_landing?.galeria ?? []).filter(Boolean)
 }

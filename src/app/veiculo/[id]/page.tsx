@@ -97,7 +97,7 @@ export default async function VeiculoPage({
       <div className="max-w-7xl mx-auto px-4 pb-16 grid grid-cols-1 lg:grid-cols-[55%_45%] gap-10 items-start">
         {/* Galeria interativa */}
         <GaleriaClient
-          fotos={veiculo.fotos}
+          fotos={veiculo.fotos ?? []}
           titulo={`${veiculo.marca} ${veiculo.modelo}`}
           statusLabel={badge.label}
           statusCls={badge.cls}

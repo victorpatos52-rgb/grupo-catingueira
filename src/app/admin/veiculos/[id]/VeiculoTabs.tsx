@@ -66,7 +66,7 @@ export default function VeiculoTabs({ veiculo, financeiro, custos, lojaId, podeV
         <FotosVeiculoClient
           veiculoId={veiculo.id}
           lojaId={lojaId}
-          fotosIniciais={veiculo.fotos}
+          fotosIniciais={veiculo.fotos ?? []}
         />
       )}
 

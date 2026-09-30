@@ -15,7 +15,7 @@ interface VeiculoCardProps {
 }
 
 export default function VeiculoCard({ veiculo, loja, delay = 0 }: VeiculoCardProps) {
-  const capa = veiculo.fotos[0] ?? null
+  const capa = veiculo.fotos?.[0] ?? null
   const temOferta = !!veiculo.valor_oferta && veiculo.valor_oferta < veiculo.preco
 
   return (

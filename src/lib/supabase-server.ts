@@ -25,14 +25,17 @@ export async function createServerSupabase() {
       auth: { autoRefreshToken: false },
       cookies: {
         getAll() { return cookieStore.getAll() },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options))
-          } catch (err) {
-            console.error('[createServerSupabase] falha ao persistir cookie de sessão:', err)
-          }
-        },
+        // setAll é sempre no-op aqui: createServerSupabase() só é chamado
+        // de Server Components (page.tsx/layout.tsx), onde cookies().set()
+        // é proibido pelo Next.js em qualquer circunstância — não é uma
+        // falha a tentar/logar, é o comportamento esperado sempre que o
+        // GoTrueClient tentar reescrever cookie (ex: normalização interna
+        // de sessão, mesmo com autoRefreshToken desligado). Ler a sessão já
+        // renovada pelo proxy.ts é a única responsabilidade deste client;
+        // nunca escreve. Se algum dia este helper passar a ser usado num
+        // Server Action/Route Handler, mover pra implementação com
+        // cookieStore.set() de verdade (igual userSupabase() em actions.ts).
+        setAll() {},
       },
     }
   )

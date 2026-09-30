@@ -174,7 +174,7 @@ export default async function EditarVeiculoPage({
             {veiculo.rascunho && (
               <PublicarVeiculoButton
                 veiculoId={id}
-                temFoto={veiculo.fotos.length > 0}
+                temFoto={(veiculo.fotos?.length ?? 0) > 0}
                 temPreco={veiculo.preco > 0}
               />
             )}
