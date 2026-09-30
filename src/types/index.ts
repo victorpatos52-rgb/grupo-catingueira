@@ -1,4 +1,5 @@
 export type StatusVeiculo = 'disponivel' | 'reservado' | 'vendido' | 'manutencao'
+export type CondicaoVeiculo = 'novo' | 'seminovo' | 'usado'
 export type Perfil = 'vendedor' | 'gerente' | 'diretor' | 'admin' | 'socio'
 export type ProprietarioTipo = 'felipe' | 'dividido'
 export type StatusLead = 'novo' | 'contato_feito' | 'negociando' | 'fechado' | 'perdido'
@@ -48,6 +49,10 @@ export interface Veiculo {
   modelo: string
   versao: string | null
   ano: number
+  /** Pendente — migration 018, não aplicada ainda. Backfill = `ano` para veículos já cadastrados. Ver src/lib/vehicle-vocab.ts. */
+  ano_fabricacao?: number
+  /** Pendente — migration 018, não aplicada ainda. Backfill = `ano` para veículos já cadastrados. */
+  ano_modelo?: number
   cor: string
   km: number
   combustivel: string
@@ -71,6 +76,12 @@ export interface Veiculo {
   created_at: string
   excluido?: boolean
   rascunho?: boolean
+  /** Pendente — migration 018, não aplicada ainda. Default 'seminovo' no banco. */
+  condicao?: CondicaoVeiculo
+  /** Pendente — migration 018, não aplicada ainda. Publicação manual por veículo (ver VeiculoForm.tsx) — sem gerador de feed ainda. */
+  publicar_olx?: boolean
+  /** Pendente — migration 018, não aplicada ainda. */
+  publicar_marketplace?: boolean
 }
 
 export interface CustoAdicional {

@@ -21,6 +21,12 @@ import { criarVeiculo, atualizarVeiculo, atualizarDadosVeiculo } from '@/app/act
 import { useAdmin } from '@/contexts/AdminContext'
 import type { Veiculo } from '@/types'
 
+const CONDICAO_LISTA: { valor: 'novo' | 'seminovo' | 'usado'; label: string }[] = [
+  { valor: 'novo', label: 'Novo' },
+  { valor: 'seminovo', label: 'Seminovo' },
+  { valor: 'usado', label: 'Usado' },
+]
+
 const OPCIONAIS_LISTA = [
   'Ar-condicionado', 'Direção hidráulica', 'Direção elétrica', 'Vidro elétrico',
   'Trava elétrica', 'Airbag', 'ABS', 'Câmera de ré', 'Sensor de ré',
@@ -34,6 +40,11 @@ const schema = z.object({
   modelo: z.string().min(1, 'Obrigatório'),
   versao: z.string().optional(),
   ano: z.number().min(1900).max(new Date().getFullYear() + 1),
+  ano_fabricacao: z.number().min(1900).max(new Date().getFullYear() + 1),
+  ano_modelo: z.number().min(1900).max(new Date().getFullYear() + 1),
+  condicao: z.enum(['novo', 'seminovo', 'usado']),
+  publicar_olx: z.boolean(),
+  publicar_marketplace: z.boolean(),
   cor: z.string().min(1, 'Obrigatório'),
   km: z.number().min(0),
   combustivel: z.string().min(1, 'Obrigatório'),
@@ -117,6 +128,8 @@ const CAMPO_LABELS: Partial<Record<keyof FormData, string>> = {
   marca: 'Marca',
   modelo: 'Modelo',
   ano: 'Ano',
+  ano_fabricacao: 'Ano de fabricação',
+  ano_modelo: 'Ano do modelo',
   cor: 'Cor',
   km: 'Quilometragem',
   cambio: 'Câmbio',
@@ -165,6 +178,11 @@ export default function VeiculoForm({ veiculo, lojaId, hideFotos, fotos: fotosEx
       modelo: veiculo?.modelo ?? '',
       versao: veiculo?.versao ?? '',
       ano: veiculo?.ano ?? new Date().getFullYear(),
+      ano_fabricacao: veiculo?.ano_fabricacao ?? veiculo?.ano ?? new Date().getFullYear(),
+      ano_modelo: veiculo?.ano_modelo ?? veiculo?.ano ?? new Date().getFullYear(),
+      condicao: veiculo?.condicao ?? 'seminovo',
+      publicar_olx: veiculo?.publicar_olx ?? false,
+      publicar_marketplace: veiculo?.publicar_marketplace ?? false,
       cor: veiculo?.cor ?? '',
       km: veiculo?.km ?? 0,
       combustivel: veiculo?.combustivel ?? '',
@@ -242,6 +260,11 @@ export default function VeiculoForm({ veiculo, lojaId, hideFotos, fotos: fotosEx
       modelo: data.modelo,
       versao: data.versao || null,
       ano: data.ano,
+      ano_fabricacao: data.ano_fabricacao,
+      ano_modelo: data.ano_modelo,
+      condicao: data.condicao,
+      publicar_olx: data.publicar_olx,
+      publicar_marketplace: data.publicar_marketplace,
       cor: data.cor,
       km: data.km,
       combustivel: data.combustivel,
@@ -377,6 +400,24 @@ export default function VeiculoForm({ veiculo, lojaId, hideFotos, fotos: fotosEx
             <label className={labelClass}>Ano *</label>
             <input type="number" {...register('ano', { valueAsNumber: true })} className={campoCls(!!errors.ano)} />
             {errors.ano && <p className={errorClass}>{errors.ano.message}</p>}
+          </div>
+          <div>
+            <label className={labelClass}>Ano de fabricação *</label>
+            <input type="number" {...register('ano_fabricacao', { valueAsNumber: true })} className={campoCls(!!errors.ano_fabricacao)} />
+            {errors.ano_fabricacao && <p className={errorClass}>{errors.ano_fabricacao.message}</p>}
+          </div>
+          <div>
+            <label className={labelClass}>Ano do modelo *</label>
+            <input type="number" {...register('ano_modelo', { valueAsNumber: true })} className={campoCls(!!errors.ano_modelo)} />
+            {errors.ano_modelo && <p className={errorClass}>{errors.ano_modelo.message}</p>}
+          </div>
+          <div>
+            <label className={labelClass}>Condição *</label>
+            <select {...register('condicao')} className={campoCls(!!errors.condicao)}>
+              {CONDICAO_LISTA.map(({ valor, label }) => (
+                <option key={valor} value={valor}>{label}</option>
+              ))}
+            </select>
           </div>
           <div>
             <label className={labelClass}>Cor *</label>
@@ -557,6 +598,38 @@ export default function VeiculoForm({ veiculo, lojaId, hideFotos, fotos: fotosEx
               <span className="text-sm text-[#374151] group-hover:text-[#111827] transition-colors">{op}</span>
             </label>
           ))}
+        </div>
+      </div>
+
+      {/* Publicação em canais externos */}
+      <div className="bg-white border border-[#E5E7EB] rounded-xl p-5 shadow-sm">
+        <h2 className="text-[#111827] font-bold text-sm uppercase tracking-wider mb-1">Publicação em canais externos</h2>
+        <p className="text-[#9CA3AF] text-xs mb-4">
+          Controle manual por veículo — marcar aqui não publica automaticamente ainda (a geração do feed de cada canal é uma etapa separada).
+        </p>
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id="publicar_olx"
+              {...register('publicar_olx')}
+              className="w-4 h-4 accent-[#F5C842]"
+            />
+            <label htmlFor="publicar_olx" className="text-sm text-[#111827] cursor-pointer">
+              Publicar na OLX
+            </label>
+          </div>
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id="publicar_marketplace"
+              {...register('publicar_marketplace')}
+              className="w-4 h-4 accent-[#F5C842]"
+            />
+            <label htmlFor="publicar_marketplace" className="text-sm text-[#111827] cursor-pointer">
+              Publicar no Facebook Marketplace
+            </label>
+          </div>
         </div>
       </div>
 
