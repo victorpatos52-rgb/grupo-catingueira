@@ -58,7 +58,10 @@ export default async function UsuariosPage() {
     if (authError) {
       console.error('[UsuariosPage] Erro ao listar auth users:', authError.message)
     }
-    const lojas = (lojasData ?? []) as Loja[]
+    // Diretor só gerencia a própria loja (mesma regra de exigirAlcance em
+    // actions.ts) — lista só ela e seus usuários; admin vê todas.
+    const todasLojas = (lojasData ?? []) as Loja[]
+    const lojas = perfil.perfil === 'admin' ? todasLojas : todasLojas.filter(l => l.id === perfil.loja_id)
 
     // ── Usuários de todas as lojas (depende dos lojaIds acima, sequencial mesmo) ──
     const lojaIds = lojas.map(l => l.id)

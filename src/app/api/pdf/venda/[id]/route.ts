@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminSupabase } from '@/lib/supabase-server'
+import { obterPerfilDaSessao, podeAcessarVendas, temAcessoLoja } from '@/lib/acesso'
 import { getTenantLogoUrl } from '@/lib/tenant-assets'
 
 function fmt(v: number | null | undefined) {
@@ -59,6 +60,13 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
+
+  // Documento com dados pessoais do comprador (CPF, RG, endereço) lido com
+  // service role — sessão e vínculo com a loja da venda são checados aqui.
+  const perfil = await obterPerfilDaSessao()
+  if (!perfil) return new NextResponse('Não autenticado', { status: 401 })
+  if (!podeAcessarVendas(perfil)) return new NextResponse('Sem permissão', { status: 403 })
+
   const supabase = adminSupabase()
 
   const { data: venda, error } = await supabase
@@ -69,6 +77,9 @@ export async function GET(
 
   if (error || !venda) {
     return new NextResponse('Venda não encontrada', { status: 404 })
+  }
+  if (!temAcessoLoja(perfil, venda.loja_id)) {
+    return new NextResponse('Sem permissão', { status: 403 })
   }
 
   const { data: lojaData } = await supabase

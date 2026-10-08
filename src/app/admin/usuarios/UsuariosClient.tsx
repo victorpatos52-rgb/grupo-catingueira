@@ -149,6 +149,8 @@ function ModulosCheckbox({
 
 export default function UsuariosClient({ perfil, usuarios, lojas }: Props) {
   const router = useRouter()
+  // Ninguém atribui perfil acima do próprio (validado de novo no servidor).
+  const perfisPermitidos = perfil.perfil === 'admin' ? PERFIS : PERFIS.filter(p => p !== 'admin')
 
   const [modal,           setModal]           = useState<'criar' | 'editar' | null>(null)
   const [editandoUsuario, setEditandoUsuario] = useState<UsuarioComEmail | null>(null)
@@ -223,10 +225,11 @@ export default function UsuariosClient({ perfil, usuarios, lojas }: Props) {
     if (!senhaNova.trim()) { setCriandoErro('Gere ou digite uma senha'); return }
     setCriandoLoad(true); setCriandoErro(null)
     try {
-      await criarUsuario({
+      const r = await criarUsuario({
         email: emailNovo, senha: senhaNova, nome: nomeNovo,
         perfil: perfilNovo, loja_id: lojaIdNova, modulos_permitidos: modulosNovos,
       })
+      if (!r.ok) { setCriandoErro(r.erro); return }
       setCredenciais({ email: emailNovo, senha: senhaNova })
       fecharModal(); router.refresh()
     } catch (err: unknown) {
@@ -241,10 +244,11 @@ export default function UsuariosClient({ perfil, usuarios, lojas }: Props) {
     if (!editandoUsuario) return
     setEditandoLoad(true); setEditandoErro(null)
     try {
-      await atualizarUsuario(editandoUsuario.id, {
+      const r = await atualizarUsuario(editandoUsuario.id, {
         nome: nomeEdit, perfil: perfilEdit,
         loja_id: lojaIdEdit, ativo: ativoEdit, modulos_permitidos: modulosEdit,
       })
+      if (!r.ok) { setEditandoErro(r.erro); return }
       fecharModal(); router.refresh()
     } catch (err: unknown) {
       setEditandoErro(err instanceof Error ? err.message : 'Erro ao atualizar')
@@ -258,8 +262,9 @@ export default function UsuariosClient({ perfil, usuarios, lojas }: Props) {
     if (!confirm('Gerar nova senha aleatória para este usuário?')) return
     setResetLoad(userId)
     try {
-      const { novaSenha } = await resetarSenha(userId)
-      setSenhasReset(prev => ({ ...prev, [userId]: novaSenha }))
+      const r = await resetarSenha(userId)
+      if (!r.ok) { alert(r.erro); return }
+      setSenhasReset(prev => ({ ...prev, [userId]: r.novaSenha }))
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Erro ao resetar senha')
     } finally {
@@ -271,10 +276,11 @@ export default function UsuariosClient({ perfil, usuarios, lojas }: Props) {
     setMenuAberto(null)
     setToggleLoad(u.id)
     try {
-      await atualizarUsuario(u.id, {
+      const r = await atualizarUsuario(u.id, {
         nome: u.nome, perfil: u.perfil, loja_id: u.loja_id,
         ativo: !u.ativo, modulos_permitidos: u.modulos_permitidos ?? [],
       })
+      if (!r.ok) { alert(r.erro); return }
       router.refresh()
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Erro ao atualizar')
@@ -288,7 +294,9 @@ export default function UsuariosClient({ perfil, usuarios, lojas }: Props) {
     if (!confirm(`Deletar o usuário "${u.nome}" (${u.email})?\n\nEsta ação não pode ser desfeita.`)) return
     setDeleteLoad(u.id)
     try {
-      await deleteUser(u.id); router.refresh()
+      const r = await deleteUser(u.id)
+      if (!r.ok) { alert(r.erro); return }
+      router.refresh()
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Erro ao deletar')
     } finally {
@@ -575,7 +583,7 @@ export default function UsuariosClient({ perfil, usuarios, lojas }: Props) {
                 onChange={e => handlePerfilCriarChange(e.target.value as Perfil)}
                 className={selectCls}
               >
-                {PERFIS.map(p => <option key={p} value={p} className="capitalize">{p}</option>)}
+                {perfisPermitidos.map(p => <option key={p} value={p} className="capitalize">{p}</option>)}
               </select>
             </div>
             <div>
@@ -644,7 +652,11 @@ export default function UsuariosClient({ perfil, usuarios, lojas }: Props) {
                     onChange={e => handlePerfilEditarChange(e.target.value as Perfil)}
                     className={selectCls}
                   >
-                    {PERFIS.map(p => <option key={p} value={p} className="capitalize">{p}</option>)}
+                    {/* Alvo com perfil fora da lista (ex.: admin aberto por um diretor): mantém
+                        a opção atual visível para o select não mostrar valor errado — o
+                        servidor recusa a gravação se não for permitida. */}
+                    {(perfisPermitidos.includes(perfilEdit) ? perfisPermitidos : [...perfisPermitidos, perfilEdit])
+                      .map(p => <option key={p} value={p} className="capitalize">{p}</option>)}
                   </select>
                 </div>
                 <div>

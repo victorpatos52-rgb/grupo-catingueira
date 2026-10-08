@@ -87,5 +87,7 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*'],
+  // /api/pdf: as rotas de PDF exigem sessão (ver lib/acesso.ts) e são abertas
+  // em nova aba a partir do admin — passam por aqui para ter o token renovado.
+  matcher: ['/admin/:path*', '/api/pdf/:path*'],
 }

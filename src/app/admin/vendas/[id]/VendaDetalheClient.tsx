@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { finalizarVenda, salvarVenda } from '@/app/actions'
+import { finalizarVenda, reprocessarVeiculosTroca, salvarVenda } from '@/app/actions'
 import AnexosClient, { type AnexoComUrl } from '@/components/admin/AnexosClient'
 import PromissoriasClient from './PromissoriasClient'
 import type { UsuarioPerfil, Venda, Loja, VendaPagamento, VendaPromissoria } from '@/types'
@@ -61,38 +61,82 @@ export default function VendaDetalheClient({ venda: initial, perfil, anexos, pag
   const [obsEditando, setObsEditando] = useState(false)
   const [novaObs, setNovaObs] = useState(initial.observacoes ?? '')
   const [salvandoObs, setSalvandoObs] = useState(false)
+  const [reprocessando, setReprocessando] = useState(false)
+  // Mensagem real vinda das actions ({ ok:false, erro }) — um throw no
+  // servidor chegaria aqui só como o genérico do Next em produção.
+  const [aviso, setAviso] = useState<{ tipo: 'erro' | 'sucesso'; texto: string } | null>(null)
 
   const total = pagamentos.reduce((a, p) => a + p.valor, 0)
+
+  // Venda finalizada pela ordem antiga de finalizarVenda, quando a criação do
+  // veículo da troca falhava depois de a venda já estar marcada finalizada.
+  const trocaPendente =
+    venda.status === 'finalizada' &&
+    pagamentos.some(p => p.tipo === 'veiculo' && !p.veiculo_recebido_id)
 
   async function handleFinalizar() {
     if (!confirm('Finalizar esta venda? O veículo será marcado como vendido.')) return
     setFinalizando(true)
+    setAviso(null)
     try {
-      await finalizarVenda(venda.id, venda.veiculo_id)
-      router.refresh()
+      const res = await finalizarVenda(venda.id)
+      if (!res.ok) {
+        setAviso({ tipo: 'erro', texto: res.erro })
+        return
+      }
       setVenda(v => ({ ...v, status: 'finalizada' }))
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Erro ao finalizar')
+      router.refresh()
+    } catch {
+      setAviso({ tipo: 'erro', texto: 'Erro de conexão ao finalizar. Recarregue a página e confira o status da venda.' })
     } finally {
       setFinalizando(false)
     }
   }
 
+  async function handleReprocessarTroca() {
+    if (!confirm('Criar no estoque o(s) veículo(s) recebido(s) na troca que ficaram pendentes nesta venda?')) return
+    setReprocessando(true)
+    setAviso(null)
+    try {
+      const res = await reprocessarVeiculosTroca(venda.id)
+      if (!res.ok) {
+        setAviso({ tipo: 'erro', texto: res.erro })
+        return
+      }
+      setAviso({
+        tipo: 'sucesso',
+        texto: res.criados > 0
+          ? `${res.criados} veículo(s) da troca cadastrado(s) no estoque como rascunho.`
+          : 'Nenhum veículo da troca estava pendente.',
+      })
+      router.refresh()
+    } catch {
+      setAviso({ tipo: 'erro', texto: 'Erro de conexão ao reprocessar. Recarregue a página e tente novamente.' })
+    } finally {
+      setReprocessando(false)
+    }
+  }
+
   async function handleSalvarObs() {
     setSalvandoObs(true)
+    setAviso(null)
     try {
-      await salvarVenda({
+      const res = await salvarVenda({
         id: venda.id,
         loja_id: venda.loja_id,
         veiculo_id: venda.veiculo_id,
         comprador_nome: venda.comprador_nome,
         observacoes: novaObs || null,
       })
+      if (!res.ok) {
+        setAviso({ tipo: 'erro', texto: res.erro })
+        return
+      }
       setVenda(v => ({ ...v, observacoes: novaObs || null }))
       setObsEditando(false)
       router.refresh()
-    } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Erro ao salvar')
+    } catch {
+      setAviso({ tipo: 'erro', texto: 'Erro de conexão ao salvar as observações.' })
     } finally {
       setSalvandoObs(false)
     }
@@ -169,6 +213,36 @@ export default function VendaDetalheClient({ venda: initial, perfil, anexos, pag
           </button>
         </div>
       </div>
+
+      {aviso && (
+        <p
+          role={aviso.tipo === 'erro' ? 'alert' : 'status'}
+          className={`mb-5 text-sm rounded-xl px-4 py-3 border ${
+            aviso.tipo === 'erro'
+              ? 'text-red-700 bg-red-50 border-red-200'
+              : 'text-green-700 bg-green-50 border-green-200'
+          }`}
+        >
+          {aviso.texto}
+        </p>
+      )}
+
+      {/* Reparo: só admin, só quando a venda já está finalizada e ainda há
+          item de troca sem veículo criado no estoque. */}
+      {trocaPendente && perfil.perfil === 'admin' && (
+        <div className="mb-5 bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+          <p className="text-red-700 text-sm">
+            Esta venda foi finalizada, mas o veículo recebido na troca não foi cadastrado no estoque.
+          </p>
+          <button
+            onClick={handleReprocessarTroca}
+            disabled={reprocessando}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-red-700 border border-red-300 hover:bg-red-100 transition-colors whitespace-nowrap disabled:opacity-50"
+          >
+            {reprocessando ? 'Reprocessando...' : '🔁 Reprocessar veículo da troca'}
+          </button>
+        </div>
+      )}
 
       {/* Rascunho aberto direto (link antigo, favorito etc.) — os dados da
           negociação só são editáveis pelo assistente agora. */}

@@ -1,9 +1,15 @@
 import { redirect } from 'next/navigation'
-import { createServerSupabase } from '@/lib/supabase-server'
+import { adminSupabase, createServerSupabase } from '@/lib/supabase-server'
+import { getLoja } from '@/lib/getLoja'
 import type { UsuarioPerfil } from '@/types'
 import ConfiguracoesClient from './ConfiguracoesClient'
+import IntegracoesSection from './IntegracoesSection'
 
-export default async function ConfiguracoesPage() {
+export default async function ConfiguracoesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ olx?: string; motivo?: string }>
+}) {
   const supabase = await createServerSupabase()
 
   const { data: { user } } = await supabase.auth.getUser()
@@ -16,5 +22,30 @@ export default async function ConfiguracoesPage() {
 
   if (!['admin', 'diretor'].includes(perfil.perfil)) redirect('/admin/dashboard')
 
-  return <ConfiguracoesClient />
+  const { olx, motivo } = await searchParams
+
+  // Integração OLX é da loja do domínio (é para ele que o redirect_uri aponta),
+  // não da loja selecionada no painel. Lê só a data — nunca o token.
+  const lojaDominio = await getLoja()
+  let olxAutorizadoEm: string | null = null
+  if (lojaDominio) {
+    const { data } = await adminSupabase()
+      .from('olx_integracoes')
+      .select('autorizado_em')
+      .eq('loja_id', lojaDominio.id)
+      .maybeSingle()
+    olxAutorizadoEm = data?.autorizado_em ?? null
+  }
+
+  return (
+    <div className="space-y-6">
+      <ConfiguracoesClient />
+      <IntegracoesSection
+        lojaDominio={lojaDominio ? { id: lojaDominio.id, nome: lojaDominio.nome } : null}
+        olxAutorizadoEm={olxAutorizadoEm}
+        resultado={olx ?? null}
+        motivo={motivo ?? null}
+      />
+    </div>
+  )
 }

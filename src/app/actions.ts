@@ -4,7 +4,8 @@ import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
-import type { Anexo, DespesaLoja, ImagensLanding, Perfil, TipoInteracao, TipoLancamento, Venda, Veiculo, VendaPagamentoDetalhes } from '@/types'
+import { obterPerfilAtivo, podeAcessarVendas, temAcessoLoja, type PerfilAcesso } from '@/lib/acesso'
+import type { Anexo, DespesaLoja, ImagensLanding, Perfil, ResultadoAcao, TipoInteracao, TipoLancamento, Venda, Veiculo, VendaPagamentoDetalhes } from '@/types'
 
 function adminSupabase() {
   return createClient(
@@ -76,6 +77,53 @@ async function validarPerfilLoja(perfil: Perfil, lojaId: string) {
   }
 }
 
+// ─── Autorização da gestão de usuários ─────────────────────────────────────────
+//
+// As actions abaixo usam service role direto em auth.users/usuarios_perfil, então
+// a autorização inteira mora aqui. Regra (a mesma da página /admin/usuarios):
+// só admin e diretor gerenciam usuários; diretor só dentro da própria loja e
+// nunca acima do próprio perfil; ninguém altera o próprio perfil/ativo nem se
+// exclui (evita autopromoção e trancar o sistema sem admin).
+
+// Sócio fica no nível de vendedor: acesso restrito, sem gestão.
+const NIVEL_PERFIL: Record<Perfil, number> = { vendedor: 1, socio: 1, gerente: 2, diretor: 3, admin: 4 }
+
+const PERFIS_VALIDOS = Object.keys(NIVEL_PERFIL) as Perfil[]
+
+async function exigirGestorUsuarios(): Promise<PerfilAcesso> {
+  const userClient = await userSupabase()
+  const { data: { user }, error } = await userClient.auth.getUser()
+  if (error || !user) throw new Error('Sessão expirada. Atualize a página e tente novamente.')
+
+  const gestor = await obterPerfilAtivo(user.id)
+  if (!gestor || (gestor.perfil !== 'admin' && gestor.perfil !== 'diretor')) {
+    throw new Error('Apenas administradores e diretores podem gerenciar usuários.')
+  }
+  return gestor
+}
+
+// Vale tanto para o estado atual do usuário-alvo quanto para o estado que se
+// quer gravar (perfil/loja novos) — os dois precisam estar ao alcance do gestor.
+function exigirAlcance(gestor: PerfilAcesso, alvo: { perfil: Perfil; loja_id: string }) {
+  if (!PERFIS_VALIDOS.includes(alvo.perfil)) throw new Error('Perfil inválido.')
+  if (NIVEL_PERFIL[alvo.perfil] > NIVEL_PERFIL[gestor.perfil]) {
+    throw new Error('Você não pode gerenciar usuários com perfil acima do seu.')
+  }
+  if (gestor.perfil !== 'admin' && alvo.loja_id !== gestor.loja_id) {
+    throw new Error('Você só pode gerenciar usuários da sua própria loja.')
+  }
+}
+
+async function carregarAlvo(id: string): Promise<{ id: string; perfil: Perfil; loja_id: string; ativo: boolean }> {
+  const { data } = await adminSupabase()
+    .from('usuarios_perfil')
+    .select('id, perfil, loja_id, ativo')
+    .eq('id', id)
+    .single()
+  if (!data) throw new Error('Usuário não encontrado.')
+  return data as { id: string; perfil: Perfil; loja_id: string; ativo: boolean }
+}
+
 export async function criarUsuario(data: {
   email: string
   senha: string
@@ -83,65 +131,109 @@ export async function criarUsuario(data: {
   perfil: Perfil
   loja_id: string
   modulos_permitidos: string[]
-}) {
-  await validarPerfilLoja(data.perfil, data.loja_id)
-  const supabase = adminSupabase()
+}): Promise<ResultadoAcao<{ userId: string }>> {
+  try {
+    const gestor = await exigirGestorUsuarios()
+    exigirAlcance(gestor, { perfil: data.perfil, loja_id: data.loja_id })
+    await validarPerfilLoja(data.perfil, data.loja_id)
+    const supabase = adminSupabase()
 
-  const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-    email: data.email,
-    password: data.senha,
-    email_confirm: true,
-    user_metadata: { nome: data.nome },
-  })
-  if (authError) throw new Error(`Erro ao criar usuário no Auth: ${authError.message}`)
-  if (!authData?.user) throw new Error('Usuário não foi criado (auth retornou vazio)')
+    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+      email: data.email,
+      password: data.senha,
+      email_confirm: true,
+      user_metadata: { nome: data.nome },
+    })
+    if (authError) throw new Error(`Erro ao criar usuário no Auth: ${authError.message}`)
+    if (!authData?.user) throw new Error('Usuário não foi criado (auth retornou vazio)')
 
-  const { error: perfilError } = await supabase.from('usuarios_perfil').insert({
-    id: authData.user.id,
-    loja_id: data.loja_id,
-    nome: data.nome,
-    perfil: data.perfil,
-    ativo: true,
-    modulos_permitidos: data.modulos_permitidos,
-  })
-  if (perfilError) {
-    await supabase.auth.admin.deleteUser(authData.user.id)
-    throw new Error(`Erro ao salvar perfil (auth revertido): ${perfilError.message} | code: ${perfilError.code} | details: ${perfilError.details}`)
+    const { error: perfilError } = await supabase.from('usuarios_perfil').insert({
+      id: authData.user.id,
+      loja_id: data.loja_id,
+      nome: data.nome,
+      perfil: data.perfil,
+      ativo: true,
+      modulos_permitidos: data.modulos_permitidos,
+    })
+    if (perfilError) {
+      await supabase.auth.admin.deleteUser(authData.user.id)
+      throw new Error(`Erro ao salvar perfil (auth revertido): ${perfilError.message} | code: ${perfilError.code} | details: ${perfilError.details}`)
+    }
+
+    revalidatePath('/admin/usuarios')
+    return { ok: true, userId: authData.user.id }
+  } catch (err) {
+    return erroDeAcao(err, 'Erro ao criar usuário.')
   }
-
-  revalidatePath('/admin/usuarios')
-  return { userId: authData.user.id }
 }
 
-export async function resetarSenha(userId: string) {
-  const supabase = adminSupabase()
-  const novaSenha = gerarSenhaAleatoria()
-  const { error } = await supabase.auth.admin.updateUserById(userId, { password: novaSenha })
-  if (error) throw new Error(error.message)
-  return { novaSenha }
+export async function resetarSenha(userId: string): Promise<ResultadoAcao<{ novaSenha: string }>> {
+  try {
+    const gestor = await exigirGestorUsuarios()
+    exigirAlcance(gestor, await carregarAlvo(userId))
+
+    const novaSenha = gerarSenhaAleatoria()
+    const { error } = await adminSupabase().auth.admin.updateUserById(userId, { password: novaSenha })
+    if (error) throw new Error(error.message)
+    return { ok: true, novaSenha }
+  } catch (err) {
+    return erroDeAcao(err, 'Erro ao resetar senha.')
+  }
 }
 
 export async function atualizarUsuario(
   id: string,
   data: { nome: string; perfil: Perfil; loja_id: string; ativo: boolean; modulos_permitidos: string[] }
-) {
-  await validarPerfilLoja(data.perfil, data.loja_id)
-  const supabase = adminSupabase()
-  const { error } = await supabase.from('usuarios_perfil').update(data).eq('id', id)
-  if (error) throw new Error(error.message)
-  revalidatePath('/admin/usuarios')
+): Promise<ResultadoAcao> {
+  try {
+    const gestor = await exigirGestorUsuarios()
+    const alvo = await carregarAlvo(id)
+    exigirAlcance(gestor, alvo)
+    exigirAlcance(gestor, { perfil: data.perfil, loja_id: data.loja_id })
+    if (id === gestor.id && (data.perfil !== alvo.perfil || data.ativo !== alvo.ativo)) {
+      throw new Error('Você não pode alterar o próprio perfil nem se desativar.')
+    }
+    await validarPerfilLoja(data.perfil, data.loja_id)
+
+    // Campos explícitos: o tipo do parâmetro não existe em runtime, então
+    // repassar `data` inteiro deixaria o chamador gravar qualquer coluna.
+    const { error } = await adminSupabase()
+      .from('usuarios_perfil')
+      .update({
+        nome: data.nome,
+        perfil: data.perfil,
+        loja_id: data.loja_id,
+        ativo: data.ativo,
+        modulos_permitidos: data.modulos_permitidos,
+      })
+      .eq('id', id)
+    if (error) throw new Error(error.message)
+    revalidatePath('/admin/usuarios')
+    return { ok: true }
+  } catch (err) {
+    return erroDeAcao(err, 'Erro ao atualizar usuário.')
+  }
 }
 
-export async function updateUserRole(perfilId: string, novoPerfil: Perfil) {
-  const supabase = adminSupabase()
-  const { data: atual } = await supabase.from('usuarios_perfil').select('loja_id').eq('id', perfilId).single()
-  if (atual) await validarPerfilLoja(novoPerfil, atual.loja_id)
-  const { error } = await supabase
-    .from('usuarios_perfil')
-    .update({ perfil: novoPerfil })
-    .eq('id', perfilId)
-  if (error) throw new Error(error.message)
-  revalidatePath('/admin/usuarios')
+export async function updateUserRole(perfilId: string, novoPerfil: Perfil): Promise<ResultadoAcao> {
+  try {
+    const gestor = await exigirGestorUsuarios()
+    const alvo = await carregarAlvo(perfilId)
+    exigirAlcance(gestor, alvo)
+    exigirAlcance(gestor, { perfil: novoPerfil, loja_id: alvo.loja_id })
+    if (perfilId === gestor.id) throw new Error('Você não pode alterar o próprio perfil.')
+    await validarPerfilLoja(novoPerfil, alvo.loja_id)
+
+    const { error } = await adminSupabase()
+      .from('usuarios_perfil')
+      .update({ perfil: novoPerfil })
+      .eq('id', perfilId)
+    if (error) throw new Error(error.message)
+    revalidatePath('/admin/usuarios')
+    return { ok: true }
+  } catch (err) {
+    return erroDeAcao(err, 'Erro ao alterar o perfil do usuário.')
+  }
 }
 
 export async function inviteUser(
@@ -149,29 +241,47 @@ export async function inviteUser(
   lojaId: string,
   perfil: Perfil,
   nome: string
-) {
-  await validarPerfilLoja(perfil, lojaId)
-  const supabase = adminSupabase()
-  const { data: inviteData, error: inviteError } =
-    await supabase.auth.admin.inviteUserByEmail(email)
-  if (inviteError || !inviteData.user) {
-    throw new Error(inviteError?.message ?? 'Falha ao convidar usuário')
+): Promise<ResultadoAcao> {
+  try {
+    const gestor = await exigirGestorUsuarios()
+    exigirAlcance(gestor, { perfil, loja_id: lojaId })
+    await validarPerfilLoja(perfil, lojaId)
+    const supabase = adminSupabase()
+    const { data: inviteData, error: inviteError } =
+      await supabase.auth.admin.inviteUserByEmail(email)
+    if (inviteError || !inviteData.user) {
+      throw new Error(inviteError?.message ?? 'Falha ao convidar usuário')
+    }
+    const { error } = await supabase.from('usuarios_perfil').insert({
+      id: inviteData.user.id,
+      loja_id: lojaId,
+      perfil,
+      nome,
+    })
+    if (error) throw new Error(error.message)
+    revalidatePath('/admin/usuarios')
+    return { ok: true }
+  } catch (err) {
+    return erroDeAcao(err, 'Erro ao convidar usuário.')
   }
-  const { error } = await supabase.from('usuarios_perfil').insert({
-    id: inviteData.user.id,
-    loja_id: lojaId,
-    perfil,
-    nome,
-  })
-  if (error) throw new Error(error.message)
-  revalidatePath('/admin/usuarios')
 }
 
-export async function deleteUser(id: string) {
-  const supabase = adminSupabase()
-  await supabase.from('usuarios_perfil').delete().eq('id', id)
-  await supabase.auth.admin.deleteUser(id)
-  revalidatePath('/admin/usuarios')
+export async function deleteUser(id: string): Promise<ResultadoAcao> {
+  try {
+    const gestor = await exigirGestorUsuarios()
+    if (id === gestor.id) throw new Error('Você não pode excluir a própria conta.')
+    exigirAlcance(gestor, await carregarAlvo(id))
+
+    const supabase = adminSupabase()
+    const { error: perfilError } = await supabase.from('usuarios_perfil').delete().eq('id', id)
+    if (perfilError) throw new Error(perfilError.message)
+    const { error: authError } = await supabase.auth.admin.deleteUser(id)
+    if (authError) throw new Error(authError.message)
+    revalidatePath('/admin/usuarios')
+    return { ok: true }
+  } catch (err) {
+    return erroDeAcao(err, 'Erro ao excluir usuário.')
+  }
 }
 
 // ─── LOJA SETTINGS ────────────────────────────────────────────────────────────
@@ -771,8 +881,46 @@ function validarDataVendaNaoFutura(dataVenda: string | null | undefined, horaVen
     if (horaVenda > horaAtual) throw new Error('A venda não pode ser registrada com hora no futuro.')
   }
 }
+// As actions de venda retornam { ok: false, erro } em vez de lançar: em
+// produção o Next substitui a mensagem de qualquer throw de Server Action
+// pelo genérico "An error occurred in the Server Components render", e o
+// usuário nunca via o motivo real (ex: ano do veículo da troca faltando).
+function erroDeAcao(err: unknown, fallback: string): { ok: false; erro: string } {
+  return { ok: false, erro: err instanceof Error && err.message ? err.message : fallback }
+}
 
-export async function salvarVenda(
+// Todas as actions de venda gravam com service role (sem RLS), então esta é a
+// única barreira entre o chamador e os dados: sessão validada no servidor
+// (getUser, não getSession — getSession só lê o cookie sem verificar o JWT),
+// perfil ativo com acesso ao módulo Vendas e vínculo com a loja da venda.
+// lojaId deve vir do banco sempre que a venda já existe, nunca do payload.
+// Lança erro — nas actions que retornam ResultadoAcao, o try/catch do
+// wrapper converte em { ok: false, erro }.
+async function exigirAcessoVendaLoja(lojaId: string): Promise<{ userId: string }> {
+  const userClient = await userSupabase()
+  const { data: { user }, error } = await userClient.auth.getUser()
+  if (error || !user) throw new Error('Sessão expirada. Atualize a página e tente novamente.')
+
+  const perfil = await obterPerfilAtivo(user.id)
+  if (!perfil || !podeAcessarVendas(perfil)) {
+    throw new Error('Você não tem permissão para gerenciar vendas.')
+  }
+  if (!temAcessoLoja(perfil, lojaId)) {
+    throw new Error('Você não tem permissão para gerenciar vendas desta loja.')
+  }
+  return { userId: user.id }
+}
+
+// Impede vincular a venda a um veículo de outra loja (o veículo é marcado
+// como vendido em finalizarVenda).
+async function exigirVeiculoDaLoja(veiculoId: string, lojaId: string) {
+  const { data: veiculo } = await adminSupabase().from('veiculos').select('loja_id').eq('id', veiculoId).single()
+  if (!veiculo || veiculo.loja_id !== lojaId) {
+    throw new Error('O veículo selecionado não pertence à loja desta venda.')
+  }
+}
+
+async function salvarVendaInterno(
   data: Partial<Venda> & { loja_id: string; veiculo_id: string; comprador_nome: string }
 ): Promise<{ id: string }> {
   if (data.data_venda !== undefined) {
@@ -796,6 +944,13 @@ export async function salvarVenda(
       .eq('id', id)
       .single()
     if (statusError || !existente) throw new Error('Venda não encontrada.')
+    await exigirAcessoVendaLoja(existente.loja_id)
+    if (rest.loja_id !== undefined && rest.loja_id !== existente.loja_id) {
+      throw new Error('Não é possível mover uma venda para outra loja.')
+    }
+    if (rest.veiculo_id !== undefined && rest.veiculo_id !== existente.veiculo_id) {
+      await exigirVeiculoDaLoja(rest.veiculo_id, existente.loja_id)
+    }
     if (existente.status === 'finalizada') {
       const existenteRecord = existente as Record<string, unknown>
       const mudaAlgoAlemDeObservacoes = Object.entries(rest).some(
@@ -813,6 +968,9 @@ export async function salvarVenda(
   } else {
     const { veiculo, vendedor, ...rest } = data as Venda & { veiculo?: unknown; vendedor?: unknown }
 
+    await exigirAcessoVendaLoja(data.loja_id)
+    await exigirVeiculoDaLoja(data.veiculo_id, data.loja_id)
+
     const { data: numeroVenda, error: numeroError } = await supabase.rpc('gerar_numero_venda', {
       p_loja_id: data.loja_id,
     })
@@ -829,28 +987,129 @@ export async function salvarVenda(
   }
 }
 
-export async function finalizarVenda(vendaId: string, veiculoId: string): Promise<void> {
-  const supabase = adminSupabase()
+export async function salvarVenda(
+  data: Partial<Venda> & { loja_id: string; veiculo_id: string; comprador_nome: string }
+): Promise<ResultadoAcao<{ id: string }>> {
+  try {
+    const { id } = await salvarVendaInterno(data)
+    return { ok: true, id }
+  } catch (err) {
+    return erroDeAcao(err, 'Erro ao salvar a venda.')
+  }
+}
 
-  const { data: venda, error: vendaError } = await supabase
-    .from('vendas')
-    .select('data_venda, hora_venda, loja_id, comprador_nome, comprador_telefone')
-    .eq('id', vendaId)
-    .single()
-  if (vendaError || !venda) throw new Error('Venda não encontrada.')
-  validarDataVendaNaoFutura(venda.data_venda, venda.hora_venda)
+// Ordem importa: validações e criação do(s) veículo(s) da troca primeiro; só
+// no fim marca veículo vendido + venda finalizada. Antes era o contrário — se
+// a troca falhasse (ex: ano_fabricacao NOT NULL da migration 018), a venda
+// ficava finalizada sem o veículo recebido e sem caminho de volta pela tela.
+//
+// Sem transação (PostgREST): cada passo confere se afetou linha e, se algo
+// falhar, desfaz o que esta chamada gravou e a venda continua rascunho.
+//
+// Idempotente: venda já finalizada retorna ok sem recriar nada; cada item da
+// troca é "reivindicado" atomicamente (ver processarItemTroca), então dois
+// cliques/abas simultâneos não duplicam o veículo.
+export async function finalizarVenda(vendaId: string): Promise<ResultadoAcao> {
+  try {
+    const supabase = adminSupabase()
 
-  const [{ error: e1 }, { error: e2 }] = await Promise.all([
-    supabase.from('vendas').update({ status: 'finalizada' }).eq('id', vendaId),
-    supabase.from('veiculos').update({ status: 'vendido' }).eq('id', veiculoId),
-  ])
-  if (e1) throw new Error(e1.message)
-  if (e2) throw new Error(e2.message)
+    const { data: venda, error: vendaError } = await supabase
+      .from('vendas')
+      .select('status, veiculo_id, data_venda, hora_venda, loja_id, comprador_nome, comprador_telefone')
+      .eq('id', vendaId)
+      .maybeSingle()
+    if (vendaError) return { ok: false, erro: `Erro ao carregar a venda: ${vendaError.message}` }
+    if (!venda) return { ok: false, erro: 'Venda não encontrada.' }
+    await exigirAcessoVendaLoja(venda.loja_id)
+    if (venda.status === 'finalizada') return { ok: true }
 
-  await criarVeiculosRecebidosNaTroca(vendaId, venda)
+    validarDataVendaNaoFutura(venda.data_venda, venda.hora_venda)
 
-  revalidatePath('/admin/vendas')
-  revalidatePath('/admin/veiculos')
+    const { data: veiculo, error: veiculoError } = await supabase
+      .from('veiculos')
+      .select('id, status')
+      .eq('id', venda.veiculo_id)
+      .maybeSingle()
+    if (veiculoError) return { ok: false, erro: `Erro ao carregar o veículo vendido: ${veiculoError.message}` }
+    if (!veiculo) return { ok: false, erro: 'O veículo desta venda não foi encontrado.' }
+
+    const trocas = await criarTrocasPendentes(vendaId, venda)
+    if (!trocas.ok) return trocas
+
+    const { data: veiculoAtualizado, error: e2 } = await supabase
+      .from('veiculos')
+      .update({ status: 'vendido' })
+      .eq('id', veiculo.id)
+      .select('id')
+    if (e2 || !veiculoAtualizado?.length) {
+      await desfazerTrocas(trocas.criadas)
+      return { ok: false, erro: `Não foi possível marcar o veículo como vendido${e2 ? `: ${e2.message}` : '.'} A venda continua como rascunho.` }
+    }
+
+    const { data: vendaAtualizada, error: e1 } = await supabase
+      .from('vendas')
+      .update({ status: 'finalizada' })
+      .eq('id', vendaId)
+      .eq('status', 'rascunho')
+      .select('id')
+
+    if (e1 || !vendaAtualizada?.length) {
+      // 0 linhas sem erro: outra chamada concorrente finalizou primeiro — os
+      // itens de troca que esta chamada criou foram reivindicados por ela, então
+      // continuam válidos para a venda.
+      if (!e1) {
+        const { data: atual } = await supabase.from('vendas').select('status').eq('id', vendaId).maybeSingle()
+        if (atual?.status === 'finalizada') {
+          revalidatePath('/admin/vendas')
+          revalidatePath('/admin/veiculos')
+          return { ok: true }
+        }
+      }
+      await supabase.from('veiculos').update({ status: veiculo.status }).eq('id', veiculo.id)
+      await desfazerTrocas(trocas.criadas)
+      return { ok: false, erro: `Não foi possível finalizar a venda${e1 ? `: ${e1.message}` : '.'} Nada foi alterado.` }
+    }
+
+    revalidatePath('/admin/vendas')
+    revalidatePath('/admin/vendas/' + vendaId)
+    revalidatePath('/admin/veiculos')
+    return { ok: true }
+  } catch (err) {
+    return erroDeAcao(err, 'Erro ao finalizar a venda.')
+  }
+}
+
+// Reparo para vendas que ficaram finalizadas sem o veículo da troca (bug da
+// ordem antiga de finalizarVenda + NOT NULL da migration 018). Só admin.
+export async function reprocessarVeiculosTroca(vendaId: string): Promise<ResultadoAcao<{ criados: number }>> {
+  try {
+    await exigirPerfil(['admin'], 'Apenas administradores podem reprocessar o veículo da troca.')
+  } catch (err) {
+    return erroDeAcao(err, 'Sem permissão.')
+  }
+
+  try {
+    const supabase = adminSupabase()
+    const { data: venda, error } = await supabase
+      .from('vendas')
+      .select('status, data_venda, loja_id, comprador_nome, comprador_telefone')
+      .eq('id', vendaId)
+      .maybeSingle()
+    if (error) return { ok: false, erro: `Erro ao carregar a venda: ${error.message}` }
+    if (!venda) return { ok: false, erro: 'Venda não encontrada.' }
+    if (venda.status !== 'finalizada') {
+      return { ok: false, erro: 'Esta venda ainda é rascunho — use "Finalizar Venda", que já cria o veículo da troca.' }
+    }
+
+    const trocas = await criarTrocasPendentes(vendaId, venda)
+    if (!trocas.ok) return trocas
+
+    revalidatePath('/admin/vendas/' + vendaId)
+    revalidatePath('/admin/veiculos')
+    return { ok: true, criados: trocas.criadas.length }
+  } catch (err) {
+    return erroDeAcao(err, 'Erro ao reprocessar o veículo da troca.')
+  }
 }
 
 // ─── LISTA DE PAGAMENTOS DA VENDA ──────────────────────────────────────────────
@@ -865,9 +1124,9 @@ export async function finalizarVenda(vendaId: string, veiculoId: string): Promis
 //
 // Itens tipo='veiculo' ainda não criam o veículo de verdade aqui — os dados
 // (marca/modelo/ano/placa/cor/observações) ficam em `detalhes` (jsonb) até a
-// venda ser finalizada (criarVeiculosRecebidosNaTroca), senão cada autosave
+// venda ser finalizada (criarTrocasPendentes), senão cada autosave
 // intermediário criaria um veículo novo.
-export async function salvarPagamentosVenda(
+async function salvarPagamentosVendaInterno(
   vendaId: string,
   itens: { tipo: string; valor: number; detalhes: Record<string, unknown> | null }[]
 ): Promise<void> {
@@ -875,10 +1134,11 @@ export async function salvarPagamentosVenda(
 
   const { data: venda, error: vendaError } = await supabase
     .from('vendas')
-    .select('status')
+    .select('status, loja_id')
     .eq('id', vendaId)
     .single()
   if (vendaError || !venda) throw new Error('Venda não encontrada.')
+  await exigirAcessoVendaLoja(venda.loja_id)
   if (venda.status === 'finalizada') {
     throw new Error('Esta venda já foi finalizada — não é possível alterar a lista de pagamentos.')
   }
@@ -894,97 +1154,242 @@ export async function salvarPagamentosVenda(
   if (insertError) throw new Error(insertError.message)
 }
 
+export async function salvarPagamentosVenda(
+  vendaId: string,
+  itens: { tipo: string; valor: number; detalhes: Record<string, unknown> | null }[]
+): Promise<ResultadoAcao> {
+  try {
+    await salvarPagamentosVendaInterno(vendaId, itens)
+    return { ok: true }
+  } catch (err) {
+    return erroDeAcao(err, 'Erro ao salvar os pagamentos da venda.')
+  }
+}
+
 // ─── VEÍCULO RECEBIDO NA TROCA (permuta) ───────────────────────────────────────
 
-// Para cada item tipo='veiculo' da lista de pagamentos (ainda sem
-// veiculo_recebido_id, ou seja, ainda não processado): cria o veículo
-// "rascunho" com os dados salvos em `detalhes`, o registro de
-// veiculo_recebido_venda ligando tudo, e o registro de aquisição
-// correspondente (valor_compra = valor do item, vendedor = comprador da
-// venda) — chamado no momento em que a venda é finalizada.
-async function criarVeiculosRecebidosNaTroca(
+// Para cada item tipo='veiculo' da lista de pagamentos ainda sem
+// veiculo_recebido_id: cria o veículo "rascunho" com os dados de `detalhes`,
+// o registro de veiculo_recebido_venda ligando tudo e o registro de aquisição
+// (valor_compra = valor do item, vendedor = comprador da venda).
+
+type VendaParaTroca = {
+  loja_id: string
+  comprador_nome: string
+  comprador_telefone: string | null
+  data_venda: string
+}
+
+type ItemTrocaValidado = {
+  id: string
+  valor: number
+  marca: string
+  modelo: string
+  ano: number
+  cor: string
+  placa: string | null
+  observacoes: string | null
+}
+
+// O que uma chamada gravou para um item — usado para desfazer em caso de falha.
+type TrocaCriada = { pagamentoId: string; recebidoId: string; veiculoId: string | null }
+
+function validarItensTroca(
+  itens: { id: string; valor: number; detalhes: VendaPagamentoDetalhes | null }[]
+): { ok: true; itens: ItemTrocaValidado[] } | { ok: false; erro: string } {
+  const anoMax = new Date().getFullYear() + 1
+  const validados: ItemTrocaValidado[] = []
+
+  for (const [i, item] of itens.entries()) {
+    const d = item.detalhes ?? {}
+    const marca = d.marca?.trim() ?? ''
+    const modelo = d.modelo?.trim() ?? ''
+    const nome = `Veículo recebido na troca${itens.length > 1 ? ` nº ${i + 1}` : ''}${marca ? ` (${`${marca} ${modelo}`.trim()})` : ''}`
+
+    const faltando = [!marca && 'marca', !modelo && 'modelo', !d.cor?.trim() && 'cor'].filter(Boolean)
+    if (faltando.length > 0) {
+      return { ok: false, erro: `${nome}: preencha ${faltando.join(', ')} antes de finalizar.` }
+    }
+
+    const anoTexto = d.ano == null ? '' : String(d.ano).trim()
+    const ano = Number(anoTexto)
+    if (!anoTexto || !Number.isInteger(ano) || ano < 1900 || ano > anoMax) {
+      return {
+        ok: false,
+        erro: `${nome}: ano ${anoTexto ? `"${anoTexto}" inválido` : 'não informado'}. Informe um ano entre 1900 e ${anoMax}.`,
+      }
+    }
+
+    validados.push({
+      id: item.id,
+      valor: item.valor,
+      marca,
+      modelo,
+      ano,
+      cor: d.cor!.trim(),
+      placa: d.placa?.trim() || null,
+      observacoes: d.observacoes?.trim() || null,
+    })
+  }
+
+  return { ok: true, itens: validados }
+}
+
+// Best-effort: desfaz na ordem inversa. Falha aqui só é logada (com ids, sem
+// dados do comprador) — não há mais o que fazer sem transação.
+async function desfazerTrocas(criadas: TrocaCriada[]): Promise<void> {
+  const supabase = adminSupabase()
+  for (const c of [...criadas].reverse()) {
+    const passos = [
+      supabase.from('venda_pagamentos').update({ veiculo_recebido_id: null })
+        .eq('id', c.pagamentoId).eq('veiculo_recebido_id', c.recebidoId),
+      supabase.from('veiculo_recebido_venda').delete().eq('id', c.recebidoId),
+      // veiculo_aquisicao sai junto (on delete cascade em veiculo_id)
+      ...(c.veiculoId ? [supabase.from('veiculos').delete().eq('id', c.veiculoId)] : []),
+    ]
+    for (const passo of passos) {
+      const { error } = await passo
+      if (error) {
+        console.error(`[desfazerTrocas] falha ao desfazer troca pagamento=${c.pagamentoId} recebido=${c.recebidoId} veiculo=${c.veiculoId}: ${error.message}`)
+      }
+    }
+  }
+}
+
+async function processarItemTroca(
   vendaId: string,
-  venda: { loja_id: string; comprador_nome: string; comprador_telefone: string | null; data_venda: string }
-): Promise<void> {
+  venda: VendaParaTroca,
+  item: ItemTrocaValidado,
+  criadas: TrocaCriada[]
+): Promise<{ ok: true } | { ok: false; erro: string }> {
+  const supabase = adminSupabase()
+  const nome = `${item.marca} ${item.modelo}`
+
+  // 1. Registro de apoio primeiro (veiculo_criado_id ainda null) — o id dele é
+  //    o que "reivindica" o item no passo 2.
+  const { data: recebido, error: recebidoError } = await supabase
+    .from('veiculo_recebido_venda')
+    .insert({
+      venda_id: vendaId,
+      venda_pagamento_id: item.id,
+      marca: item.marca,
+      modelo: item.modelo,
+      ano: item.ano,
+      placa: item.placa,
+      cor: item.cor,
+      valor_entrada: item.valor,
+      observacoes: item.observacoes,
+    })
+    .select('id')
+    .single()
+  if (recebidoError || !recebido) {
+    return { ok: false, erro: `Erro ao registrar o veículo da troca (${nome}): ${recebidoError?.message ?? 'sem retorno'}` }
+  }
+
+  // 2. Reivindicação atômica: só uma chamada concorrente consegue trocar
+  //    veiculo_recebido_id de null para o seu id. Quem perde desfaz o passo 1
+  //    e segue sem criar nada — é isso que impede o veículo em dobro.
+  const { data: reivindicado, error: claimError } = await supabase
+    .from('venda_pagamentos')
+    .update({ veiculo_recebido_id: recebido.id })
+    .eq('id', item.id)
+    .is('veiculo_recebido_id', null)
+    .select('id')
+  if (claimError || !reivindicado?.length) {
+    await supabase.from('veiculo_recebido_venda').delete().eq('id', recebido.id)
+    if (claimError) return { ok: false, erro: `Erro ao vincular o veículo da troca (${nome}): ${claimError.message}` }
+    return { ok: true }
+  }
+
+  const criada: TrocaCriada = { pagamentoId: item.id, recebidoId: recebido.id, veiculoId: null }
+  criadas.push(criada)
+
+  // 3. Veículo em estoque como rascunho. ano_fabricacao/ano_modelo são NOT NULL
+  //    desde a migration 018 — a troca só informa um ano, usado nos dois.
+  const { data: novoVeiculo, error: veiculoError } = await supabase
+    .from('veiculos')
+    .insert({
+      loja_id: venda.loja_id,
+      marca: item.marca,
+      modelo: item.modelo,
+      ano: item.ano,
+      ano_fabricacao: item.ano,
+      ano_modelo: item.ano,
+      condicao: 'seminovo',
+      cor: item.cor,
+      combustivel: '',
+      cambio: '',
+      preco: 0,
+      placa: item.placa,
+      status: 'disponivel',
+      rascunho: true,
+    })
+    .select('id')
+    .single()
+  if (veiculoError || !novoVeiculo) {
+    return { ok: false, erro: `Erro ao cadastrar o veículo da troca (${nome}) no estoque: ${veiculoError?.message ?? 'sem retorno'}` }
+  }
+  criada.veiculoId = novoVeiculo.id
+
+  const { data: ligado, error: ligarError } = await supabase
+    .from('veiculo_recebido_venda')
+    .update({ veiculo_criado_id: novoVeiculo.id })
+    .eq('id', recebido.id)
+    .select('id')
+  if (ligarError || !ligado?.length) {
+    return { ok: false, erro: `Erro ao vincular o veículo da troca (${nome}) ao estoque${ligarError ? `: ${ligarError.message}` : '.'}` }
+  }
+
+  const { error: aquisicaoError } = await supabase.from('veiculo_aquisicao').insert({
+    veiculo_id: novoVeiculo.id,
+    nome_vendedor: venda.comprador_nome,
+    telefone_vendedor: venda.comprador_telefone,
+    forma_pagamento_compra: 'Veículo recebido em troca',
+    data_compra: venda.data_venda,
+    valor_compra: item.valor,
+    observacoes: item.observacoes,
+  })
+  if (aquisicaoError) {
+    return { ok: false, erro: `Erro ao registrar a aquisição do veículo da troca (${nome}): ${aquisicaoError.message}` }
+  }
+
+  revalidatePath('/admin/veiculos/' + novoVeiculo.id)
+  return { ok: true }
+}
+
+// Valida TODOS os itens pendentes antes de gravar qualquer coisa; se um item
+// falhar no meio, desfaz os que esta chamada já criou.
+async function criarTrocasPendentes(
+  vendaId: string,
+  venda: VendaParaTroca
+): Promise<{ ok: true; criadas: TrocaCriada[] } | { ok: false; erro: string }> {
   const supabase = adminSupabase()
 
-  const { data: itensVeiculo } = await supabase
+  const { data: pendentes, error } = await supabase
     .from('venda_pagamentos')
     .select('id, valor, detalhes')
     .eq('venda_id', vendaId)
     .eq('tipo', 'veiculo')
     .is('veiculo_recebido_id', null)
+    .order('criado_em', { ascending: true })
+  if (error) return { ok: false, erro: `Erro ao carregar os veículos da troca: ${error.message}` }
 
-  for (const item of (itensVeiculo ?? []) as { id: string; valor: number; detalhes: VendaPagamentoDetalhes | null }[]) {
-    const d = item.detalhes ?? {}
-    const marca = d.marca?.trim()
-    const modelo = d.modelo?.trim()
-    const ano = d.ano ? Number(d.ano) : null
-    const cor = d.cor || null
-    const placa = d.placa || null
-    const observacoes = d.observacoes || null
+  const validacao = validarItensTroca(
+    (pendentes ?? []) as { id: string; valor: number; detalhes: VendaPagamentoDetalhes | null }[]
+  )
+  if (!validacao.ok) return validacao
 
-    if (!marca || !modelo || !ano || !cor) {
-      throw new Error('Marca, modelo, ano e cor de um veículo recebido na troca são obrigatórios para cadastrá-lo — volte na tela de venda e complete esses campos.')
+  const criadas: TrocaCriada[] = []
+  for (const item of validacao.itens) {
+    const r = await processarItemTroca(vendaId, venda, item, criadas)
+    if (!r.ok) {
+      await desfazerTrocas(criadas)
+      return r
     }
-
-    const { data: novoVeiculo, error: veiculoError } = await supabase
-      .from('veiculos')
-      .insert({
-        loja_id: venda.loja_id,
-        marca,
-        modelo,
-        ano,
-        cor,
-        combustivel: '',
-        cambio: '',
-        preco: 0,
-        placa,
-        status: 'disponivel',
-        rascunho: true,
-      })
-      .select('id')
-      .single()
-    if (veiculoError || !novoVeiculo) throw new Error(veiculoError?.message ?? 'Erro ao cadastrar veículo recebido na troca.')
-
-    const { data: recebido, error: recebidoError } = await supabase
-      .from('veiculo_recebido_venda')
-      .insert({
-        venda_id: vendaId,
-        venda_pagamento_id: item.id,
-        veiculo_criado_id: novoVeiculo.id,
-        marca,
-        modelo,
-        ano,
-        placa,
-        cor,
-        valor_entrada: item.valor,
-        observacoes,
-      })
-      .select('id')
-      .single()
-    if (recebidoError || !recebido) throw new Error(recebidoError?.message ?? 'Erro ao registrar veículo recebido na troca.')
-
-    const { error: pagamentoError } = await supabase
-      .from('venda_pagamentos')
-      .update({ veiculo_recebido_id: recebido.id })
-      .eq('id', item.id)
-    if (pagamentoError) throw new Error(pagamentoError.message)
-
-    const { error: aquisicaoError } = await supabase.from('veiculo_aquisicao').insert({
-      veiculo_id: novoVeiculo.id,
-      nome_vendedor: venda.comprador_nome,
-      telefone_vendedor: venda.comprador_telefone,
-      forma_pagamento_compra: 'Veículo recebido em troca',
-      data_compra: venda.data_venda,
-      valor_compra: item.valor,
-      observacoes,
-    })
-    if (aquisicaoError) throw new Error(aquisicaoError.message)
-
-    revalidatePath('/admin/veiculos/' + novoVeiculo.id)
   }
+  return { ok: true, criadas: criadas.filter(c => c.veiculoId) }
 }
+
 
 // Marca o veículo como publicado (sai do estado "rascunho") — exige o mínimo
 // pra aparecer decentemente no site/listagens: pelo menos 1 foto e preço > 0.
@@ -1012,6 +1417,9 @@ export async function publicarVeiculo(veiculoId: string): Promise<void> {
 
 export async function deletarVenda(vendaId: string): Promise<void> {
   const supabase = adminSupabase()
+  const { data: venda } = await supabase.from('vendas').select('loja_id').eq('id', vendaId).single()
+  if (!venda) throw new Error('Venda não encontrada.')
+  await exigirAcessoVendaLoja(venda.loja_id)
   const { error } = await supabase.from('vendas').delete().eq('id', vendaId)
   if (error) throw new Error(error.message)
   revalidatePath('/admin/vendas')

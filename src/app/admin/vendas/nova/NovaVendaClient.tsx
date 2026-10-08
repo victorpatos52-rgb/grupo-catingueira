@@ -474,12 +474,17 @@ export default function NovaVendaClient({ veiculos, usuarios, lojaId, vendedorId
       documentos_urls: [],
       status: 'rascunho' as const,
     }
-    const { id } = await salvarVenda(payload)
+    // As actions retornam { ok:false, erro } (a mensagem de um throw no
+    // servidor some em produção) — relançar aqui, no cliente, preserva o texto.
+    const resVenda = await salvarVenda(payload)
+    if (!resVenda.ok) throw new Error(resVenda.erro)
+    const { id } = resVenda
     setVendaId(id)
-    await salvarPagamentosVenda(
+    const resPagamentos = await salvarPagamentosVenda(
       id,
       pagamentos.map(p => ({ tipo: p.tipo, valor: p.valor, detalhes: detalhesDoItem(p) }))
     )
+    if (!resPagamentos.ok) throw new Error(resPagamentos.erro)
     // Assim que a linha em vendas existe, gruda o id na URL — um refresh
     // depois disso reabre o mesmo rascunho em vez de criar um duplicado.
     if (eraNovo) {
@@ -541,7 +546,8 @@ export default function NovaVendaClient({ veiculos, usuarios, lojaId, vendedorId
     setErro(null)
     try {
       const id = await autoSalvar()
-      await finalizarVenda(id, form.veiculo_id)
+      const res = await finalizarVenda(id)
+      if (!res.ok) throw new Error(res.erro)
       router.push(`/admin/vendas/${id}`)
     } catch (err: unknown) {
       setErro(err instanceof Error ? err.message : 'Erro ao finalizar')

@@ -379,3 +379,7 @@ export interface LancamentoFinanceiro {
   despesa_origem_id?: string | null
   venda?: Pick<Venda, 'id' | 'numero_venda' | 'comprador_nome'> | null
 }
+
+// Retorno padrão de Server Action que pode falhar: em produção o Next esconde
+// a mensagem de qualquer throw, então o erro real vai no payload.
+export type ResultadoAcao<T extends object = object> = ({ ok: true } & T) | { ok: false; erro: string }

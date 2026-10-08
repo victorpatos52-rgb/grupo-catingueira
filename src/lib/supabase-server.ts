@@ -32,9 +32,11 @@ export async function createServerSupabase() {
         // GoTrueClient tentar reescrever cookie (ex: normalização interna
         // de sessão, mesmo com autoRefreshToken desligado). Ler a sessão já
         // renovada pelo proxy.ts é a única responsabilidade deste client;
-        // nunca escreve. Se algum dia este helper passar a ser usado num
-        // Server Action/Route Handler, mover pra implementação com
-        // cookieStore.set() de verdade (igual userSupabase() em actions.ts).
+        // nunca escreve. Também usado (só leitura) pelos Route Handlers de
+        // /api/pdf via lib/acesso.ts — o proxy cobre essas rotas. Se algum
+        // dia precisar escrever cookie num Server Action/Route Handler, mover
+        // pra implementação com cookieStore.set() de verdade (igual
+        // userSupabase() em actions.ts).
         setAll() {},
       },
     }
