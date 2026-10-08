@@ -34,7 +34,10 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     admin.from('lojas').select('*').order('nome'),
   ])
 
-  if (!perfilData) redirect('/login')
+  // Sem perfil ou desativado: encerra a sessão (via route handler, que pode
+  // apagar cookie — este layout não pode) em vez de só mandar para /login,
+  // senão o /login veria a sessão ainda válida.
+  if (!perfilData || perfilData.ativo !== true) redirect('/api/auth/sair')
 
   const perfil: UsuarioPerfil = {
     ...(perfilData as UsuarioPerfil),

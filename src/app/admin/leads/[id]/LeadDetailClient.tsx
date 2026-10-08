@@ -133,7 +133,7 @@ export default function LeadDetailClient({
     if (!descInteracao.trim()) return
     setRegistrando(true)
     try {
-      await addLeadInteracao(lead.id, lojaId, tipoInteracao, descInteracao)
+      await addLeadInteracao(lead.id, tipoInteracao, descInteracao)
       setDescInteracao('')
       setInteracoes(prev => [{
         id: Date.now().toString(),

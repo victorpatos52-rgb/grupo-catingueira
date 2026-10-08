@@ -1,10 +1,12 @@
 'use server'
 
-import { cookies } from 'next/headers'
+import { randomInt } from 'crypto'
+import { cookies, headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { obterPerfilAtivo, podeAcessarVendas, temAcessoLoja, type PerfilAcesso } from '@/lib/acesso'
+import { getLoja } from '@/lib/getLoja'
 import type { Anexo, DespesaLoja, ImagensLanding, Perfil, ResultadoAcao, TipoInteracao, TipoLancamento, Venda, Veiculo, VendaPagamentoDetalhes } from '@/types'
 
 function adminSupabase() {
@@ -48,9 +50,53 @@ async function userSupabase() {
   )
 }
 
+// CSPRNG (crypto.randomInt) em vez de Math.random — senha temporária é
+// credencial. randomInt já faz rejection sampling, sem viés de módulo.
 function gerarSenhaAleatoria() {
   const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789@#!'
-  return Array.from({ length: 12 }, () => chars[Math.floor(Math.random() * chars.length)]).join('')
+  return Array.from({ length: 12 }, () => chars[randomInt(chars.length)]).join('')
+}
+
+// ─── Autenticação base das Server Actions ──────────────────────────────────────
+//
+// Todas as actions usam service role (bypassa RLS), então a checagem de
+// usuário/loja precisa acontecer aqui. getUser() valida o JWT no Supabase
+// Auth (getSession() só lê o cookie, sem validar).
+
+// Sessão válida + usuarios_perfil existente e ativo. Desativado tem a sessão
+// encerrada aqui mesmo (Server Action pode gravar cookie) — a próxima
+// navegação já cai no /login.
+async function exigirUsuarioAtivo(): Promise<PerfilAcesso> {
+  const userClient = await userSupabase()
+  const { data: { user }, error } = await userClient.auth.getUser()
+  if (error || !user) throw new Error('Sessão expirada. Atualize a página e tente novamente.')
+
+  const perfil = await obterPerfilAtivo(user.id)
+  if (!perfil) {
+    await userClient.auth.signOut()
+    throw new Error('Seu usuário está desativado ou sem perfil de acesso. Fale com o administrador.')
+  }
+  return perfil
+}
+
+async function exigirAcessoLoja(lojaId: string | null | undefined, mensagemErro = 'Você não tem permissão para acessar dados desta loja.'): Promise<PerfilAcesso> {
+  const perfil = await exigirUsuarioAtivo()
+  if (!temAcessoLoja(perfil, lojaId)) throw new Error(mensagemErro)
+  return perfil
+}
+
+// Acesso a um veículo existente: loja do veículo no BANCO (não a que o
+// navegador manda) + regra extra de sócio (só dividido da Felizardo).
+async function exigirAcessoVeiculo(veiculoId: string): Promise<{ perfil: PerfilAcesso; veiculo: { loja_id: string; proprietario_tipo: string | null } }> {
+  const { data: veiculo } = await adminSupabase()
+    .from('veiculos')
+    .select('loja_id, proprietario_tipo')
+    .eq('id', veiculoId)
+    .maybeSingle()
+  if (!veiculo) throw new Error('Veículo não encontrado.')
+  const perfil = await exigirAcessoLoja(veiculo.loja_id, 'Você não tem permissão para este veículo.')
+  if (perfil.perfil === 'socio') await validarVeiculoParaSocio(veiculo.loja_id, veiculo.proprietario_tipo)
+  return { perfil, veiculo }
 }
 
 // ─── AUTH / USERS ─────────────────────────────────────────────────────────────
@@ -112,6 +158,31 @@ function exigirAlcance(gestor: PerfilAcesso, alvo: { perfil: Perfil; loja_id: st
   if (gestor.perfil !== 'admin' && alvo.loja_id !== gestor.loja_id) {
     throw new Error('Você só pode gerenciar usuários da sua própria loja.')
   }
+}
+
+// Bloqueio no Supabase Auth: usuário banido não faz login nem renova sessão,
+// mesmo chamando a API do Supabase direto com a anon key. O Auth não tem ban
+// "permanente" — 876000h (~100 anos) faz esse papel; 'none' remove o ban.
+const BAN_PERMANENTE = '876000h'
+
+async function definirBloqueioAuth(userId: string, bloqueado: boolean): Promise<void> {
+  const falha = await tentarDefinirBloqueioAuth(userId, bloqueado)
+  if (falha) {
+    throw new Error(`Não foi possível ${bloqueado ? 'bloquear' : 'desbloquear'} o acesso no Supabase Auth (${falha}). Nada foi alterado.`)
+  }
+}
+
+// Versão que não lança — usada para desfazer o bloqueio quando o passo
+// seguinte falha. Devolve a mensagem de erro, ou null se deu certo.
+async function tentarDefinirBloqueioAuth(userId: string, bloqueado: boolean): Promise<string | null> {
+  const { error } = await adminSupabase().auth.admin.updateUserById(userId, {
+    ban_duration: bloqueado ? BAN_PERMANENTE : 'none',
+  })
+  if (error) {
+    console.error(`[bloqueioAuth] falha ao ${bloqueado ? 'bloquear' : 'desbloquear'} user=${userId}: ${error.message}`)
+    return error.message
+  }
+  return null
 }
 
 async function carregarAlvo(id: string): Promise<{ id: string; perfil: Perfil; loja_id: string; ativo: boolean }> {
@@ -195,6 +266,14 @@ export async function atualizarUsuario(
     }
     await validarPerfilLoja(data.perfil, data.loja_id)
 
+    // Bloqueio no Auth ANTES de gravar `ativo`: se o Auth falhar, nada muda.
+    // Desativar sempre reaplica o ban (idempotente — cobre quem foi desativado
+    // antes deste bloqueio existir); desbloqueia só na transição inativo→ativo.
+    const desativando = !data.ativo
+    const reativando = data.ativo && !alvo.ativo
+    if (desativando) await definirBloqueioAuth(id, true)
+    else if (reativando) await definirBloqueioAuth(id, false)
+
     // Campos explícitos: o tipo do parâmetro não existe em runtime, então
     // repassar `data` inteiro deixaria o chamador gravar qualquer coluna.
     const { error } = await adminSupabase()
@@ -207,7 +286,16 @@ export async function atualizarUsuario(
         modulos_permitidos: data.modulos_permitidos,
       })
       .eq('id', id)
-    if (error) throw new Error(error.message)
+    if (error) {
+      // Volta o Auth ao estado anterior para não ficar bloqueado-mas-ativo
+      // (ou desbloqueado-mas-inativo). Se já estava inativo, o ban fica.
+      const reverter = (desativando && alvo.ativo) || reativando
+      const falhaReversao = reverter ? await tentarDefinirBloqueioAuth(id, !alvo.ativo) : null
+      throw new Error(
+        `Erro ao salvar o usuário: ${error.message}.` +
+          (falhaReversao ? ` Atenção: o bloqueio no Auth não pôde ser desfeito (${falhaReversao}) — salve de novo.` : ' Nada foi alterado.')
+      )
+    }
     revalidatePath('/admin/usuarios')
     return { ok: true }
   } catch (err) {
@@ -270,13 +358,29 @@ export async function deleteUser(id: string): Promise<ResultadoAcao> {
   try {
     const gestor = await exigirGestorUsuarios()
     if (id === gestor.id) throw new Error('Você não pode excluir a própria conta.')
-    exigirAlcance(gestor, await carregarAlvo(id))
+    const alvo = await carregarAlvo(id)
+    exigirAlcance(gestor, alvo)
+
+    // Bloqueia primeiro: se a exclusão parar no meio, a conta que sobrar no
+    // Auth não consegue mais entrar nem renovar sessão.
+    await definirBloqueioAuth(id, true)
 
     const supabase = adminSupabase()
     const { error: perfilError } = await supabase.from('usuarios_perfil').delete().eq('id', id)
-    if (perfilError) throw new Error(perfilError.message)
+    if (perfilError) {
+      const falhaReversao = alvo.ativo ? await tentarDefinirBloqueioAuth(id, false) : null
+      throw new Error(
+        `Erro ao excluir o usuário: ${perfilError.message}.` +
+          (falhaReversao ? ` Atenção: a conta ficou bloqueada no Auth (${falhaReversao}).` : ' Nada foi alterado.')
+      )
+    }
     const { error: authError } = await supabase.auth.admin.deleteUser(id)
-    if (authError) throw new Error(authError.message)
+    if (authError) {
+      throw new Error(
+        `O perfil foi removido, mas a conta no Supabase Auth não foi excluída (${authError.message}). ` +
+          'Ela continua bloqueada — remova-a pelo painel do Supabase (Authentication > Users).'
+      )
+    }
     revalidatePath('/admin/usuarios')
     return { ok: true }
   } catch (err) {
@@ -356,10 +460,32 @@ export async function updateLead(
   }
 ) {
   const supabase = adminSupabase()
+  const lead = await exigirAcessoLead(leadId)
+  if (updates.responsavel_id) await exigirResponsavelDaLoja(updates.responsavel_id, lead.loja_id)
   const { error } = await supabase.from('leads').update(updates).eq('id', leadId)
   if (error) throw new Error(error.message)
   revalidatePath('/admin/leads/' + leadId)
   revalidatePath('/admin/crm')
+}
+
+async function exigirAcessoLead(leadId: string): Promise<{ loja_id: string; perfil: PerfilAcesso }> {
+  const { data: lead } = await adminSupabase().from('leads').select('loja_id').eq('id', leadId).maybeSingle()
+  if (!lead) throw new Error('Lead não encontrado.')
+  const perfil = await exigirAcessoLoja(lead.loja_id, 'Você não tem permissão para este lead.')
+  return { loja_id: lead.loja_id, perfil }
+}
+
+// Responsável de um lead tem de ser usuário da mesma loja do lead — mesma
+// lista que as telas oferecem (usuarios_perfil.eq('loja_id'), sem filtrar ativo).
+async function exigirResponsavelDaLoja(responsavelId: string, lojaId: string) {
+  const { data: responsavel } = await adminSupabase()
+    .from('usuarios_perfil')
+    .select('loja_id')
+    .eq('id', responsavelId)
+    .maybeSingle()
+  if (!responsavel || responsavel.loja_id !== lojaId) {
+    throw new Error('O responsável escolhido não é um usuário desta loja.')
+  }
 }
 
 export async function criarLead(data: {
@@ -375,6 +501,8 @@ export async function criarLead(data: {
   status: string
   tags: string[]
 }): Promise<void> {
+  await exigirAcessoLoja(data.loja_id, 'Você não tem permissão para criar leads nesta loja.')
+  if (data.responsavel_id) await exigirResponsavelDaLoja(data.responsavel_id, data.loja_id)
   const supabase = adminSupabase()
   // Campos base garantidamente existentes na tabela
   const payload: Record<string, unknown> = {
@@ -397,18 +525,19 @@ export async function criarLead(data: {
   revalidatePath('/admin/crm')
 }
 
+// loja_id vem do lead no banco e usuario_id da sessão — nada disso é aceito
+// do navegador (antes dava para registrar interação em nome de outro usuário).
 export async function addLeadInteracao(
   leadId: string,
-  lojaId: string,
   tipo: TipoInteracao,
-  descricao: string,
-  userId?: string | null
+  descricao: string
 ) {
+  const { loja_id, perfil } = await exigirAcessoLead(leadId)
   const supabase = adminSupabase()
   const { error } = await supabase.from('lead_interacoes').insert({
     lead_id: leadId,
-    loja_id: lojaId,
-    usuario_id: userId ?? null,
+    loja_id,
+    usuario_id: perfil.id,
     tipo,
     descricao,
   })
@@ -452,9 +581,8 @@ export async function concluirLembrete(id: string) {
 // ─── VEÍCULOS ─────────────────────────────────────────────────────────────────
 
 export async function marcarVeiculoVendido(veiculoId: string) {
+  const { veiculo } = await exigirAcessoVeiculo(veiculoId)
   const supabase = adminSupabase()
-  const { data: veiculo } = await supabase.from('veiculos').select('loja_id').eq('id', veiculoId).single()
-  if (!veiculo) throw new Error('Veículo não encontrado')
 
   const { error } = await supabase.from('veiculos').update({ status: 'vendido' }).eq('id', veiculoId)
   if (error) throw new Error(error.message)
@@ -539,17 +667,22 @@ export async function saveCustoManutencao(data: {
   valor: number
   data: string | null
 }) {
+  // loja_id gravado é sempre o do veículo no banco; data.loja_id do navegador
+  // é ignorado (mantido na assinatura só por compatibilidade com quem chama).
+  const { veiculo } = await exigirAcessoVeiculo(data.veiculo_id)
   const supabase = adminSupabase()
   if (data.id) {
+    await exigirCustoDoVeiculo(data.id, data.veiculo_id)
     const { error } = await supabase
       .from('custos_manutencao')
       .update({ categoria: data.categoria, descricao: data.descricao, valor: data.valor, data: data.data })
       .eq('id', data.id)
+      .eq('veiculo_id', data.veiculo_id)
     if (error) throw new Error(error.message)
   } else {
     const { error } = await supabase.from('custos_manutencao').insert({
       veiculo_id: data.veiculo_id,
-      loja_id: data.loja_id,
+      loja_id: veiculo.loja_id,
       categoria: data.categoria,
       descricao: data.descricao,
       valor: data.valor,
@@ -561,10 +694,19 @@ export async function saveCustoManutencao(data: {
 }
 
 export async function deleteCustoManutencao(id: string, veiculoId: string) {
+  await exigirAcessoVeiculo(veiculoId)
+  await exigirCustoDoVeiculo(id, veiculoId)
   const supabase = adminSupabase()
-  const { error } = await supabase.from('custos_manutencao').delete().eq('id', id)
+  const { error } = await supabase.from('custos_manutencao').delete().eq('id', id).eq('veiculo_id', veiculoId)
   if (error) throw new Error(error.message)
   revalidatePath('/admin/veiculos/' + veiculoId)
+}
+
+// O acesso é checado pelo veículo; isto garante que o custo é mesmo dele
+// (senão bastava trocar o id para mexer em custo de veículo de outra loja).
+async function exigirCustoDoVeiculo(custoId: string, veiculoId: string) {
+  const { data } = await adminSupabase().from('custos_manutencao').select('veiculo_id').eq('id', custoId).maybeSingle()
+  if (!data || data.veiculo_id !== veiculoId) throw new Error('Custo não encontrado para este veículo.')
 }
 
 export async function saveValorVenda(
@@ -610,15 +752,83 @@ export async function saveValorVenda(
 
 // ─── CONTATO PÚBLICO ─────────────────────────────────────────────────────────
 
-export async function submitContatoLead(
-  lojaId: string,
-  data: {
-    nome: string
-    telefone: string
-    email: string
-    mensagem: string
-    veiculoInteresse: string
+// Limite por IP em memória: barato e pega o grosso (bot em loop), mas é por
+// instância do servidor — na Vercel cada instância tem o seu. O limite que
+// vale entre instâncias é o do banco (mesmo telefone), logo abaixo.
+const CONTATO_JANELA_MS = 10 * 60 * 1000
+const CONTATO_MAX_POR_IP = 5
+const contatoPorIp = new Map<string, number[]>()
+
+function contatoExcedeuLimiteIp(ip: string): boolean {
+  const agora = Date.now()
+  const recentes = (contatoPorIp.get(ip) ?? []).filter(t => agora - t < CONTATO_JANELA_MS)
+  if (recentes.length >= CONTATO_MAX_POR_IP) {
+    contatoPorIp.set(ip, recentes)
+    return true
   }
+  recentes.push(agora)
+  contatoPorIp.set(ip, recentes)
+  // Evita o Map crescer sem limite numa instância de vida longa.
+  if (contatoPorIp.size > 5000) contatoPorIp.clear()
+  return false
+}
+
+// Formulário público (sem login). A loja vem do domínio (getLoja), nunca do
+// navegador — antes dava para gravar lead em qualquer loja passando o id.
+export async function submitContatoLead(data: {
+  nome: string
+  telefone: string
+  email: string
+  mensagem: string
+  veiculoInteresse: string
+  /** Campo-isca escondido no formulário: humano não preenche, bot costuma preencher. */
+  website?: string
+}): Promise<ResultadoAcao> {
+  try {
+    // Bot: finge sucesso para não ensinar o que foi bloqueado.
+    if (data.website?.trim()) return { ok: true }
+
+    const nome = data.nome?.trim() ?? ''
+    const telefone = (data.telefone ?? '').replace(/\D/g, '')
+    if (nome.length < 2 || nome.length > 120) return { ok: false, erro: 'Informe seu nome.' }
+    if (telefone.length < 10 || telefone.length > 13) return { ok: false, erro: 'Informe um telefone com DDD.' }
+    if ((data.mensagem ?? '').length > 2000 || (data.email ?? '').length > 200 || (data.veiculoInteresse ?? '').length > 200) {
+      return { ok: false, erro: 'Mensagem muito longa.' }
+    }
+
+    const headersList = await headers()
+    const ip = headersList.get('x-forwarded-for')?.split(',')[0]?.trim() || headersList.get('x-real-ip') || 'desconhecido'
+    if (contatoExcedeuLimiteIp(ip)) {
+      return { ok: false, erro: 'Muitas mensagens em pouco tempo. Tente de novo em alguns minutos ou fale pelo WhatsApp.' }
+    }
+
+    const loja = await getLoja()
+    if (!loja) return { ok: false, erro: 'Não foi possível identificar a loja. Fale pelo WhatsApp.' }
+
+    const supabase = adminSupabase()
+    const desde = new Date(Date.now() - CONTATO_JANELA_MS).toISOString()
+    const { count: recentesMesmoTelefone } = await supabase
+      .from('leads')
+      .select('id', { count: 'exact', head: true })
+      .eq('loja_id', loja.id)
+      .eq('origem', 'site')
+      .eq('telefone', data.telefone)
+      .gte('created_at', desde)
+    if ((recentesMesmoTelefone ?? 0) > 0) {
+      return { ok: false, erro: 'Já recebemos seu contato agora há pouco — retornaremos em breve.' }
+    }
+
+    await inserirLeadContato(loja.id, { ...data, nome })
+    return { ok: true }
+  } catch (err) {
+    console.error('[submitContatoLead] falha ao registrar contato:', err instanceof Error ? err.message : err)
+    return { ok: false, erro: 'Erro ao enviar. Tente novamente ou fale pelo WhatsApp.' }
+  }
+}
+
+async function inserirLeadContato(
+  lojaId: string,
+  data: { nome: string; telefone: string; email: string; mensagem: string; veiculoInteresse: string }
 ) {
   const supabase = adminSupabase()
   const obs = [
@@ -657,17 +867,6 @@ export async function submitContatoLead(
 
 // ─── VEÍCULO CRUD (bypassa RLS via service role) ──────────────────────────────
 
-// Perfil de quem está chamando a action (via sessão/cookies) — usado só para
-// a restrição extra de sócio abaixo, não substitui exigirPerfil/exigirPerfilFinanceiroCompleto.
-async function obterPerfilAtual(): Promise<Perfil | null> {
-  const userClient = await userSupabase()
-  const { data: { session } } = await userClient.auth.getSession()
-  if (!session) return null
-  const supabase = adminSupabase()
-  const { data } = await supabase.from('usuarios_perfil').select('perfil').eq('id', session.user.id).single()
-  return (data?.perfil as Perfil | undefined) ?? null
-}
-
 // Sócio só pode criar/editar veículos com proprietario_tipo='dividido' da loja
 // Felizardo — valida o payload que está sendo gravado (não confia só na UI).
 async function validarVeiculoParaSocio(lojaId: string, proprietarioTipo: string | null | undefined) {
@@ -679,18 +878,9 @@ async function validarVeiculoParaSocio(lojaId: string, proprietarioTipo: string 
   }
 }
 
-// Sócio só pode mexer em veículos que já são (no banco, agora) dividido+Felizardo
-// — impede editar/excluir um veículo que não devia nem estar vendo.
-async function exigirAcessoVeiculoExistenteSocio(veiculoId: string) {
-  const supabase = adminSupabase()
-  const { data: veiculo } = await supabase.from('veiculos').select('proprietario_tipo, loja_id').eq('id', veiculoId).single()
-  if (!veiculo) throw new Error('Veículo não encontrado.')
-  await validarVeiculoParaSocio(veiculo.loja_id, veiculo.proprietario_tipo)
-}
-
 export async function criarVeiculo(payload: Omit<Veiculo, 'id' | 'created_at'>) {
-  const perfilAtual = await obterPerfilAtual()
-  if (perfilAtual === 'socio') {
+  const perfil = await exigirAcessoLoja(payload.loja_id, 'Você não tem permissão para cadastrar veículos nesta loja.')
+  if (perfil.perfil === 'socio') {
     await validarVeiculoParaSocio(payload.loja_id, payload.proprietario_tipo)
   }
   const supabase = adminSupabase()
@@ -708,11 +898,7 @@ export async function atualizarVeiculo(
   veiculoId: string,
   payload: Omit<Veiculo, 'id' | 'created_at'>
 ) {
-  const perfilAtual = await obterPerfilAtual()
-  if (perfilAtual === 'socio') {
-    await exigirAcessoVeiculoExistenteSocio(veiculoId)
-    await validarVeiculoParaSocio(payload.loja_id, payload.proprietario_tipo)
-  }
+  await exigirEdicaoVeiculo(veiculoId, payload)
   const supabase = adminSupabase()
   const { error } = await supabase
     .from('veiculos')
@@ -727,11 +913,7 @@ export async function atualizarDadosVeiculo(
   veiculoId: string,
   payload: Omit<Veiculo, 'id' | 'created_at' | 'fotos'>
 ) {
-  const perfilAtual = await obterPerfilAtual()
-  if (perfilAtual === 'socio') {
-    await exigirAcessoVeiculoExistenteSocio(veiculoId)
-    await validarVeiculoParaSocio(payload.loja_id, payload.proprietario_tipo)
-  }
+  await exigirEdicaoVeiculo(veiculoId, payload)
   const supabase = adminSupabase()
   const { error } = await supabase
     .from('veiculos')
@@ -742,7 +924,20 @@ export async function atualizarDadosVeiculo(
   revalidatePath('/admin/veiculos/' + veiculoId)
 }
 
+// Edição: acesso ao veículo como ele está no banco + o payload não pode
+// mudar a loja (troca de loja só via transferirVeiculo, que registra histórico
+// e move custos/financeiro/vistoria junto). O formulário sempre reenvia a
+// mesma loja — a página só abre veículo da loja ativa.
+async function exigirEdicaoVeiculo(veiculoId: string, payload: { loja_id: string; proprietario_tipo?: string | null }) {
+  const { perfil, veiculo } = await exigirAcessoVeiculo(veiculoId)
+  if (payload.loja_id !== veiculo.loja_id) {
+    throw new Error('Para mudar o veículo de loja, use "Transferir veículo".')
+  }
+  if (perfil.perfil === 'socio') await validarVeiculoParaSocio(payload.loja_id, payload.proprietario_tipo)
+}
+
 export async function atualizarFotosVeiculo(veiculoId: string, fotos: string[]) {
+  await exigirAcessoVeiculo(veiculoId)
   const supabase = adminSupabase()
   const { error } = await supabase
     .from('veiculos')
@@ -765,10 +960,6 @@ export async function transferirVeiculo(
   lojaDestinoId: string,
   observacoes: string | null
 ): Promise<void> {
-  const { userId } = await exigirPerfil(
-    PERFIS_GERENCIA,
-    'Você não tem permissão para transferir veículos entre lojas.'
-  )
   const supabase = adminSupabase()
 
   const { data: veiculo, error: veiculoError } = await supabase
@@ -777,9 +968,20 @@ export async function transferirVeiculo(
     .eq('id', veiculoId)
     .single()
   if (veiculoError || !veiculo) throw new Error('Veículo não encontrado.')
+
+  // Precisa ter acesso à loja de ORIGEM (gerente: só a própria). A de destino
+  // não exige acesso — gerente de uma loja pode mandar o carro para a outra —,
+  // mas tem de ser uma loja que existe.
+  const { userId } = await exigirPerfil(
+    PERFIS_GERENCIA,
+    'Você não tem permissão para transferir veículos entre lojas.',
+    veiculo.loja_id
+  )
   if (veiculo.loja_id === lojaDestinoId) {
     throw new Error('O veículo já pertence a essa loja.')
   }
+  const { data: lojaDestino } = await supabase.from('lojas').select('id').eq('id', lojaDestinoId).maybeSingle()
+  if (!lojaDestino) throw new Error('Loja de destino não encontrada.')
 
   const { error: historicoError } = await supabase.from('veiculo_transferencias').insert({
     veiculo_id: veiculoId,
@@ -1402,6 +1604,7 @@ async function criarTrocasPendentes(
 // Marca o veículo como publicado (sai do estado "rascunho") — exige o mínimo
 // pra aparecer decentemente no site/listagens: pelo menos 1 foto e preço > 0.
 export async function publicarVeiculo(veiculoId: string): Promise<void> {
+  await exigirAcessoVeiculo(veiculoId)
   const supabase = adminSupabase()
 
   const { data: veiculo, error: fetchError } = await supabase
@@ -1437,28 +1640,27 @@ export async function deletarVenda(vendaId: string): Promise<void> {
 
 const PERFIS_GERENCIA: Perfil[] = ['gerente', 'diretor', 'admin']
 
-// Checa o perfil do usuário logado (via sessão/cookies) direto no servidor —
-// usado por Server Actions que não podem depender só da UI esconder um botão/aba.
-async function exigirPerfil(permitido: Perfil[], mensagemErro: string): Promise<{ userId: string }> {
-  const userClient = await userSupabase()
-  const { data: { session } } = await userClient.auth.getSession()
-  if (!session) throw new Error('Não autenticado.')
-
-  const admin = adminSupabase()
-  const { data: perfilData } = await admin
-    .from('usuarios_perfil')
-    .select('perfil')
-    .eq('id', session.user.id)
-    .single()
-
-  if (!perfilData || !permitido.includes(perfilData.perfil as Perfil)) {
-    throw new Error(mensagemErro)
-  }
-  return { userId: session.user.id }
+// Checa o perfil do usuário logado direto no servidor — usado por Server
+// Actions que não podem depender só da UI esconder um botão/aba. getUser()
+// (via exigirUsuarioAtivo) valida o JWT e barra usuário desativado; com
+// `lojaId`, exige também acesso àquela loja (admin/diretor: todas).
+async function exigirPerfil(
+  permitido: Perfil[],
+  mensagemErro: string,
+  lojaId?: string | null
+): Promise<{ userId: string; perfil: PerfilAcesso }> {
+  const perfil = await exigirUsuarioAtivo()
+  if (!permitido.includes(perfil.perfil)) throw new Error(mensagemErro)
+  if (lojaId !== undefined && !temAcessoLoja(perfil, lojaId)) throw new Error(mensagemErro)
+  return { userId: perfil.id, perfil }
 }
 
-function exigirPerfilDocumentacao() {
-  return exigirPerfil(PERFIS_GERENCIA, 'Você não tem permissão para acessar a documentação deste veículo.')
+// Documentação (aquisição/anexos) de um veículo: gerente/diretor/admin com
+// acesso à loja do veículo no banco.
+async function exigirPerfilDocumentacao(veiculoId: string) {
+  const { data: veiculo } = await adminSupabase().from('veiculos').select('loja_id').eq('id', veiculoId).maybeSingle()
+  if (!veiculo) throw new Error('Veículo não encontrado.')
+  return exigirPerfil(PERFIS_GERENCIA, 'Você não tem permissão para acessar a documentação deste veículo.', veiculo.loja_id)
 }
 
 // Financeiro "completo" (custo/DRE do veículo, despesas, lançamentos/Movimentações,
@@ -1474,23 +1676,15 @@ function exigirPerfilFinanceiroCompleto() {
 // da venda (não uma restrição "financeira" como a de veículo).
 async function exigirPermissaoAnexo(entidadeTipo: 'veiculo' | 'venda', entidadeId: string): Promise<{ userId: string }> {
   if (entidadeTipo === 'veiculo') {
-    return exigirPerfilDocumentacao()
+    return exigirPerfilDocumentacao(entidadeId)
   }
 
-  const userClient = await userSupabase()
-  const { data: { session } } = await userClient.auth.getSession()
-  if (!session) throw new Error('Não autenticado.')
-
-  const admin = adminSupabase()
-  const [{ data: perfilData }, { data: vendaData }] = await Promise.all([
-    admin.from('usuarios_perfil').select('loja_id').eq('id', session.user.id).single(),
-    admin.from('vendas').select('loja_id').eq('id', entidadeId).single(),
-  ])
-
-  if (!perfilData || !vendaData || perfilData.loja_id !== vendaData.loja_id) {
-    throw new Error('Você não tem permissão para acessar os anexos desta venda.')
-  }
-  return { userId: session.user.id }
+  const { data: vendaData } = await adminSupabase().from('vendas').select('loja_id').eq('id', entidadeId).maybeSingle()
+  if (!vendaData) throw new Error('Venda não encontrada.')
+  // temAcessoLoja (e não loja_id === loja_id): admin/diretor operando outra
+  // loja pelo seletor também acessam, igual ao resto do painel.
+  const perfil = await exigirAcessoLoja(vendaData.loja_id, 'Você não tem permissão para acessar os anexos desta venda.')
+  return { userId: perfil.id }
 }
 
 // ─── DOCUMENTAÇÃO DO VEÍCULO (AQUISIÇÃO + ANEXOS) ──────────────────────────────
@@ -1509,11 +1703,19 @@ export async function saveVeiculoAquisicao(
   },
   aquisicaoId?: string
 ) {
-  await exigirPerfilDocumentacao()
+  await exigirPerfilDocumentacao(veiculoId)
   const supabase = adminSupabase()
   if (aquisicaoId) {
-    const { error } = await supabase.from('veiculo_aquisicao').update(data).eq('id', aquisicaoId)
+    // .eq('veiculo_id'): o acesso foi checado por este veículo; sem isso, um
+    // aquisicaoId de outro veículo (de outra loja) seria aceito.
+    const { data: atualizada, error } = await supabase
+      .from('veiculo_aquisicao')
+      .update(data)
+      .eq('id', aquisicaoId)
+      .eq('veiculo_id', veiculoId)
+      .select('id')
     if (error) throw new Error(error.message)
+    if (!atualizada?.length) throw new Error('Registro de aquisição não encontrado para este veículo.')
   } else {
     const { error } = await supabase.from('veiculo_aquisicao').insert({ veiculo_id: veiculoId, ...data })
     if (error) throw new Error(error.message)
@@ -1529,6 +1731,13 @@ export async function criarAnexo(data: {
   tipoArquivo: string | null
 }): Promise<Anexo & { urlAssinada: string | null }> {
   const { userId } = await exigirPermissaoAnexo(data.entidadeTipo, data.entidadeId)
+  // O upload (AnexosClient) grava em `${tipo}/${id}/arquivo`. Exigir esse
+  // prefixo impede registrar — e receber signed URL de — um arquivo de outra
+  // entidade/loja só informando o caminho dele.
+  const prefixo = `${data.entidadeTipo}/${data.entidadeId}/`
+  if (!data.path.startsWith(prefixo) || data.path.includes('..') || data.path.slice(prefixo.length).includes('/')) {
+    throw new Error('Caminho de anexo inválido.')
+  }
   const supabase = adminSupabase()
 
   const { data: anexo, error } = await supabase
@@ -1555,19 +1764,26 @@ export async function criarAnexo(data: {
   return { ...(anexo as Anexo), urlAssinada: signed?.signedUrl ?? null }
 }
 
-export async function deletarAnexo(anexoId: string, path: string, entidadeId: string) {
+// `path` e `entidadeId` ficam na assinatura por compatibilidade, mas o que
+// vale é o que está gravado no anexo: antes o arquivo removido do storage era
+// o `path` mandado pelo navegador (dava para apagar documento de qualquer
+// loja passando o caminho) e a permissão era checada contra um entidadeId
+// qualquer.
+export async function deletarAnexo(anexoId: string, _path: string, _entidadeId: string) {
   const admin = adminSupabase()
 
-  // Deriva o tipo real do anexo no banco (não confia no que o cliente alega
-  // ser) — é isso que decide qual checagem de permissão (mais ou menos
-  // restrita) se aplica.
-  const { data: anexo } = await admin.from('anexos').select('entidade_tipo').eq('id', anexoId).single()
+  const { data: anexo } = await admin
+    .from('anexos')
+    .select('entidade_tipo, entidade_id, url')
+    .eq('id', anexoId)
+    .single()
   if (!anexo) throw new Error('Anexo não encontrado.')
   const entidadeTipo = anexo.entidade_tipo as 'veiculo' | 'venda'
+  const entidadeId = anexo.entidade_id as string
 
   await exigirPermissaoAnexo(entidadeTipo, entidadeId)
 
-  await admin.storage.from('veiculos-documentos').remove([path])
+  await admin.storage.from('veiculos-documentos').remove([anexo.url as string])
   const { error } = await admin.from('anexos').delete().eq('id', anexoId)
   if (error) throw new Error(error.message)
 
@@ -1630,10 +1846,7 @@ export async function desmarcarPromissoriaPaga(id: string, vendaId: string): Pro
 // ─── EXCLUSÃO DE VEÍCULO ───────────────────────────────────────────────────────
 
 export async function excluirVeiculo(veiculoId: string): Promise<{ tipo: 'soft' | 'hard' }> {
-  const perfilAtual = await obterPerfilAtual()
-  if (perfilAtual === 'socio') {
-    await exigirAcessoVeiculoExistenteSocio(veiculoId)
-  }
+  await exigirAcessoVeiculo(veiculoId)
   const supabase = adminSupabase()
 
   const [
@@ -1686,21 +1899,26 @@ export async function saveVistoria(
   aprovado: boolean,
   vistoriaId?: string
 ) {
-  const userClient = await userSupabase()
-  const { data: { session } } = await userClient.auth.getSession()
+  // loja_id do veículo no banco e inspetor da sessão; o `lojaId` do
+  // navegador é ignorado (mantido só por compatibilidade com quem chama).
+  void lojaId
+  const { perfil, veiculo } = await exigirAcessoVeiculo(veiculoId)
   const supabase = adminSupabase()
 
   if (vistoriaId) {
-    const { error } = await supabase
+    const { data: atualizada, error } = await supabase
       .from('vistoria_veiculo')
       .update({ itens, observacoes: observacoes || null, aprovado })
       .eq('id', vistoriaId)
+      .eq('veiculo_id', veiculoId)
+      .select('id')
     if (error) throw new Error(error.message)
+    if (!atualizada?.length) throw new Error('Vistoria não encontrada para este veículo.')
   } else {
     const { error } = await supabase.from('vistoria_veiculo').insert({
       veiculo_id: veiculoId,
-      loja_id: lojaId,
-      inspetor_id: session?.user.id,
+      loja_id: veiculo.loja_id,
+      inspetor_id: perfil.id,
       itens,
       observacoes: observacoes || null,
       aprovado,

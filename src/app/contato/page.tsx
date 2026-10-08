@@ -43,7 +43,7 @@ export default async function ContatoPage() {
           Preencha o formulário abaixo e entraremos em contato. Ou fale diretamente pelo WhatsApp!
         </p>
 
-        <ContatoForm lojaId={loja.id} waHref={waHref} />
+        <ContatoForm waHref={waHref} />
 
         <div className="mt-10 pt-8 border-t border-gray-100 grid grid-cols-1 sm:grid-cols-2 gap-6">
           {loja.endereco && (

@@ -4,11 +4,11 @@ import { useState } from 'react'
 import { submitContatoLead } from '@/app/actions'
 
 interface Props {
-  lojaId: string
   waHref: string
 }
 
-export default function ContatoForm({ lojaId, waHref }: Props) {
+// A loja é resolvida no servidor pelo domínio (submitContatoLead) — não vem daqui.
+export default function ContatoForm({ waHref }: Props) {
   const [nome, setNome] = useState('')
   const [telefone, setTelefone] = useState('')
   const [email, setEmail] = useState('')
@@ -23,10 +23,15 @@ export default function ContatoForm({ lojaId, waHref }: Props) {
     setEnviando(true)
     setErro(null)
     try {
-      await submitContatoLead(lojaId, { nome, telefone, email, mensagem, veiculoInteresse })
+      const website = (e.currentTarget as HTMLFormElement).elements.namedItem('website') as HTMLInputElement | null
+      const res = await submitContatoLead({ nome, telefone, email, mensagem, veiculoInteresse, website: website?.value })
+      if (!res.ok) {
+        setErro(res.erro)
+        return
+      }
       setSucesso(true)
-    } catch (err: unknown) {
-      setErro(err instanceof Error ? err.message : 'Erro ao enviar. Tente novamente.')
+    } catch {
+      setErro('Erro ao enviar. Tente novamente.')
     } finally {
       setEnviando(false)
     }
@@ -62,6 +67,13 @@ export default function ContatoForm({ lojaId, waHref }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Campo-isca anti-spam: fora da tela e fora do Tab; humanos não preenchem. */}
+      <div aria-hidden="true" style={{ position: 'absolute', left: '-10000px', width: 1, height: 1, overflow: 'hidden' }}>
+        <label>
+          Site
+          <input type="text" name="website" tabIndex={-1} autoComplete="off" defaultValue="" />
+        </label>
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label className="block text-xs font-semibold uppercase tracking-wider text-[#6B7280] mb-1.5">

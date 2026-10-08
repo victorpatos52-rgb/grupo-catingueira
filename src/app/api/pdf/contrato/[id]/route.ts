@@ -1,12 +1,6 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-function adminSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-}
+import { adminSupabase } from '@/lib/supabase-server'
+import { obterPerfilDaSessao, temAcessoLoja } from '@/lib/acesso'
 
 function formatarPreco(v: number) {
   return v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -17,6 +11,10 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
+
+  const perfil = await obterPerfilDaSessao()
+  if (!perfil) return NextResponse.json({ error: 'Não autenticado' }, { status: 401 })
+
   const supabase = adminSupabase()
 
   const { data: veiculo } = await supabase
@@ -27,6 +25,14 @@ export async function GET(
 
   if (!veiculo) {
     return NextResponse.json({ error: 'Veículo não encontrado' }, { status: 404 })
+  }
+  // Mesma regra da ficha: acesso à loja do veículo; sócio só em veículo de
+  // propriedade dividida (validarVeiculoParaSocio em actions.ts).
+  if (
+    !temAcessoLoja(perfil, veiculo.loja_id) ||
+    (perfil.perfil === 'socio' && veiculo.proprietario_tipo !== 'dividido')
+  ) {
+    return NextResponse.json({ error: 'Sem permissão' }, { status: 403 })
   }
 
   const loja = veiculo.loja as { nome: string; whatsapp: string; endereco: string | null; cnpj?: string }

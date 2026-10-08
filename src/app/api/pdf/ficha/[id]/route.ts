@@ -99,7 +99,7 @@ export async function GET(
     return NextResponse.json({ error: 'Veículo não encontrado' }, { status: 404 })
   }
   // Sócio só enxerga veículos de propriedade dividida (mesma regra de
-  // exigirAcessoVeiculoExistenteSocio em actions.ts).
+  // validarVeiculoParaSocio / exigirAcessoVeiculo em actions.ts).
   if (
     !temAcessoLoja(perfil, veiculo.loja_id) ||
     (perfil.perfil === 'socio' && veiculo.proprietario_tipo !== 'dividido')

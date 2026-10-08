@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -24,6 +24,14 @@ export default function LoginPage() {
   const loja      = useLoja()
   const [erro, setErro]           = useState('')
   const [carregando, setCarregando] = useState(false)
+
+  // /api/auth/sair manda ?motivo=desativado depois de encerrar a sessão de
+  // usuário desativado. Lido no efeito (não no render) para não divergir do HTML do servidor.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('motivo') === 'desativado') {
+      setErro('Seu acesso foi desativado. Fale com o administrador da loja.')
+    }
+  }, [])
 
   const {
     register,
