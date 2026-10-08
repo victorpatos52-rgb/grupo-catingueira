@@ -296,6 +296,7 @@ export async function updateLojaSettings(
     endereco: string | null
     cidade: string | null
     estado: string | null
+    cep?: string | null
     horario: string | null
     sobre: string | null
     missao: string | null
@@ -316,6 +317,13 @@ export async function updateLojaSettings(
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) {
     throw new Error('Sessão expirada. Atualize a página e tente novamente.')
+  }
+
+  // CEP vai para o anúncio da OLX (zipcode, string numérica): só dígitos, 8.
+  if (data.cep !== undefined && data.cep !== null) {
+    const cep = data.cep.replace(/\D/g, '')
+    if (cep.length !== 8) throw new Error('CEP deve ter 8 dígitos.')
+    data = { ...data, cep }
   }
 
   const { data: atualizadas, error } = await supabase.from('lojas').update(data).eq('id', lojaId).select('id')

@@ -82,6 +82,14 @@ export interface Veiculo {
   publicar_olx?: boolean
   /** Pendente — migration 018, não aplicada ainda. */
   publicar_marketplace?: boolean
+  /** Proposta — migration 020, não aplicada. Ids do catálogo de Autos da OLX (ver src/lib/olx-catalogo.ts). */
+  olx_marca_id?: string | null
+  olx_modelo_id?: string | null
+  olx_versao_id?: string | null
+  /** Proposta — migration 020. `id` enviado em ad_list[] no import da OLX (máx. 19 chars). */
+  olx_ad_id?: string | null
+  olx_status?: string | null
+  olx_erro?: string | null
 }
 
 export interface CustoAdicional {

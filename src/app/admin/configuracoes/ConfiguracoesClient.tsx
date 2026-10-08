@@ -28,7 +28,15 @@ const schema = z.object({
   cor_secundaria: z.string().min(1, 'Obrigatório'),
   endereco: z.string().optional(),
   cidade: z.string().optional(),
-  estado: z.string().optional(),
+  estado: z
+    .string()
+    .optional()
+    .refine(v => !v || /^[A-Za-z]{2}$/.test(v.trim()), 'Use a sigla com 2 letras (ex: PB)'),
+  // A OLX exige CEP no anúncio (zipcode, string numérica) — guardado só com dígitos.
+  cep: z
+    .string()
+    .optional()
+    .refine(v => !v || v.replace(/\D/g, '').length === 8, 'CEP deve ter 8 dígitos'),
   horario: z.string().optional(),
   sobre: z.string().optional(),
   missao: z.string().optional(),
@@ -38,6 +46,12 @@ const schema = z.object({
 })
 
 type FormData = z.infer<typeof schema>
+
+// Máscara 00000-000 (aceita colar com ou sem traço/espaços).
+function formatarCep(valor: string) {
+  const d = valor.replace(/\D/g, '').slice(0, 8)
+  return d.length > 5 ? `${d.slice(0, 5)}-${d.slice(5)}` : d
+}
 
 const inputClass =
   'w-full bg-[#F9FAFB] border border-[#E5E7EB] rounded-xl px-3.5 py-2.5 text-[#111827] text-sm focus:outline-none focus:ring-2 focus:ring-[#F5C842] focus:border-[#F5C842] transition-all placeholder-[#D1D5DB]'
@@ -190,6 +204,7 @@ function ConfiguracoesForm({ loja }: { loja: Loja }) {
       endereco: loja.endereco ?? '',
       cidade: loja.cidade ?? '',
       estado: loja.estado ?? '',
+      cep: formatarCep(loja.cep ?? ''),
       horario: loja.horario ?? '',
       sobre: loja.sobre ?? '',
       missao: loja.missao ?? '',
@@ -271,8 +286,9 @@ function ConfiguracoesForm({ loja }: { loja: Loja }) {
         cor_primaria: data.cor_primaria,
         cor_secundaria: data.cor_secundaria,
         endereco: data.endereco || null,
-        cidade: data.cidade || null,
-        estado: data.estado || null,
+        cidade: data.cidade?.trim() || null,
+        estado: data.estado?.trim().toUpperCase() || null,
+        cep: data.cep?.replace(/\D/g, '') || null,
         horario: data.horario || null,
         sobre: data.sobre || null,
         missao: data.missao || null,
@@ -332,12 +348,27 @@ function ConfiguracoesForm({ loja }: { loja: Loja }) {
             </div>
           </div>
           <div>
+            <label className={labelClass}>CEP</label>
+            <input
+              {...register('cep', {
+                onChange: e => setValue('cep', formatarCep(e.target.value), { shouldDirty: true }),
+              })}
+              inputMode="numeric"
+              autoComplete="postal-code"
+              maxLength={9}
+              className={inputClass}
+              placeholder="58000-000"
+            />
+            {errors.cep && <p className={errorClass}>{errors.cep.message}</p>}
+          </div>
+          <div>
             <label className={labelClass}>Cidade</label>
             <input {...register('cidade')} className={inputClass} />
           </div>
           <div>
-            <label className={labelClass}>Estado</label>
-            <input {...register('estado')} className={inputClass} placeholder="PB" />
+            <label className={labelClass}>UF</label>
+            <input {...register('estado')} maxLength={2} className={`${inputClass} uppercase`} placeholder="PB" />
+            {errors.estado && <p className={errorClass}>{errors.estado.message}</p>}
           </div>
           <div className="sm:col-span-2">
             <label className={labelClass}>Endereço</label>

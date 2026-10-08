@@ -19,6 +19,7 @@ import { CSS } from '@dnd-kit/utilities'
 import { createClient } from '@/lib/supabase'
 import { criarVeiculo, atualizarVeiculo, atualizarDadosVeiculo } from '@/app/actions'
 import { useAdmin } from '@/contexts/AdminContext'
+import VinculoCatalogoOlx from '@/components/admin/VinculoCatalogoOlx'
 import type { Veiculo } from '@/types'
 
 const CONDICAO_LISTA: { valor: 'novo' | 'seminovo' | 'usado'; label: string }[] = [
@@ -631,6 +632,22 @@ export default function VeiculoForm({ veiculo, lojaId, hideFotos, fotos: fotosEx
             </label>
           </div>
         </div>
+        {/* Só na edição: o vínculo é gravado no veículo já existente. Usa os
+            valores atuais do formulário, mesmo antes de salvar. */}
+        {veiculo && watch('publicar_olx') && (
+          <VinculoCatalogoOlx
+            veiculoId={veiculo.id}
+            marca={watch('marca') ?? ''}
+            modelo={watch('modelo') ?? ''}
+            versao={watch('versao') || null}
+            ano={watch('ano_modelo') || watch('ano') || null}
+            vinculoAtual={
+              veiculo.olx_marca_id && veiculo.olx_modelo_id && veiculo.olx_versao_id
+                ? { marcaId: veiculo.olx_marca_id, modeloId: veiculo.olx_modelo_id, versaoId: veiculo.olx_versao_id }
+                : null
+            }
+          />
+        )}
       </div>
 
       {erro && (

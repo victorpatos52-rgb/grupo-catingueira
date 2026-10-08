@@ -4,6 +4,7 @@ import Image from 'next/image'
 import { createServerSupabase, adminSupabase } from '@/lib/supabase-server'
 import { getLojaIdAtiva } from '@/lib/getLojaIdAtiva'
 import { formatarPreco, formatarKm } from '@/lib/utils'
+import { NOME_CANAL, pendenciasLojaOlx, pendenciasPublicacao } from '@/lib/publicacao'
 import type { Veiculo, UsuarioPerfil } from '@/types'
 import MarcaVendidoButton from '@/components/admin/MarcaVendidoButton'
 import VeiculosBuscaClient from './VeiculosBuscaClient'
@@ -12,6 +13,7 @@ interface SearchParams {
   status?: string
   q?: string
   rascunho?: string
+  pendencias?: string
 }
 
 export default async function VeiculosAdminPage({
@@ -49,8 +51,21 @@ export default async function VeiculosAdminPage({
     query = query.or(`marca.ilike.%${q}%,modelo.ilike.%${q}%,placa.ilike.%${q}%`)
   }
 
-  const { data } = await query
-  const veiculos = (data ?? []) as Veiculo[]
+  const [{ data }, { data: lojaData }] = await Promise.all([
+    query,
+    admin.from('lojas').select('cep, whatsapp').eq('id', lojaId).maybeSingle(),
+  ])
+  const todos = (data ?? []) as Veiculo[]
+
+  // Pendências de publicação (OLX/Marketplace) calculadas aqui, sem query
+  // extra — só para veículos com publicar_olx/publicar_marketplace marcados.
+  const pendenciasPorVeiculo = new Map(todos.map(v => [v.id, pendenciasPublicacao(v)]))
+  const comPendencia = todos.filter(v => (pendenciasPorVeiculo.get(v.id) ?? []).length > 0)
+  const veiculos = params.pendencias ? comPendencia : todos
+  const pendenciasLoja =
+    lojaData && todos.some(v => v.publicar_olx && v.status !== 'vendido')
+      ? pendenciasLojaOlx(lojaData)
+      : []
 
   const statusBadge: Record<string, string> = {
     disponivel: 'bg-green-50 text-green-700 border-green-200',
@@ -99,6 +114,7 @@ export default async function VeiculosAdminPage({
               if (opt.value) p.set('status', opt.value)
               if (params.q) p.set('q', params.q)
               if (params.rascunho) p.set('rascunho', '1')
+              if (params.pendencias) p.set('pendencias', '1')
               const qs = p.toString()
               return `/admin/veiculos${qs ? `?${qs}` : ''}`
             })()}
@@ -120,6 +136,7 @@ export default async function VeiculosAdminPage({
             if (params.status) p.set('status', params.status)
             if (params.q) p.set('q', params.q)
             if (!params.rascunho) p.set('rascunho', '1')
+            if (params.pendencias) p.set('pendencias', '1')
             const qs = p.toString()
             return `/admin/veiculos${qs ? `?${qs}` : ''}`
           })()}
@@ -131,7 +148,36 @@ export default async function VeiculosAdminPage({
         >
           📝 Só rascunhos
         </a>
+        {(comPendencia.length > 0 || params.pendencias) && (
+          <a
+            href={(() => {
+              const p = new URLSearchParams()
+              if (params.status) p.set('status', params.status)
+              if (params.q) p.set('q', params.q)
+              if (params.rascunho) p.set('rascunho', '1')
+              if (!params.pendencias) p.set('pendencias', '1')
+              const qs = p.toString()
+              return `/admin/veiculos${qs ? `?${qs}` : ''}`
+            })()}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+              params.pendencias
+                ? 'border-red-300 text-red-700 bg-red-50'
+                : 'border-[#E5E5E5] text-[#6B7280] hover:border-[#D0D0D0] hover:text-[#374151] bg-white'
+            }`}
+          >
+            ⚠️ Pendências de publicação ({comPendencia.length})
+          </a>
+        )}
       </div>
+
+      {pendenciasLoja.length > 0 && (
+        <div className="mb-6 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
+          <p className="font-semibold">A OLX vai recusar os anúncios desta loja enquanto faltar:</p>
+          <ul className="list-disc pl-5 mt-1 space-y-0.5">
+            {pendenciasLoja.map(item => <li key={item}>{item}</li>)}
+          </ul>
+        </div>
+      )}
 
       <div className="bg-white border border-[#E5E5E5] rounded-xl overflow-hidden shadow-sm">
         {veiculos.length === 0 ? (
@@ -183,6 +229,17 @@ export default async function VeiculosAdminPage({
                             )}
                           </p>
                           <p className="text-[#9CA3AF] text-xs">{v.ano} · {v.cambio}</p>
+                          {(pendenciasPorVeiculo.get(v.id) ?? []).map(p => (
+                            // <details> nativo: lista abre/fecha sem JS no Server Component.
+                            <details key={p.canal} className="mt-1 text-xs">
+                              <summary className="cursor-pointer inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full border border-red-200 bg-red-50 text-red-700 font-semibold">
+                                ⚠ {NOME_CANAL[p.canal]}: {p.itens.length} pendência{p.itens.length > 1 ? 's' : ''}
+                              </summary>
+                              <ul className="list-disc pl-5 mt-1 text-red-700 space-y-0.5">
+                                {p.itens.map(item => <li key={item}>{item}</li>)}
+                              </ul>
+                            </details>
+                          ))}
                         </div>
                       </div>
                     </td>

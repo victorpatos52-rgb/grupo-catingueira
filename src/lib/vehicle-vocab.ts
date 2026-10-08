@@ -88,3 +88,28 @@ const CONDICAO_MAP: Record<CondicaoVeiculo, CodigosCanal> = {
 export function traduzirCondicao(valor: CondicaoVeiculo): CodigosCanal {
   return CONDICAO_MAP[valor]
 }
+
+// ── Cor (OLX: campo `carcolor`, opcional) ─────────────────────────────────
+// Códigos da doc OLX (autos/sub_auto.html): 1 Preto, 2 Branco, 3 Prata,
+// 4 Vermelho, 5 Cinza, 6 Azul, 7 Amarelo, 8 Verde, 9 Laranja, 10 Outra.
+// `cor` é texto livre no cadastro — só traduz nomes exatos (com variação de
+// gênero/acento/caixa). Tons como "Grafite", "Vinho" ou "Champagne" voltam
+// null em vez de serem encaixados num código por palpite: como carcolor não
+// é obrigatório, quem monta o anúncio decide entre omitir ou mandar 10 (Outra).
+// Facebook (`exterior_color`) não verificado aqui — fica null.
+const COR_OLX: Record<string, number> = {
+  preto: 1, preta: 1,
+  branco: 2, branca: 2,
+  prata: 3, prateado: 3, prateada: 3,
+  vermelho: 4, vermelha: 4,
+  cinza: 5,
+  azul: 6,
+  amarelo: 7, amarela: 7,
+  verde: 8,
+  laranja: 9,
+}
+
+export function traduzirCor(valor: string): CodigosCanal {
+  const chave = valor.normalize('NFD').replace(/[̀-ͯ]/g, '').trim().toLowerCase()
+  return { olx: COR_OLX[chave] ?? null, facebook: null }
+}
