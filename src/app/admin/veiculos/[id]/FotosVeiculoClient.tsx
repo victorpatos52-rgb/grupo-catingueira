@@ -13,8 +13,8 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, useSortable, arrayMove, rectSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { createClient } from '@/lib/supabase'
 import { atualizarFotosVeiculo } from '@/app/actions'
+import { enviarFotosVeiculo, textoProgresso, type ProgressoUpload, type ResultadoUpload } from '@/lib/upload-fotos'
 
 interface Props {
   veiculoId: string
@@ -73,6 +73,9 @@ export default function FotosVeiculoClient({ veiculoId, lojaId, fotosIniciais }:
 
   const [fotos, setFotos] = useState<string[]>(fotosIniciais)
   const [uploading, setUploading] = useState(false)
+  const [progresso, setProgresso] = useState<ProgressoUpload | null>(null)
+  const [errosUpload, setErrosUpload] = useState<ResultadoUpload['erros']>([])
+  const [erroSalvar, setErroSalvar] = useState<string | null>(null)
   const [salvando, setSalvando] = useState(false)
   const [salvoOk, setSalvoOk] = useState(false)
 
@@ -83,28 +86,26 @@ export default function FotosVeiculoClient({ veiculoId, lojaId, fotosIniciais }:
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
   )
 
-  async function uploadFotos(files: FileList) {
+  async function uploadFotos(files: File[]) {
+    if (files.length === 0) return
     setUploading(true)
     setSalvoOk(false)
-    const supabase = createClient()
-    const urls: string[] = []
-
-    for (const file of Array.from(files)) {
-      const ext = file.name.split('.').pop()
-      const nome = `${lojaId}/${Date.now()}-${Math.random().toString(36).substring(2)}.${ext}`
-      const { error } = await supabase.storage
-        .from('veiculos-fotos')
-        .upload(nome, file, { upsert: false })
-      if (!error) {
-        const { data } = supabase.storage.from('veiculos-fotos').getPublicUrl(nome)
-        urls.push(data.publicUrl)
+    setErrosUpload([])
+    setErroSalvar(null)
+    try {
+      // Antes um erro de upload era descartado em silêncio e em seguida vinha
+      // "✓ Salvo" — o usuário via sucesso e a foto simplesmente não aparecia.
+      const { urls, erros } = await enviarFotosVeiculo(lojaId, files, setProgresso)
+      setErrosUpload(erros)
+      if (urls.length > 0) {
+        const novasFotos = [...fotos, ...urls]
+        setFotos(novasFotos)
+        await salvarFotos(novasFotos)
       }
+    } finally {
+      setUploading(false)
+      setProgresso(null)
     }
-
-    const novasFotos = [...fotos, ...urls]
-    setFotos(novasFotos)
-    setUploading(false)
-    await salvarFotos(novasFotos)
   }
 
   function removerFoto(index: number) {
@@ -127,12 +128,17 @@ export default function FotosVeiculoClient({ veiculoId, lojaId, fotosIniciais }:
   async function salvarFotos(fotosParaSalvar = fotos) {
     setSalvando(true)
     setSalvoOk(false)
+    setErroSalvar(null)
     try {
       await atualizarFotosVeiculo(veiculoId, fotosParaSalvar)
       setSalvoOk(true)
       router.refresh()
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : 'Erro ao salvar fotos')
+      // Em produção o Next troca a mensagem de throw de Server Action por um
+      // texto genérico; o principal aqui é não fingir que salvou.
+      setErroSalvar(
+        `As fotos foram enviadas, mas não foi possível salvar no veículo${err instanceof Error && err.message ? ` (${err.message})` : ''}. Toque em "Salvar ordem" para tentar de novo.`
+      )
     } finally {
       setSalvando(false)
     }
@@ -155,7 +161,9 @@ export default function FotosVeiculoClient({ veiculoId, lojaId, fotosIniciais }:
               className="aspect-square rounded-lg border-2 border-dashed border-[#E5E7EB] hover:border-[#F5C842] bg-[#F9FAFB] flex flex-col items-center justify-center gap-1 transition-colors disabled:opacity-50"
             >
               {uploading ? (
-                <span className="text-[#9CA3AF] text-xs">Enviando...</span>
+                <span className="text-[#6B7280] text-[10px] leading-tight text-center px-1">
+                  {textoProgresso(progresso) || 'Enviando...'}
+                </span>
               ) : (
                 <>
                   <svg className="w-6 h-6 text-[#D1D5DB]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -175,8 +183,43 @@ export default function FotosVeiculoClient({ veiculoId, lojaId, fotosIniciais }:
         accept="image/*"
         multiple
         className="hidden"
-        onChange={e => e.target.files && uploadFotos(e.target.files)}
+        onChange={e => {
+          // Copia antes de limpar: zerar o value permite escolher o MESMO
+          // arquivo de novo depois de um erro (senão o onChange não dispara).
+          const arquivos = Array.from(e.target.files ?? [])
+          e.target.value = ''
+          void uploadFotos(arquivos)
+        }}
       />
+
+      {uploading && progresso && (
+        <div className="mb-3" aria-live="polite">
+          <p className="text-xs text-[#6B7280] mb-1">{textoProgresso(progresso)}</p>
+          <div className="h-1.5 bg-[#F3F4F6] rounded-full overflow-hidden">
+            <div
+              className="h-full bg-[#F5C842] transition-all"
+              style={{
+                width: `${Math.round(((progresso.atual - 1 + (progresso.etapa === 'enviando' ? progresso.percentual / 100 : 0)) / progresso.total) * 100)}%`,
+              }}
+            />
+          </div>
+        </div>
+      )}
+
+      {errosUpload.length > 0 && (
+        <div role="alert" className="mb-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+          <p className="font-semibold">
+            {errosUpload.length === 1 ? 'Uma foto não foi enviada:' : `${errosUpload.length} fotos não foram enviadas:`}
+          </p>
+          <ul className="list-disc pl-5 mt-1 space-y-0.5 text-xs">
+            {errosUpload.map((e, i) => <li key={i}><span className="font-medium">{e.arquivo}</span>: {e.mensagem}</li>)}
+          </ul>
+        </div>
+      )}
+
+      {erroSalvar && (
+        <p role="alert" className="mb-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-3">{erroSalvar}</p>
+      )}
 
       <p className="text-[#9CA3AF] text-xs mb-4">Arraste para reordenar. A primeira foto será a capa.</p>
 

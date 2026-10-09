@@ -16,10 +16,10 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, useSortable, arrayMove, rectSortingStrategy } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { createClient } from '@/lib/supabase'
 import { criarVeiculo, atualizarVeiculo, atualizarDadosVeiculo } from '@/app/actions'
 import { useAdmin } from '@/contexts/AdminContext'
 import VinculoCatalogoOlx from '@/components/admin/VinculoCatalogoOlx'
+import { enviarFotosVeiculo, textoProgresso, type ProgressoUpload, type ResultadoUpload } from '@/lib/upload-fotos'
 import type { Veiculo } from '@/types'
 
 const CONDICAO_LISTA: { valor: 'novo' | 'seminovo' | 'usado'; label: string }[] = [
@@ -159,6 +159,8 @@ export default function VeiculoForm({ veiculo, lojaId, hideFotos, fotos: fotosEx
   const [fotos, setFotos] = useState<string[]>(hideFotos ? (fotosExterna ?? veiculo?.fotos ?? []) : (veiculo?.fotos ?? []))
   const [opcionais, setOpcionais] = useState<string[]>(veiculo?.opcionais ?? [])
   const [uploading, setUploading] = useState(false)
+  const [progresso, setProgresso] = useState<ProgressoUpload | null>(null)
+  const [errosUpload, setErrosUpload] = useState<ResultadoUpload['erros']>([])
   const [salvando, setSalvando] = useState(false)
   const [salvoOk, setSalvoOk] = useState(false)
   const [erro, setErro] = useState('')
@@ -207,26 +209,20 @@ export default function VeiculoForm({ veiculo, lojaId, hideFotos, fotos: fotosEx
 
   const proprietarioTipoAtual = watch('proprietario_tipo')
 
-  async function uploadFotos(files: FileList) {
+  // Mesmo fluxo da aba Fotos (lib/upload-fotos): reduz no aparelho, envia uma
+  // por vez com progresso e mostra o erro real de cada foto que falhar.
+  async function uploadFotos(files: File[]) {
+    if (files.length === 0) return
     setUploading(true)
-    const supabase = createClient()
-    const urls: string[] = []
-
-    for (const file of Array.from(files)) {
-      const ext = file.name.split('.').pop()
-      const nome = `${lojaId}/${Date.now()}-${Math.random().toString(36).substring(2)}.${ext}`
-      const { error } = await supabase.storage
-        .from('veiculos-fotos')
-        .upload(nome, file, { upsert: false })
-
-      if (!error) {
-        const { data } = supabase.storage.from('veiculos-fotos').getPublicUrl(nome)
-        urls.push(data.publicUrl)
-      }
+    setErrosUpload([])
+    try {
+      const { urls, erros } = await enviarFotosVeiculo(lojaId, files, setProgresso)
+      setErrosUpload(erros)
+      setFotos(prev => [...prev, ...urls])
+    } finally {
+      setUploading(false)
+      setProgresso(null)
     }
-
-    setFotos(prev => [...prev, ...urls])
-    setUploading(false)
   }
 
   function removerFoto(index: number) {
@@ -355,7 +351,9 @@ export default function VeiculoForm({ veiculo, lojaId, hideFotos, fotos: fotosEx
                 className="aspect-square rounded-lg border-2 border-dashed border-[#E5E7EB] hover:border-[#F5C842] bg-[#F9FAFB] flex flex-col items-center justify-center gap-1 transition-colors disabled:opacity-50"
               >
                 {uploading ? (
-                  <span className="text-[#9CA3AF] text-xs">Enviando...</span>
+                  <span className="text-[#6B7280] text-[10px] leading-tight text-center px-1">
+                    {textoProgresso(progresso) || 'Enviando...'}
+                  </span>
                 ) : (
                   <>
                     <svg className="w-6 h-6 text-[#D1D5DB]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -374,8 +372,23 @@ export default function VeiculoForm({ veiculo, lojaId, hideFotos, fotos: fotosEx
           accept="image/*"
           multiple
           className="hidden"
-          onChange={e => e.target.files && uploadFotos(e.target.files)}
+          onChange={e => {
+            // Zerar o value permite reescolher o mesmo arquivo depois de um erro.
+            const arquivos = Array.from(e.target.files ?? [])
+            e.target.value = ''
+            void uploadFotos(arquivos)
+          }}
         />
+        {errosUpload.length > 0 && (
+          <div role="alert" className="mb-3 text-sm text-red-700 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+            <p className="font-semibold">
+              {errosUpload.length === 1 ? 'Uma foto não foi enviada:' : `${errosUpload.length} fotos não foram enviadas:`}
+            </p>
+            <ul className="list-disc pl-5 mt-1 space-y-0.5 text-xs">
+              {errosUpload.map((e, i) => <li key={i}><span className="font-medium">{e.arquivo}</span>: {e.mensagem}</li>)}
+            </ul>
+          </div>
+        )}
         <p className="text-[#9CA3AF] text-xs">Arraste para reordenar. A primeira foto será a capa.</p>
       </div>}
 
