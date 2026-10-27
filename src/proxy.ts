@@ -2,6 +2,20 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 export async function proxy(request: NextRequest) {
+  const pathname = request.nextUrl.pathname
+
+  // Rotas públicas (inclui /login): só repassa o pathname em x-pathname para
+  // o root layout decidir o que renderizar no <head> (tag do Google Ads).
+  // Sem sessão/redirect aqui — o bloqueio por login abaixo vale apenas para
+  // /admin e /api/pdf, exatamente como antes da ampliação do matcher.
+  const rotaProtegida =
+    pathname === '/admin' || pathname.startsWith('/admin/') || pathname.startsWith('/api/pdf/')
+  if (!rotaProtegida) {
+    const requestHeaders = new Headers(request.headers)
+    requestHeaders.set('x-pathname', pathname)
+    return NextResponse.next({ request: { headers: requestHeaders } })
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   // Único ponto responsável por renovar a sessão (autoRefreshToken padrão
@@ -39,7 +53,6 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
-  const pathname = request.nextUrl.pathname
   const rotaSoDashboard = pathname.startsWith('/admin/dashboard')
   const rotaSoAdminFinanceiro = pathname.startsWith('/admin/financeiro')
   const rotaBloqueadaParaSocio =
@@ -89,5 +102,8 @@ export async function proxy(request: NextRequest) {
 export const config = {
   // /api/pdf: as rotas de PDF exigem sessão (ver lib/acesso.ts) e são abertas
   // em nova aba a partir do admin — passam por aqui para ter o token renovado.
-  matcher: ['/admin/:path*', '/api/pdf/:path*'],
+  // Demais páginas: só para gravar x-pathname (ver início de proxy()). Fora:
+  // outras rotas /api, assets do Next e qualquer arquivo com extensão (sw.js,
+  // imagens, manifest...).
+  matcher: ['/admin/:path*', '/api/pdf/:path*', '/((?!api|_next/static|_next/image|.*\\..*).*)'],
 }

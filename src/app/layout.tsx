@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { notFound } from 'next/navigation'
+import { headers } from 'next/headers'
 import { Barlow, Barlow_Condensed } from 'next/font/google'
 import { GoogleAnalytics } from '@next/third-parties/google'
 import './globals.css'
@@ -65,6 +66,15 @@ export async function generateViewport(): Promise<Viewport> {
 
 const gaId = process.env.NEXT_PUBLIC_GA_ID
 
+// Texto exatamente como fornecido pelo Google — não reformatar.
+const GOOGLE_ADS_INLINE = `
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'AW-18541038284');
+`
+
 export default async function RootLayout({
   children,
 }: {
@@ -77,6 +87,14 @@ export default async function RootLayout({
   const corPrimaria = loja?.cor_primaria ?? '#F5C200'
   const corSecundaria = loja?.cor_secundaria ?? '#1C1C1C'
 
+  // x-pathname é gravado pelo src/proxy.ts só nas rotas públicas; sem ele
+  // (/admin, /api/pdf) a tag não é renderizada.
+  const pathname = (await headers()).get('x-pathname')
+  const rotaInterna =
+    pathname === '/login' || pathname?.startsWith('/login/') ||
+    pathname === '/admin' || pathname?.startsWith('/admin/')
+  const mostrarGoogleAds = loja.slug === 'felizardo' && pathname !== null && !rotaInterna
+
   return (
     <html
       lang="pt-BR"
@@ -88,6 +106,13 @@ export default async function RootLayout({
         } as React.CSSProperties
       }
     >
+      {mostrarGoogleAds && (
+        <head>
+          {/* Google tag (gtag.js) */}
+          <script async src="https://www.googletagmanager.com/gtag/js?id=AW-18541038284"></script>
+          <script dangerouslySetInnerHTML={{ __html: GOOGLE_ADS_INLINE }} />
+        </head>
+      )}
       <body>
         <PwaServiceWorker />
         <LojaProvider loja={loja}>
