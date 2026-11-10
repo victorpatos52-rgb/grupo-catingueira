@@ -3,9 +3,9 @@
 // em outra tabela, troque SÓ esta constante (e a lista da função
 // transferir_veiculo na migration 025).
 //
-// Confirmado no banco real (nov/2026): `public.vistoria_veiculo` NÃO existe
-// (ERROR 42P01). Enquanto não houver tabela de vistoria, a aba Vistoria mostra
-// "indisponível" e a transferência pula essa etapa.
+// Banco real (nov/2026): `public.vistoria_veiculo` não existia (ERROR 42P01) e
+// é criada pela migration 026 com este mesmo nome. Até a 026 ser aplicada, a
+// aba Vistoria mostra "indisponível" e a transferência pula essa etapa.
 export const TABELA_VISTORIA = 'vistoria_veiculo'
 
 type ErroSupabase = { code?: string | null; message?: string | null } | null | undefined

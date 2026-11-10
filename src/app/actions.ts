@@ -591,7 +591,9 @@ export async function criarLead(data: {
   const perfilCriador = await exigirAcessoLoja(data.loja_id, 'Você não tem permissão para criar leads nesta loja.')
   if (data.responsavel_id) await exigirResponsavelDaLoja(data.responsavel_id, data.loja_id)
   const supabase = adminSupabase()
-  // Campos base garantidamente existentes na tabela
+  // Colunas de leads (email, veiculo_interesse, responsavel_id, tags,
+  // criado_por) passam a existir com a migration 026 — antes, este insert
+  // falhava no banco real.
   const payload: Record<string, unknown> = {
     loja_id: data.loja_id,
     nome: data.nome,
@@ -603,6 +605,8 @@ export async function criarLead(data: {
     responsavel_id: data.responsavel_id ?? null,
     status: data.status,
     tags: data.tags ?? [],
+    // Coluna criada pela migration 026 (não existia no banco real).
+    criado_por: perfilCriador.id,
   }
   // Campos novos — só incluídos se tiverem valor (seguro caso migration ainda não rodou)
   if (data.proximo_atendimento) payload.proximo_atendimento = data.proximo_atendimento
@@ -610,10 +614,9 @@ export async function criarLead(data: {
   const { data: novoLead, error } = await supabase.from('leads').insert(payload).select('id').single()
   if (error) throw new Error(`criarLead falhou: ${error.message} | code: ${error.code} | details: ${error.details}`)
 
-  // leads não tem coluna de autor (criado_por não existe no banco real).
-  // Registra quem cadastrou como primeira interação do lead — mesma tabela e
-  // colunas que addLeadInteracao já usa em produção. Se falhar (ex.: CHECK de
-  // `tipo` diferente no banco), o lead continua criado.
+  // Registro do cadastro no histórico do lead (lead_interacoes, criada pela
+  // 026). O autor também fica em leads.criado_por. Se falhar, o lead continua
+  // criado.
   const { error: erroInteracao } = await supabase.from('lead_interacoes').insert({
     lead_id: (novoLead as { id: string }).id,
     loja_id: data.loja_id,

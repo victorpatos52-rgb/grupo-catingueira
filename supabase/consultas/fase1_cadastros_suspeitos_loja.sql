@@ -14,7 +14,10 @@
 -- é a 1ª em ordem alfabética (exatamente o caso em que rótulo e dado divergiam).
 --
 -- AUTOR — o que o banco real permite (limitações):
---   leads:  não há coluna de autor. Usa, nesta ordem:
+--   leads:  no banco real (nov/2026) não havia coluna de autor; a 026 cria
+--           leads.criado_por (gravado por criarLead após o deploy — só leads
+--           NOVOS). Para os antigos, usa, nesta ordem:
+--             0) leads.criado_por (se existir e estiver preenchido);
 --             1) usuario_id da PRIMEIRA interação em lead_interacoes — é quem
 --                primeiro registrou algo no lead, não necessariamente quem o
 --                cadastrou (lead do site tem interação com usuario_id nulo);
@@ -43,6 +46,7 @@ as $fn$
 declare
   tem_interacoes boolean;
   tem_responsavel boolean;
+  tem_criado_por boolean;
   -- Autores do caso afetado: admin/diretor com loja padrão ≠ 1ª loja alfabética.
   autores constant text := '(select up.id, up.loja_id from public.usuarios_perfil up
       where up.perfil in (''admin'', ''diretor'')
@@ -63,16 +67,20 @@ begin
     select exists (select 1 from information_schema.columns
                    where table_schema = 'public' and table_name = 'leads' and column_name = 'responsavel_id')
       into tem_responsavel;
+    select exists (select 1 from information_schema.columns
+                   where table_schema = 'public' and table_name = 'leads' and column_name = 'criado_por')
+      into tem_criado_por;
 
-    if not tem_interacoes and not tem_responsavel then
+    if not tem_interacoes and not tem_responsavel and not tem_criado_por then
       tipo := 'lead'; fonte_autor := 'AVISO';
-      descricao := 'sem lead_interacoes.usuario_id nem leads.responsavel_id — impossível atribuir autor';
+      descricao := 'sem leads.criado_por, lead_interacoes.usuario_id ou leads.responsavel_id — impossível atribuir autor';
       registro_id := null; loja_id := null; autor_id := null; criado_em := null;
       return next;
     else
       return query execute format($q$
         with base as (
           select l.id, l.loja_id,
+                 %s as criador,
                  %s as primeira_interacao,
                  %s as responsavel,
                  coalesce(to_jsonb(l) ->> 'created_at', to_jsonb(l) ->> 'criado_em')::timestamptz as criado,
@@ -80,13 +88,15 @@ begin
           from public.leads l
         )
         select 'lead'::text, b.id::text, b.loja_id,
-               coalesce(b.primeira_interacao, b.responsavel),
-               case when b.primeira_interacao is not null then '1ª interação' else 'responsável' end,
+               coalesce(b.criador, b.primeira_interacao, b.responsavel),
+               case when b.criador is not null then 'criado_por'
+                    when b.primeira_interacao is not null then '1ª interação' else 'responsável' end,
                b.criado, b.descr
         from base b
-        join %s a on a.id = coalesce(b.primeira_interacao, b.responsavel) and a.loja_id = b.loja_id
+        join %s a on a.id = coalesce(b.criador, b.primeira_interacao, b.responsavel) and a.loja_id = b.loja_id
         where b.criado is null or b.criado >= $1
       $q$,
+        case when tem_criado_por then 'l.criado_por' else 'null::uuid' end,
         case when tem_interacoes then
           '(select li.usuario_id from public.lead_interacoes li
              where li.lead_id = l.id and li.usuario_id is not null
