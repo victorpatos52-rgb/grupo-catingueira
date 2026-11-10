@@ -25,7 +25,9 @@ export default async function CrmPage({
 
   const { data: perfilData } = await supabase
     .from('usuarios_perfil')
-    .select('*, loja:lojas(*)')
+    // FK explícita: depois da 024 há dois caminhos usuarios_perfil → lojas
+    // (loja padrão e usuarios_lojas) e o embed sem hint dá erro.
+    .select('*, loja:lojas!usuarios_perfil_loja_id_fkey(*)')
     .eq('id', user.id)
     .single()
 

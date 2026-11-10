@@ -70,7 +70,9 @@ export default async function UsuariosPage() {
     if (lojaIds.length > 0) {
       const { data, error } = await admin
         .from('usuarios_perfil')
-        .select(`${PERFIL_SELECT}, loja:lojas(*)`)
+        // FK explícita (loja padrão): depois da 024 há dois caminhos
+        // usuarios_perfil → lojas (loja_id e usuarios_lojas).
+        .select(`${PERFIL_SELECT}, loja:lojas!usuarios_perfil_loja_id_fkey(*)`)
         .in('loja_id', lojaIds)
         .order('nome')
 
