@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
-import { createServerSupabase, adminSupabase } from '@/lib/supabase-server'
+import { exigirPerfilPagina } from '@/lib/sessao'
+import { adminSupabase } from '@/lib/supabase-server'
 import { obterLojaAtivaId } from '@/lib/loja-ativa'
 import type { LancamentoFinanceiro, UsuarioPerfil } from '@/types'
 import FinanceiroClient, {
@@ -24,14 +25,9 @@ export default async function FinanceiroPage({
 }) {
   const params = await searchParams
 
-  const supabase = await createServerSupabase()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
-  const { data: perfilData } = await supabase
-    .from('usuarios_perfil').select('*').eq('id', user.id).single()
-  if (!perfilData) redirect('/login')
-  const perfil = perfilData as UsuarioPerfil
+  // Sessão validada pelo proxy e perfil lido uma vez por requisição
+  // (lib/sessao.ts) — esta página não fala com o Supabase Auth.
+  const perfil = await exigirPerfilPagina()
 
   // Financeiro completo agora é admin apenas — gerente/diretor perderam acesso
   // (antes tinham igual admin). 'socio' continua com a versão restrita de

@@ -1,7 +1,7 @@
 'use client'
 
 import { useRef, useState, type ReactNode } from 'react'
-import Image from 'next/image'
+import ImagemMiniatura from '@/components/ui/ImagemMiniatura'
 import {
   DndContext,
   KeyboardSensor,
@@ -72,7 +72,8 @@ function FotoItem({
         isDragging ? 'opacity-40 border-[#F5C842] z-10' : 'border-[#E5E7EB]'
       } ${index === 0 ? 'ring-2 ring-offset-2 ring-offset-white ring-[#F5C842]' : ''} ${removendo ? 'opacity-50' : ''}`}
     >
-      <Image src={foto} alt={`Foto ${index + 1}`} fill className="object-cover" sizes="(max-width: 640px) 33vw, 160px" />
+      {/* Miniatura (cai para a original se ainda não existir). */}
+      <ImagemMiniatura src={foto} alt={`Foto ${index + 1}`} fill className="object-cover" sizes="(max-width: 640px) 33vw, 160px" />
 
       {/* Alça de arrastar: único ponto com touch-none */}
       <button

@@ -1,5 +1,5 @@
 import { Suspense } from 'react'
-import { createServerSupabase } from '@/lib/supabase-server'
+import { publicSupabase } from '@/lib/supabase-server'
 import { getLoja } from '@/lib/getLoja'
 import VeiculoCard from '@/components/veiculo/VeiculoCard'
 import VeiculoFiltros from '@/components/veiculo/VeiculoFiltros'
@@ -33,7 +33,7 @@ export default async function EstoquePage({
 }) {
   const params = await searchParams
   const loja = await getLoja()
-  const supabase = await createServerSupabase()
+  const supabase = publicSupabase()
 
   // View pública: já filtra disponível / não-rascunho / não-excluído e só
   // expõe colunas seguras (ver src/lib/veiculos-publicos.ts).

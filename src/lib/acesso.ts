@@ -1,11 +1,10 @@
-import { adminSupabase, createServerSupabase } from '@/lib/supabase-server'
+import { adminSupabase } from '@/lib/supabase-server'
 import type { Perfil } from '@/types'
 
 // Checagens de acesso compartilhadas entre Server Actions (actions.ts) e Route
 // Handlers (/api/pdf/*) — ambos usam service role (bypassa RLS), então quem
 // garante que o usuário só mexe/vê dados das lojas a que tem acesso é este
-// código, não o banco. Quem chama é responsável por já ter validado a sessão
-// (getUser) e passar o id do usuário autenticado.
+// código, não o banco. A sessão vem de lib/sessao.ts (validada pelo proxy).
 
 export type PerfilAcesso = {
   id: string
@@ -85,15 +84,8 @@ export async function obterPerfilAtivo(userId: string): Promise<PerfilAcesso | n
   return { ...(data as Omit<PerfilAcesso, 'lojas_acesso'>), modulos_permitidos: data.modulos_permitidos ?? [], lojas_acesso }
 }
 
-// Para Route Handlers (/api/pdf/*): valida a sessão dos cookies no servidor
-// (getUser verifica o JWT no Supabase Auth) e devolve o perfil ativo. A
-// renovação do token fica com o src/proxy.ts, cujo matcher cobre /api/pdf.
-export async function obterPerfilDaSessao(): Promise<PerfilAcesso | null> {
-  const supabase = await createServerSupabase()
-  const { data: { user }, error } = await supabase.auth.getUser()
-  if (error || !user) return null
-  return obterPerfilAtivo(user.id)
-}
+// A leitura da sessão no servidor mora em lib/sessao.ts (obterSessao /
+// obterPerfilDaSessao) — o proxy é o único que fala com o Supabase Auth.
 
 // Admin/diretor: todas as lojas. Demais perfis: as lojas marcadas no cadastro
 // (usuarios_lojas). Isto é PERMISSÃO; qual loja está em uso no painel é a

@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
-import { createServerSupabase } from '@/lib/supabase-server'
 import { createClient } from '@supabase/supabase-js'
+import { exigirPerfilPagina } from '@/lib/sessao'
+import { telaInicial } from '@/lib/tela-inicial'
 import type { UsuarioPerfil, Loja } from '@/types'
 import UsuariosClient from './UsuariosClient'
 
@@ -15,33 +16,14 @@ function adminClient() {
 const PERFIL_SELECT = 'id, nome, perfil, loja_id, ativo, modulos_permitidos, created_at'
 
 export default async function UsuariosPage() {
-  const supabase = await createServerSupabase()
-
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
+  // Sessão validada pelo proxy e perfil lido uma vez por requisição
+  // (lib/sessao.ts). Antes, erro ao ler o perfil mandava para /login.
+  const perfil: UsuarioPerfil = await exigirPerfilPagina()
 
   const admin = adminClient()
 
   try {
-    // ── Perfil do usuário logado ─────────────────────────────────────────────
-    const { data: perfilData, error: perfilError } = await admin
-      .from('usuarios_perfil')
-      .select(PERFIL_SELECT)
-      .eq('id', user.id)
-      .single()
-
-    if (perfilError) {
-      console.error('[UsuariosPage] Erro ao buscar perfil:', perfilError.message, perfilError.details)
-      redirect('/login')
-    }
-    if (!perfilData) redirect('/login')
-
-    const perfil: UsuarioPerfil = {
-      ...(perfilData as UsuarioPerfil),
-      modulos_permitidos: (perfilData as UsuarioPerfil).modulos_permitidos ?? [],
-    }
-
-    if (!['diretor', 'admin'].includes(perfil.perfil)) redirect('/admin/dashboard')
+    if (!['diretor', 'admin'].includes(perfil.perfil)) redirect(telaInicial(perfil))
 
     // ── Lojas e usuários do Auth não dependem um do outro — roda em paralelo.
     const [

@@ -1,5 +1,6 @@
 import { notFound, redirect } from 'next/navigation'
-import { adminSupabase, createServerSupabase } from '@/lib/supabase-server'
+import { exigirPerfilPagina } from '@/lib/sessao'
+import { adminSupabase } from '@/lib/supabase-server'
 import { listarUsuariosDaLoja } from '@/lib/acesso'
 import { conferirLojaDoRegistro, obterLojaAtivaId } from '@/lib/loja-ativa'
 import AvisoOutraLoja from '@/components/admin/AvisoOutraLoja'
@@ -12,20 +13,9 @@ export default async function LeadDetailPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const supabase = await createServerSupabase()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
-  const { data: perfilData } = await supabase
-    .from('usuarios_perfil')
-    .select('*')
-    .eq('id', user.id)
-    .single()
-  if (!perfilData) redirect('/login')
-  const perfil = perfilData as UsuarioPerfil
+  // Sessão validada pelo proxy e perfil lido uma vez por requisição
+  // (lib/sessao.ts) — esta página não fala com o Supabase Auth.
+  const perfil = await exigirPerfilPagina()
 
   const lojaId = await obterLojaAtivaId(perfil)
   const admin = adminSupabase()
@@ -108,7 +98,7 @@ export default async function LeadDetailPage({
         vendedores={vendedores}
         templates={templates}
         lojaId={lojaId}
-        userId={user.id}
+        userId={perfil.id}
         criadorNome={criadorNome}
       />
     </div>

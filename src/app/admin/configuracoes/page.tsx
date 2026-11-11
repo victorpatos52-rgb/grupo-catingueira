@@ -1,5 +1,7 @@
 import { redirect } from 'next/navigation'
-import { adminSupabase, createServerSupabase } from '@/lib/supabase-server'
+import { exigirPerfilPagina } from '@/lib/sessao'
+import { telaInicial } from '@/lib/tela-inicial'
+import { adminSupabase } from '@/lib/supabase-server'
 import { getLoja } from '@/lib/getLoja'
 import type { UsuarioPerfil } from '@/types'
 import ConfiguracoesClient from './ConfiguracoesClient'
@@ -10,17 +12,11 @@ export default async function ConfiguracoesPage({
 }: {
   searchParams: Promise<{ olx?: string; motivo?: string }>
 }) {
-  const supabase = await createServerSupabase()
+  // Sessão validada pelo proxy e perfil lido uma vez por requisição
+  // (lib/sessao.ts) — esta página não fala com o Supabase Auth.
+  const perfil = await exigirPerfilPagina()
 
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
-  const { data: perfilData } = await supabase
-    .from('usuarios_perfil').select('*').eq('id', user.id).single()
-  const perfil = perfilData as UsuarioPerfil | null
-  if (!perfil) redirect('/login')
-
-  if (!['admin', 'diretor'].includes(perfil.perfil)) redirect('/admin/dashboard')
+  if (!['admin', 'diretor'].includes(perfil.perfil)) redirect(telaInicial(perfil))
 
   const { olx, motivo } = await searchParams
 

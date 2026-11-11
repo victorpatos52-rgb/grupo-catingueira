@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
-import { createServerSupabase, adminSupabase } from '@/lib/supabase-server'
+import { exigirPerfilPagina } from '@/lib/sessao'
+import { adminSupabase } from '@/lib/supabase-server'
 import { obterLojaAtivaId } from '@/lib/loja-ativa'
 import type { Veiculo, Lead, UsuarioPerfil, Lembrete } from '@/types'
 import DashboardClient, { type UltimaVenda, type TopVendedor } from './DashboardClient'
@@ -18,14 +19,9 @@ function fmtDataBR(s: string) {
 }
 
 export default async function DashboardPage() {
-  const supabase = await createServerSupabase()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
-  const { data: perfilData } = await supabase
-    .from('usuarios_perfil').select('*').eq('id', user.id).single()
-  const perfil = perfilData as UsuarioPerfil | null
-  if (!perfil) redirect('/login')
+  // Sessão validada pelo proxy e perfil lido uma vez por requisição
+  // (lib/sessao.ts) — esta página não fala com o Supabase Auth.
+  const perfil = await exigirPerfilPagina()
 
   const lojaId = await obterLojaAtivaId(perfil)
   // Promissória é financeiro completo (mesmo padrão do resto do financeiro

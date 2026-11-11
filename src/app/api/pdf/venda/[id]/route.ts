@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { adminSupabase } from '@/lib/supabase-server'
-import { obterPerfilDaSessao, podeAcessarVendas } from '@/lib/acesso'
+import { podeAcessarVendas } from '@/lib/acesso'
+import { obterPerfilDaSessao } from '@/lib/sessao'
 import { bloqueioPorLoja } from '@/lib/pdf-acesso'
 import { getTenantLogoUrl } from '@/lib/tenant-assets'
 import { html, raw } from '@/lib/escape-html'

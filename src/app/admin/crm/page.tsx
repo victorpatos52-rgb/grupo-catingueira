@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
-import { adminSupabase, createServerSupabase } from '@/lib/supabase-server'
+import { exigirPerfilPagina } from '@/lib/sessao'
+import { adminSupabase } from '@/lib/supabase-server'
 import { listarUsuariosDaLoja } from '@/lib/acesso'
 import { obterLojaAtivaId } from '@/lib/loja-ativa'
 import type { Lead, UsuarioPerfil, Loja } from '@/types'
@@ -16,23 +17,9 @@ export default async function CrmPage({
   searchParams: Promise<SearchParams>
 }) {
   const params = await searchParams
-  const supabase = await createServerSupabase()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
-  const { data: perfilData } = await supabase
-    .from('usuarios_perfil')
-    // FK explícita: depois da 024 há dois caminhos usuarios_perfil → lojas
-    // (loja padrão e usuarios_lojas) e o embed sem hint dá erro.
-    .select('*, loja:lojas!usuarios_perfil_loja_id_fkey(*)')
-    .eq('id', user.id)
-    .single()
-
-  if (!perfilData) redirect('/login')
-  const perfil = perfilData as UsuarioPerfil & { loja: Loja | null }
+  // Sessão validada pelo proxy e perfil lido uma vez por requisição
+  // (lib/sessao.ts) — esta página não fala com o Supabase Auth.
+  const perfil = await exigirPerfilPagina()
 
   const lojaId = await obterLojaAtivaId(perfil)
 
@@ -58,7 +45,7 @@ export default async function CrmPage({
       leads={leads}
       vendedores={vendedores}
       lojaId={lojaId}
-      userId={user.id}
+      userId={perfil.id}
       statusFilter={params.status ?? ''}
       origemFilter={params.origem ?? ''}
     />

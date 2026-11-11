@@ -1,5 +1,6 @@
 import { redirect, notFound } from 'next/navigation'
-import { createServerSupabase, adminSupabase } from '@/lib/supabase-server'
+import { exigirPerfilPagina } from '@/lib/sessao'
+import { adminSupabase } from '@/lib/supabase-server'
 import { conferirLojaDoRegistro, obterLojaAtivaId } from '@/lib/loja-ativa'
 import AvisoOutraLoja from '@/components/admin/AvisoOutraLoja'
 import type { AnexoComUrl } from '@/components/admin/AnexosClient'
@@ -13,18 +14,9 @@ interface Props {
 export default async function VendaDetalhePage({ params }: Props) {
   const { id } = await params
 
-  const supabase = await createServerSupabase()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
-  const { data: perfilData } = await supabase
-    .from('usuarios_perfil')
-    .select('*')
-    .eq('id', user.id)
-    .single()
-  if (!perfilData) redirect('/login')
-
-  const perfil = perfilData as UsuarioPerfil
+  // Sessão validada pelo proxy e perfil lido uma vez por requisição
+  // (lib/sessao.ts) — esta página não fala com o Supabase Auth.
+  const perfil = await exigirPerfilPagina()
   const lojaId = await obterLojaAtivaId(perfil)
   // "Lançar despesa neste veículo" e Promissórias são financeiro completo —
   // admin apenas. Anexos de venda (abaixo) não usam nenhuma dessas duas

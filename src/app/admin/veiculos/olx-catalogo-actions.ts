@@ -2,7 +2,8 @@
 
 import { revalidatePath } from 'next/cache'
 import { adminSupabase } from '@/lib/supabase-server'
-import { obterPerfilDaSessao, temAcessoLoja } from '@/lib/acesso'
+import { temAcessoLoja } from '@/lib/acesso'
+import { obterPerfilDaSessao } from '@/lib/sessao'
 import { buscarIdsCatalogoOlx, listarCatalogoOlx, type OpcaoCatalogo, type ResultadoCatalogo } from '@/lib/olx-catalogo'
 import type { ResultadoAcao } from '@/types'
 

@@ -1,4 +1,4 @@
-import { createServerSupabase } from '@/lib/supabase-server'
+import { publicSupabase } from '@/lib/supabase-server'
 import { getLoja } from '@/lib/getLoja'
 import HomeCatingueira from '@/components/home/HomeCatingueira'
 import HomeFelizardo from '@/components/home/HomeFelizardo'
@@ -15,7 +15,7 @@ export async function generateMetadata() {
 
 export default async function HomePage() {
   const loja = await getLoja()
-  const supabase = await createServerSupabase()
+  const supabase = publicSupabase()
 
   const waNum = loja?.whatsapp ?? '83999671729'
   const waHref = buildWaHref(waNum, 'Olá! Vim pelo site e quero conhecer o estoque.')

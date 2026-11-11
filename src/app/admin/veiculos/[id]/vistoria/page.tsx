@@ -1,6 +1,7 @@
 import { notFound, redirect } from 'next/navigation'
+import { exigirPerfilPagina } from '@/lib/sessao'
 import Link from 'next/link'
-import { adminSupabase, createServerSupabase } from '@/lib/supabase-server'
+import { adminSupabase } from '@/lib/supabase-server'
 import { conferirLojaDoRegistro } from '@/lib/loja-ativa'
 import AvisoOutraLoja from '@/components/admin/AvisoOutraLoja'
 import { TABELA_VISTORIA, ehTabelaInexistente } from '@/lib/tabelas-opcionais'
@@ -14,20 +15,9 @@ export default async function VistoriaPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const supabase = await createServerSupabase()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
-  const { data: perfilData } = await supabase
-    .from('usuarios_perfil')
-    .select('*')
-    .eq('id', user.id)
-    .single()
-  if (!perfilData) redirect('/login')
-  const perfil = perfilData as UsuarioPerfil
+  // Sessão validada pelo proxy e perfil lido uma vez por requisição
+  // (lib/sessao.ts) — esta página não fala com o Supabase Auth.
+  const perfil = await exigirPerfilPagina()
 
   // Antes filtrava por perfil.loja_id (ignorava o seletor). Agora: loja do
   // veículo conferida contra a loja ativa, lendo com service role.

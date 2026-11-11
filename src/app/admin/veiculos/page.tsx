@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation'
+import { exigirPerfilPagina } from '@/lib/sessao'
 import Link from 'next/link'
-import Image from 'next/image'
-import { createServerSupabase, adminSupabase } from '@/lib/supabase-server'
+import ImagemMiniatura from '@/components/ui/ImagemMiniatura'
+import { adminSupabase } from '@/lib/supabase-server'
 import { obterLojaAtivaId } from '@/lib/loja-ativa'
 import { formatarPreco, formatarKm } from '@/lib/utils'
 import { NOME_CANAL, pendenciasLojaOlx, pendenciasPublicacao } from '@/lib/publicacao'
@@ -24,14 +25,9 @@ export default async function VeiculosAdminPage({
   searchParams: Promise<SearchParams>
 }) {
   const params = await searchParams
-  const supabase = await createServerSupabase()
-
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
-  const { data: perfilData } = await supabase.from('usuarios_perfil').select('*').eq('id', user.id).single()
-  const perfil = perfilData as UsuarioPerfil | null
-  if (!perfil) redirect('/login')
+  // Sessão validada pelo proxy e perfil lido uma vez por requisição
+  // (lib/sessao.ts) — esta página não fala com o Supabase Auth.
+  const perfil = await exigirPerfilPagina()
 
   const lojaId = await obterLojaAtivaId(perfil)
   const ehSocio = perfil.perfil === 'socio'
@@ -224,7 +220,7 @@ export default async function VeiculosAdminPage({
                       <div className="flex items-center gap-3">
                         <div className="w-14 h-10 rounded-md overflow-hidden bg-[#F5F5F5] shrink-0">
                           {v.fotos?.[0] ? (
-                            <Image src={v.fotos[0]} alt={`${v.marca} ${v.modelo}`} width={56} height={40} className="object-cover w-full h-full" />
+                            <ImagemMiniatura src={v.fotos[0]} alt={`${v.marca} ${v.modelo}`} width={56} height={40} className="object-cover w-full h-full" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center">
                               <svg className="w-5 h-5 text-[#D0D0D0]" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { createServerSupabase } from '@/lib/supabase-server'
+import { publicSupabase } from '@/lib/supabase-server'
 import { getLoja } from '@/lib/getLoja'
 import BotaoWhatsApp from '@/components/ui/BotaoWhatsApp'
 import VeiculoCard from '@/components/veiculo/VeiculoCard'
@@ -20,7 +20,7 @@ export async function generateMetadata({
 }) {
   const { id } = await params
   const loja = await getLoja()
-  const supabase = await createServerSupabase()
+  const supabase = publicSupabase()
   if (!ehUuid(id)) return { title: loja?.nome ?? 'Veículo' }
   const query = supabase.from(VIEW_VEICULOS_PUBLICOS).select('marca, modelo, ano').eq('id', id)
   const { data } = await (loja ? query.eq('loja_id', loja.id) : query).maybeSingle()
@@ -38,7 +38,7 @@ export default async function VeiculoPage({
 }) {
   const { id } = await params
   const loja = await getLoja()
-  const supabase = await createServerSupabase()
+  const supabase = publicSupabase()
 
   if (!ehUuid(id)) notFound()
 

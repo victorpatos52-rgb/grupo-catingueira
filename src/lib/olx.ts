@@ -1,7 +1,6 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'crypto'
-import { cookies } from 'next/headers'
-import { createServerClient } from '@supabase/ssr'
-import { adminSupabase } from '@/lib/supabase-server'
+import { temAcessoLoja } from '@/lib/acesso'
+import { obterPerfilDaSessao } from '@/lib/sessao'
 import type { Loja, Perfil } from '@/types'
 
 // Só servidor: usa OLX_CLIENT_SECRET / OLX_STATE_SECRET e o service role.
@@ -78,39 +77,14 @@ export function verificarState(state: string | null): string | null {
  * resolvida pelo domínio. Gerente só na própria loja; diretor/admin podem
  * operar qualquer loja (mesma regra do seletor de loja em admin/layout.tsx).
  *
- * /api/* não passa pelo src/proxy.ts (matcher só /admin), então este client
- * pode precisar renovar a sessão — por isso setAll grava de verdade.
+ * Sessão via lib/sessao.ts: /api/integrations e a página de Configurações
+ * passam pelo src/proxy.ts, que valida no Supabase Auth (nada aqui chama o Auth).
  */
 export async function usuarioPodeGerenciarOlx(lojaId: string): Promise<boolean> {
-  const cookieStore = await cookies()
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll() { return cookieStore.getAll() },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
-          } catch {
-            // Server Component: leitura só — sessão já renovada pelo proxy.
-          }
-        },
-      },
-    }
-  )
-
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) return false
-
-  const { data: perfil } = await adminSupabase()
-    .from('usuarios_perfil')
-    .select('perfil, loja_id, ativo')
-    .eq('id', user.id)
-    .single()
-
-  if (!perfil || perfil.ativo === false) return false
+  const perfil = await obterPerfilDaSessao().catch(() => null)
+  if (!perfil) return false
   if (!PERFIS_INTEGRACAO.includes(perfil.perfil as Perfil)) return false
-  if (perfil.perfil === 'gerente' && perfil.loja_id !== lojaId) return false
+  // Gerente: só lojas a que tem acesso (usuarios_lojas); diretor/admin: todas.
+  if (perfil.perfil === 'gerente' && !temAcessoLoja(perfil, lojaId)) return false
   return true
 }

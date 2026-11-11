@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { adminSupabase } from '@/lib/supabase-server'
-import { obterPerfilDaSessao } from '@/lib/acesso'
+import { obterPerfilDaSessao } from '@/lib/sessao'
 import { bloqueioPorLoja } from '@/lib/pdf-acesso'
 import { html } from '@/lib/escape-html'
 

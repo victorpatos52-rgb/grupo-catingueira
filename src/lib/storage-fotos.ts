@@ -43,3 +43,37 @@ export function ehCaminhoFotoVeiculo(caminho: string): boolean {
   const partes = caminho.split('/')
   return partes.length === 2 && UUID.test(partes[0]) && partes[1].length > 0
 }
+
+// ─── Miniaturas ───────────────────────────────────────────────────────────────
+//
+// Cada foto tem uma miniatura no MESMO lugar, com o mesmo nome-base:
+//   {base}.jpg | {base}.jpeg | {base}.png | {base}.webp | {base}.v2.jpg
+//     → {base}.thumb.webp
+// (`.v2` é o sufixo das fotos recomprimidas pelo scripts/fotos-recomprimir.mjs:
+// a miniatura é a mesma da foto original.) Nenhuma coluna nova no banco: a URL
+// da miniatura é derivada da URL da foto. Onde a miniatura ainda não existir
+// (fotos antigas antes do script), as telas caem para a original
+// (components/ui/ImagemMiniatura.tsx).
+
+const RE_EXTENSAO = /(\.v2)?\.(jpe?g|png|webp|gif)$/i
+
+/** Caminho da miniatura de um caminho de foto no bucket. */
+export function caminhoMiniatura(caminho: string): string {
+  if (caminho.endsWith('.thumb.webp')) return caminho
+  return RE_EXTENSAO.test(caminho) ? caminho.replace(RE_EXTENSAO, '.thumb.webp') : `${caminho}.thumb.webp`
+}
+
+/**
+ * URL da miniatura de uma foto do bucket. URLs de fora do bucket (ex.:
+ * Unsplash) voltam iguais.
+ */
+export function urlMiniatura(url: string | null | undefined): string {
+  if (!url) return ''
+  const caminho = caminhoDaUrlPublicaFoto(url)
+  if (!caminho) return url
+  const u = new URL(url)
+  const miniatura = caminhoMiniatura(caminho)
+  u.pathname = PREFIXO_PUBLICO + miniatura.split('/').map(encodeURIComponent).join('/')
+  u.search = ''
+  return u.toString()
+}

@@ -1,26 +1,13 @@
 import { redirect } from 'next/navigation'
-import { createServerSupabase } from '@/lib/supabase-server'
+import { exigirPerfilPagina } from '@/lib/sessao'
 import { obterLojaAtivaId } from '@/lib/loja-ativa'
 import VeiculoForm from '@/components/admin/VeiculoForm'
 import type { UsuarioPerfil } from '@/types'
 
 export default async function NovoVeiculoPage() {
-  const supabase = await createServerSupabase()
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
-  const { data: perfil } = await supabase
-    .from('usuarios_perfil')
-    .select('*')
-    .eq('id', user.id)
-    .single()
-
-  if (!perfil) redirect('/login')
-
-  const p = perfil as UsuarioPerfil
+  // Sessão validada pelo proxy e perfil lido uma vez por requisição
+  // (lib/sessao.ts) — esta página não fala com o Supabase Auth.
+  const p = await exigirPerfilPagina()
   const lojaId = await obterLojaAtivaId(p)
 
   return (

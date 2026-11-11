@@ -134,7 +134,11 @@ function NavItem({
   active: boolean
 }) {
   return (
+    // prefetch desligado: cada prefetch passava pelo proxy e fazia uma
+    // chamada ao Supabase Auth (até ~13 por tela). loading.tsx já dá retorno
+    // imediato ao clicar.
     <Link
+      prefetch={false}
       href={href}
       className={`relative flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
         active

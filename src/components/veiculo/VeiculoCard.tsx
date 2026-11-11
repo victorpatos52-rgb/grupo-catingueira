@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import Image from 'next/image'
+import ImagemMiniatura from '@/components/ui/ImagemMiniatura'
 import { motion } from 'framer-motion'
 import BotaoWhatsApp from '@/components/ui/BotaoWhatsApp'
 import { formatarPreco } from '@/lib/utils'
@@ -35,7 +35,8 @@ export default function VeiculoCard({ veiculo, loja, delay = 0 }: VeiculoCardPro
         className="relative aspect-[4/3] block overflow-hidden bg-[#F0F0F0]"
       >
         {capa ? (
-          <Image
+          // Miniatura (640px, ~40 KB) em vez da foto cheia; cai para a original se faltar.
+          <ImagemMiniatura
             src={capa}
             alt={`${veiculo.marca} ${veiculo.modelo}`}
             fill

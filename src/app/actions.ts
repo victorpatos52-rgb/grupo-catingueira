@@ -3,12 +3,12 @@
 import { randomInt } from 'crypto'
 import { cookies, headers } from 'next/headers'
 import { revalidatePath } from 'next/cache'
-import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
-import { ehPerfilTodasLojas, obterPerfilAtivo, podeAcessarVendas, temAcessoLoja, usuarioTrabalhaNaLoja, type PerfilAcesso } from '@/lib/acesso'
+import { ehPerfilTodasLojas, podeAcessarVendas, temAcessoLoja, usuarioTrabalhaNaLoja, type PerfilAcesso } from '@/lib/acesso'
+import { obterSessao } from '@/lib/sessao'
 import { getLoja } from '@/lib/getLoja'
 import { COOKIE_LOJA_ATIVA, lojasPermitidas, mensagemOutraLoja, nomeDaLoja, obterLojaAtivaId } from '@/lib/loja-ativa'
-import { BUCKET_FOTOS, caminhoDaUrlPublicaFoto, ehCaminhoFotoVeiculo, lojaDoCaminhoFoto } from '@/lib/storage-fotos'
+import { BUCKET_FOTOS, caminhoDaUrlPublicaFoto, caminhoMiniatura, ehCaminhoFotoVeiculo, lojaDoCaminhoFoto } from '@/lib/storage-fotos'
 import { MSG_VISTORIA_INDISPONIVEL, TABELA_VISTORIA, ehTabelaInexistente } from '@/lib/tabelas-opcionais'
 import type { Anexo, DespesaLoja, ImagensLanding, Perfil, ResultadoAcao, TipoInteracao, TipoLancamento, Venda, Veiculo, VendaPagamentoDetalhes } from '@/types'
 
@@ -17,39 +17,6 @@ function adminSupabase() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { autoRefreshToken: false, persistSession: false } }
-  )
-}
-
-async function userSupabase() {
-  const cookieStore = await cookies()
-  return createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      // autoRefreshToken: false — renovar sessão é responsabilidade única do
-      // src/proxy.ts, que já roda em toda rota /admin/:path* (inclusive o
-      // POST de Server Action) antes deste client existir. Se este client
-      // também tentasse renovar, competiria com o proxy pelo mesmo refresh
-      // token (uso único/rotativo): quem chegasse depois receberia um token
-      // já invalidado e a sessão sumiria — foi exatamente isso que causava
-      // o "Sem permissão para editar esta loja" intermitente em
-      // updateLojaSettings (loja_id e perfil corretos, sessão inválida).
-      auth: { autoRefreshToken: false },
-      cookies: {
-        getAll() {
-          return cookieStore.getAll()
-        },
-        setAll(cookiesToSet) {
-          try {
-            cookiesToSet.forEach(({ name, value, options }) =>
-              cookieStore.set(name, value, options)
-            )
-          } catch (err) {
-            console.error('[userSupabase] falha ao persistir cookie de sessão:', err)
-          }
-        },
-      },
-    }
   )
 }
 
@@ -63,23 +30,21 @@ function gerarSenhaAleatoria() {
 // ─── Autenticação base das Server Actions ──────────────────────────────────────
 //
 // Todas as actions usam service role (bypassa RLS), então a checagem de
-// usuário/loja precisa acontecer aqui. getUser() valida o JWT no Supabase
-// Auth (getSession() só lê o cookie, sem validar).
+// usuário/loja precisa acontecer aqui. A sessão vem de lib/sessao.ts: o proxy
+// valida no Supabase Auth (o POST da action passa por ele) e repassa o usuário
+// num cabeçalho assinado — as actions não chamam o Auth (nem renovam token).
 
-// Sessão válida + usuarios_perfil existente e ativo. Desativado tem a sessão
-// encerrada aqui mesmo (Server Action pode gravar cookie) — a próxima
-// navegação já cai no /login.
+// Sessão válida + usuarios_perfil existente e ativo. Desativado: a próxima
+// navegação passa pelo admin/layout, que manda para /api/auth/sair (encerra a
+// sessão).
 async function exigirUsuarioAtivo(): Promise<PerfilAcesso> {
-  const userClient = await userSupabase()
-  const { data: { user }, error } = await userClient.auth.getUser()
-  if (error || !user) throw new Error('Sessão expirada. Atualize a página e tente novamente.')
-
-  const perfil = await obterPerfilAtivo(user.id)
-  if (!perfil) {
-    await userClient.auth.signOut()
+  const sessao = await obterSessao()
+  if (sessao.status === 'ok') return sessao.perfil
+  if (sessao.status === 'sem-sessao') throw new Error('Sessão expirada. Atualize a página e entre novamente.')
+  if (sessao.status === 'inativo') {
     throw new Error('Seu usuário está desativado ou sem perfil de acesso. Fale com o administrador.')
   }
-  return perfil
+  throw new Error('Não foi possível confirmar seu acesso agora (instabilidade). Tente de novo em instantes.')
 }
 
 async function exigirAcessoLoja(lojaId: string | null | undefined, mensagemErro = 'Você não tem permissão para acessar dados desta loja.'): Promise<PerfilAcesso> {
@@ -156,12 +121,8 @@ const NIVEL_PERFIL: Record<Perfil, number> = { vendedor: 1, socio: 1, gerente: 2
 const PERFIS_VALIDOS = Object.keys(NIVEL_PERFIL) as Perfil[]
 
 async function exigirGestorUsuarios(): Promise<PerfilAcesso> {
-  const userClient = await userSupabase()
-  const { data: { user }, error } = await userClient.auth.getUser()
-  if (error || !user) throw new Error('Sessão expirada. Atualize a página e tente novamente.')
-
-  const gestor = await obterPerfilAtivo(user.id)
-  if (!gestor || (gestor.perfil !== 'admin' && gestor.perfil !== 'diretor')) {
+  const gestor = await exigirUsuarioAtivo()
+  if (gestor.perfil !== 'admin' && gestor.perfil !== 'diretor') {
     throw new Error('Apenas administradores e diretores podem gerenciar usuários.')
   }
   return gestor
@@ -1097,8 +1058,11 @@ async function apagarArquivoFotoSeOrfao(url: string): Promise<void> {
     .select('id', { count: 'exact', head: true })
     .contains('fotos', [url])
   if (error || (count ?? 0) > 0) return
-  const { error: erroRemover } = await supabase.storage.from(BUCKET_FOTOS).remove([caminho])
-  if (erroRemover) console.error('[apagarArquivoFotoSeOrfao] falha ao apagar', caminho, erroRemover.message)
+  // Foto + miniatura ({base}.thumb.webp). Remover arquivo que não existe não
+  // dá erro no Storage (fotos antigas, sem miniatura).
+  const caminhos = [caminho, caminhoMiniatura(caminho)].filter((c, i, todos) => todos.indexOf(c) === i)
+  const { error: erroRemover } = await supabase.storage.from(BUCKET_FOTOS).remove(caminhos)
+  if (erroRemover) console.error('[apagarArquivoFotoSeOrfao] falha ao apagar', caminhos.join(', '), erroRemover.message)
 }
 
 // Aba Fotos de um veículo já salvo: remove a URL do cadastro na hora (sem
@@ -1330,19 +1294,15 @@ function erroDeAcao(err: unknown, fallback: string): { ok: false; erro: string }
 // Lança erro — nas actions que retornam ResultadoAcao, o try/catch do
 // wrapper converte em { ok: false, erro }.
 async function exigirAcessoVendaLoja(lojaId: string): Promise<{ userId: string }> {
-  const userClient = await userSupabase()
-  const { data: { user }, error } = await userClient.auth.getUser()
-  if (error || !user) throw new Error('Sessão expirada. Atualize a página e tente novamente.')
-
-  const perfil = await obterPerfilAtivo(user.id)
-  if (!perfil || !podeAcessarVendas(perfil)) {
+  const perfil = await exigirUsuarioAtivo()
+  if (!podeAcessarVendas(perfil)) {
     throw new Error('Você não tem permissão para gerenciar vendas.')
   }
   if (!temAcessoLoja(perfil, lojaId)) {
     throw new Error('Você não tem permissão para gerenciar vendas desta loja.')
   }
   await exigirLojaAtiva(perfil, lojaId)
-  return { userId: user.id }
+  return { userId: perfil.id }
 }
 
 // Impede vincular a venda a um veículo de outra loja (o veículo é marcado

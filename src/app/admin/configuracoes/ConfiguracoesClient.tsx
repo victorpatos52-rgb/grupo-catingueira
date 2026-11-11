@@ -263,7 +263,7 @@ function ConfiguracoesForm({ loja }: { loja: Loja }) {
         return
       }
 
-      const { urls, erros } = await enviarImagensConfiguracao(loja.id, chave, [file], { ladoMaximo: 2000, qualidade: 0.82 })
+      const { urls, erros } = await enviarImagensConfiguracao(loja.id, chave, [file])
       if (erros.length > 0) setErro(`Erro ao enviar imagem: ${erros[0].mensagem}`)
       if (urls[0]) aplicar(urls[0])
     } finally {

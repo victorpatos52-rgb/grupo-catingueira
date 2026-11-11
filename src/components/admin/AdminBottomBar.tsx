@@ -136,6 +136,7 @@ export default function AdminBottomBar({ perfil }: { perfil: UsuarioPerfil }) {
               const active = isActive(item.href)
               return (
                 <Link
+                  prefetch={false}
                   key={item.href}
                   href={item.href}
                   onClick={() => setDrawerOpen(false)}
@@ -164,6 +165,7 @@ export default function AdminBottomBar({ perfil }: { perfil: UsuarioPerfil }) {
           const active = isActive(item.href)
           return (
             <Link
+              prefetch={false}
               key={item.href}
               href={item.href}
               className={`flex-1 flex flex-col items-center justify-center gap-0.5 transition-colors ${

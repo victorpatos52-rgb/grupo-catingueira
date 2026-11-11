@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
-import { createServerSupabase, adminSupabase } from '@/lib/supabase-server'
+import { exigirPerfilPagina } from '@/lib/sessao'
+import { adminSupabase } from '@/lib/supabase-server'
 import { conferirLojaDoRegistro, obterLojaAtivaId } from '@/lib/loja-ativa'
 import { listarUsuariosDaLoja } from '@/lib/acesso'
 import AvisoOutraLoja from '@/components/admin/AvisoOutraLoja'
@@ -13,18 +14,9 @@ interface Props {
 export default async function NovaVendaPage({ searchParams }: Props) {
   const { veiculo_id, venda_id } = await searchParams
 
-  const supabase = await createServerSupabase()
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
-  const { data: perfilData } = await supabase
-    .from('usuarios_perfil')
-    .select('*')
-    .eq('id', user.id)
-    .single()
-  if (!perfilData) redirect('/login')
-
-  const perfil = perfilData as UsuarioPerfil
+  // Sessão validada pelo proxy e perfil lido uma vez por requisição
+  // (lib/sessao.ts) — esta página não fala com o Supabase Auth.
+  const perfil = await exigirPerfilPagina()
   const lojaId = await obterLojaAtivaId(perfil)
 
   const admin = adminSupabase()
@@ -100,7 +92,7 @@ export default async function NovaVendaPage({ searchParams }: Props) {
       veiculos={veiculos}
       usuarios={usuarios}
       lojaId={lojaId}
-      vendedorId={user.id}
+      vendedorId={perfil.id}
       veiculoIdInicial={veiculo_id ?? null}
       vendaInicial={vendaInicial}
       pagamentosIniciais={pagamentosIniciais}

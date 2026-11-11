@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import Image from 'next/image'
+import ImagemMiniatura from '@/components/ui/ImagemMiniatura'
 
 interface Props {
   fotos: string[]
@@ -53,22 +54,30 @@ export default function GaleriaClient({ fotos, titulo, statusLabel, statusCls }:
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
       >
-        {fotos.map((foto, i) => (
-          <div
-            key={foto}
-            className="absolute inset-0 transition-opacity duration-300"
-            style={{ opacity: i === current ? 1 : 0, zIndex: i === current ? 1 : 0 }}
-          >
-            <Image
-              src={foto}
-              alt={`${titulo} — foto ${i + 1}`}
-              fill
-              className="object-cover"
-              priority={i === 0}
-              sizes="(max-width: 1024px) 100vw, 55vw"
-            />
-          </div>
-        ))}
+        {/* Só a foto atual e as vizinhas ficam no DOM (antes todas eram
+            renderizadas empilhadas e baixavam de uma vez ao abrir a página).
+            As vizinhas já carregam por trás para a troca ser instantânea. */}
+        {fotos.map((foto, i) => {
+          const n = fotos.length
+          const vizinha = i === (current + 1) % n || i === (current - 1 + n) % n
+          if (i !== current && !vizinha) return null
+          return (
+            <div
+              key={foto}
+              className="absolute inset-0 transition-opacity duration-300"
+              style={{ opacity: i === current ? 1 : 0, zIndex: i === current ? 1 : 0 }}
+            >
+              <Image
+                src={foto}
+                alt={`${titulo} — foto ${i + 1}`}
+                fill
+                className="object-cover"
+                priority={i === 0}
+                sizes="(max-width: 1024px) 100vw, 55vw"
+              />
+            </div>
+          )
+        })}
 
         {statusLabel !== 'Disponível' && (
           <span className={`absolute top-3 left-3 z-10 text-xs font-bold uppercase px-3 py-1 rounded-full ${statusCls}`}>
@@ -114,10 +123,11 @@ export default function GaleriaClient({ fotos, titulo, statusLabel, statusCls }:
               }`}
               style={i === current ? { outline: '2px solid var(--cor-primaria)', outlineOffset: '2px' } : {}}
             >
-              <Image
+              <ImagemMiniatura
                 src={foto}
-                alt={`Thumbnail ${i + 1}`}
+                alt={`Miniatura ${i + 1}`}
                 fill
+                loading="lazy"
                 className="object-cover"
                 sizes="64px"
               />

@@ -7,6 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase'
 import { useLoja } from '@/contexts/LojaContext'
+import { telaInicial } from '@/lib/tela-inicial'
 
 const schema = z.object({
   email: z.string().email('Email inválido'),
@@ -44,18 +45,27 @@ export default function LoginPage() {
     setCarregando(true)
     const supabase = createClient()
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data: login, error } = await supabase.auth.signInWithPassword({
       email: data.email,
       password: data.senha,
     })
 
-    if (error) {
+    if (error || !login.user) {
       setErro('Email ou senha incorretos.')
       setCarregando(false)
       return
     }
 
-    router.push('/admin/dashboard')
+    // Vai direto para a tela inicial do perfil (antes passava por
+    // /admin/dashboard e o proxy redirecionava quem não é admin). A leitura do
+    // próprio perfil é liberada pela RLS (migration 023).
+    const { data: perfil } = await supabase
+      .from('usuarios_perfil')
+      .select('perfil, modulos_permitidos')
+      .eq('id', login.user.id)
+      .maybeSingle()
+
+    router.replace(perfil ? telaInicial(perfil) : '/admin')
     router.refresh()
   }
 

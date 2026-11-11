@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase'
-import { BUCKET_FOTOS } from '@/lib/storage-fotos'
+import { BUCKET_FOTOS, caminhoMiniatura } from '@/lib/storage-fotos'
 
 // Só navegador (usa Image, canvas e XMLHttpRequest) — importar apenas de
 // Client Components.
@@ -17,6 +17,10 @@ import { BUCKET_FOTOS } from '@/lib/storage-fotos'
 //   imagens de Configurações: configuracoes/{loja_id}/...
 
 const LADO_MAXIMO_PADRAO = 1600
+/** Imagens de Configurações (capa/seções/galeria da home). */
+const LADO_MAXIMO_CONFIGURACAO = 2400
+const LADO_MINIATURA = 640
+const QUALIDADE_MINIATURA = 0.72
 const QUALIDADE_JPEG_PADRAO = 0.8
 const TIMEOUT_UPLOAD_MS = 120_000
 const MB = 1024 * 1024
@@ -76,9 +80,36 @@ function carregarImagem(file: File): Promise<HTMLImageElement> {
  * Não usar para logo/favicon: transparência vira fundo branco.
  */
 export async function prepararFoto(file: File, opcoes: OpcoesPreparo = {}): Promise<Blob> {
-  const ladoMaximo = opcoes.ladoMaximo ?? LADO_MAXIMO_PADRAO
-  const qualidade = opcoes.qualidade ?? QUALIDADE_JPEG_PADRAO
+  const img = await decodificar(file)
+  return redimensionar(img, opcoes.ladoMaximo ?? LADO_MAXIMO_PADRAO, 'image/jpeg', opcoes.qualidade ?? QUALIDADE_JPEG_PADRAO)
+}
 
+/**
+ * Foto principal (JPEG, lado maior `ladoMaximo`) + miniatura (WebP, lado maior
+ * 640px, qualidade 0.72 — em geral 30–60 KB), decodificando o arquivo UMA vez.
+ * Miniatura null se o navegador não conseguir gerá-la (a foto principal sobe
+ * mesmo assim; as telas caem para a original — ImagemMiniatura).
+ */
+export async function prepararFotoComMiniatura(
+  file: File,
+  opcoes: OpcoesPreparo = {}
+): Promise<{ principal: Blob; miniatura: Blob | null }> {
+  const img = await decodificar(file)
+  const principal = await redimensionar(img, opcoes.ladoMaximo ?? LADO_MAXIMO_PADRAO, 'image/jpeg', opcoes.qualidade ?? QUALIDADE_JPEG_PADRAO)
+  let miniatura: Blob | null = null
+  try {
+    miniatura = await redimensionar(img, LADO_MINIATURA, 'image/webp', QUALIDADE_MINIATURA)
+    // Safari antigo ignora 'image/webp' no canvas e devolve PNG (pesado):
+    // nesse caso a miniatura vai em JPEG (o nome continua .thumb.webp; o
+    // navegador identifica o formato pelo conteúdo).
+    if (miniatura.type !== 'image/webp') miniatura = await redimensionar(img, LADO_MINIATURA, 'image/jpeg', QUALIDADE_MINIATURA)
+  } catch {
+    miniatura = null
+  }
+  return { principal, miniatura }
+}
+
+async function decodificar(file: File): Promise<HTMLImageElement> {
   const ehHeic = /hei[cf]/i.test(file.type) || /\.hei[cf]$/i.test(file.name)
   if (file.type && !file.type.startsWith('image/') && !ehHeic) {
     throw new Error('o arquivo não é uma imagem (use JPG, PNG ou WEBP)')
@@ -102,7 +133,10 @@ export async function prepararFoto(file: File, opcoes: OpcoesPreparo = {}): Prom
     }
     throw new Error('não foi possível abrir esta imagem (arquivo corrompido ou formato não suportado)')
   }
+  return img
+}
 
+async function redimensionar(img: HTMLImageElement, ladoMaximo: number, tipo: 'image/jpeg' | 'image/webp', qualidade: number): Promise<Blob> {
   const escala = Math.min(1, ladoMaximo / Math.max(img.naturalWidth, img.naturalHeight))
   const largura = Math.max(1, Math.round(img.naturalWidth * escala))
   const altura = Math.max(1, Math.round(img.naturalHeight * escala))
@@ -118,7 +152,7 @@ export async function prepararFoto(file: File, opcoes: OpcoesPreparo = {}): Prom
   ctx.fillRect(0, 0, largura, altura)
   ctx.drawImage(img, 0, 0, largura, altura)
 
-  const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, 'image/jpeg', qualidade))
+  const blob = await new Promise<Blob | null>(resolve => canvas.toBlob(resolve, tipo, qualidade))
   // Libera a memória do canvas já (celular com pouca RAM processando várias fotos).
   canvas.width = 0
   canvas.height = 0
@@ -223,17 +257,26 @@ async function enviarLote(
     const atual = i + 1
     try {
       onProgresso({ atual, total: arquivos.length, etapa: 'preparando', percentual: 0 })
-      const blob = await prepararFoto(file, opcoes)
+      const { principal, miniatura } = await prepararFotoComMiniatura(file, opcoes)
 
       // Token lido a cada foto: um lote longo pode atravessar a renovação da sessão.
       const { data: { session: s } } = await supabase.auth.getSession()
       if (!s) throw new Error(MSG_SESSAO)
 
-      const caminho = `${pasta}/${nomeAleatorio()}.jpg`
+      // {base}.jpg + {base}.thumb.webp (mesmo nome-base — ver urlMiniatura).
+      const base = `${pasta}/${nomeAleatorio()}`
+      const caminho = `${base}.jpg`
       onProgresso({ atual, total: arquivos.length, etapa: 'enviando', percentual: 0 })
-      await enviarBlob(caminho, blob, s.access_token, percentual =>
+      await enviarBlob(caminho, principal, s.access_token, percentual =>
         onProgresso({ atual, total: arquivos.length, etapa: 'enviando', percentual })
       )
+      // Miniatura: melhor esforço. Se falhar, a foto continua valendo e as
+      // telas mostram a original no lugar (ImagemMiniatura).
+      if (miniatura) {
+        await enviarBlob(caminhoMiniatura(caminho), miniatura, s.access_token, () => {}).catch(err =>
+          console.warn('[upload] miniatura não enviada:', err instanceof Error ? err.message : err)
+        )
+      }
       resultado.urls.push(supabase.storage.from(BUCKET_FOTOS).getPublicUrl(caminho).data.publicUrl)
     } catch (err) {
       resultado.erros.push({
@@ -255,8 +298,9 @@ export function enviarFotosVeiculo(
 }
 
 /**
- * Imagens da home (hero, seções, galeria) em /admin/configuracoes:
- * `configuracoes/{loja_id}/{subpasta}/...`, comprimidas como as fotos.
+ * Imagens da home (capa, seções, galeria) em /admin/configuracoes:
+ * `configuracoes/{loja_id}/{subpasta}/...`, lado maior 2400px, JPEG 0.8, com
+ * miniatura .thumb.webp igual às fotos de veículo.
  * Não usar para favicon/logo (precisam manter transparência).
  */
 export function enviarImagensConfiguracao(
@@ -267,7 +311,12 @@ export function enviarImagensConfiguracao(
   onProgresso: (p: ProgressoUpload) => void = () => {}
 ): Promise<ResultadoUpload> {
   const sub = subpasta.replace(/[^a-z0-9_-]/gi, '') || 'imagens'
-  return enviarLote(`configuracoes/${lojaId}/${sub}`, arquivos, opcoes, onProgresso)
+  return enviarLote(
+    `configuracoes/${lojaId}/${sub}`,
+    arquivos,
+    { ladoMaximo: LADO_MAXIMO_CONFIGURACAO, qualidade: QUALIDADE_JPEG_PADRAO, ...opcoes },
+    onProgresso
+  )
 }
 
 export function textoProgresso(p: ProgressoUpload | null): string {

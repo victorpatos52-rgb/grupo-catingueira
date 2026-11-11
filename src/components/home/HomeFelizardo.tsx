@@ -4,6 +4,7 @@ import VeiculoCard from '@/components/veiculo/VeiculoCard'
 import AnimatedSection from '@/components/ui/AnimatedSection'
 import WaIcon from '@/components/ui/WaIcon'
 import LandingImage from '@/components/ui/LandingImage'
+import ImagemMiniatura from '@/components/ui/ImagemMiniatura'
 import { getHeroImage, getSecaoImage, getGaleriaImages } from '@/lib/landing-images'
 import type { Loja } from '@/types'
 import type { VeiculoPublico } from '@/lib/veiculos-publicos'
@@ -381,7 +382,8 @@ export default function HomeFelizardo({ loja, destaques, waHref, waDisplay, sobr
                 key={url}
                 className="relative shrink-0 w-[260px] sm:w-[320px] aspect-[4/3] rounded-2xl overflow-hidden snap-start"
               >
-                <LandingImage
+                {/* Galeria pequena (260–320px): miniatura, cai para a original se faltar. */}
+                <ImagemMiniatura
                   src={url}
                   alt=""
                   fill
